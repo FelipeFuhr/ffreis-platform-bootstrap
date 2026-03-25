@@ -17,9 +17,10 @@ type STSAPI interface {
 	GetCallerIdentity(ctx context.Context, params *sts.GetCallerIdentityInput, optFns ...func(*sts.Options)) (*sts.GetCallerIdentityOutput, error)
 }
 
-// S3API is the subset of S3 operations used by EnsureStateBucket and DeleteStateBucket.
+// S3API is the subset of S3 operations used by EnsureStateBucket, DeleteStateBucket, and doctor.
 // *s3.Client satisfies this interface; use it in tests with a mock.
 type S3API interface {
+	ListBuckets(ctx context.Context, params *s3.ListBucketsInput, optFns ...func(*s3.Options)) (*s3.ListBucketsOutput, error)
 	HeadBucket(ctx context.Context, params *s3.HeadBucketInput, optFns ...func(*s3.Options)) (*s3.HeadBucketOutput, error)
 	CreateBucket(ctx context.Context, params *s3.CreateBucketInput, optFns ...func(*s3.Options)) (*s3.CreateBucketOutput, error)
 	PutBucketVersioning(ctx context.Context, params *s3.PutBucketVersioningInput, optFns ...func(*s3.Options)) (*s3.PutBucketVersioningOutput, error)
@@ -31,9 +32,10 @@ type S3API interface {
 }
 
 // DynamoDBAPI is the subset of DynamoDB operations used by EnsureLockTable,
-// EnsureRegistryTable, RegisterResource, and DeleteDynamoDBTable.
+// EnsureRegistryTable, RegisterResource, DeleteDynamoDBTable, and doctor.
 // *dynamodb.Client satisfies this interface.
 type DynamoDBAPI interface {
+	ListTables(ctx context.Context, params *dynamodb.ListTablesInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ListTablesOutput, error)
 	DescribeTable(ctx context.Context, params *dynamodb.DescribeTableInput, optFns ...func(*dynamodb.Options)) (*dynamodb.DescribeTableOutput, error)
 	CreateTable(ctx context.Context, params *dynamodb.CreateTableInput, optFns ...func(*dynamodb.Options)) (*dynamodb.CreateTableOutput, error)
 	TagResource(ctx context.Context, params *dynamodb.TagResourceInput, optFns ...func(*dynamodb.Options)) (*dynamodb.TagResourceOutput, error)
@@ -42,9 +44,10 @@ type DynamoDBAPI interface {
 	DeleteTable(ctx context.Context, params *dynamodb.DeleteTableInput, optFns ...func(*dynamodb.Options)) (*dynamodb.DeleteTableOutput, error)
 }
 
-// IAMAPI is the subset of IAM operations used by EnsurePlatformAdminRole and DeleteIAMRole.
+// IAMAPI is the subset of IAM operations used by EnsurePlatformAdminRole, DeleteIAMRole, and doctor.
 // *iam.Client satisfies this interface.
 type IAMAPI interface {
+	GetAccountSummary(ctx context.Context, params *iam.GetAccountSummaryInput, optFns ...func(*iam.Options)) (*iam.GetAccountSummaryOutput, error)
 	GetRole(ctx context.Context, params *iam.GetRoleInput, optFns ...func(*iam.Options)) (*iam.GetRoleOutput, error)
 	CreateRole(ctx context.Context, params *iam.CreateRoleInput, optFns ...func(*iam.Options)) (*iam.CreateRoleOutput, error)
 	PutRolePolicy(ctx context.Context, params *iam.PutRolePolicyInput, optFns ...func(*iam.Options)) (*iam.PutRolePolicyOutput, error)
@@ -54,9 +57,10 @@ type IAMAPI interface {
 	DeleteRole(ctx context.Context, params *iam.DeleteRoleInput, optFns ...func(*iam.Options)) (*iam.DeleteRoleOutput, error)
 }
 
-// SNSAPI is the subset of SNS operations used by EnsureEventsTopic, PublishEvent, and DeleteSNSTopic.
+// SNSAPI is the subset of SNS operations used by EnsureEventsTopic, PublishEvent, DeleteSNSTopic, and doctor.
 // *sns.Client satisfies this interface.
 type SNSAPI interface {
+	ListTopics(ctx context.Context, params *sns.ListTopicsInput, optFns ...func(*sns.Options)) (*sns.ListTopicsOutput, error)
 	CreateTopic(ctx context.Context, params *sns.CreateTopicInput, optFns ...func(*sns.Options)) (*sns.CreateTopicOutput, error)
 	Publish(ctx context.Context, params *sns.PublishInput, optFns ...func(*sns.Options)) (*sns.PublishOutput, error)
 	TagResource(ctx context.Context, params *sns.TagResourceInput, optFns ...func(*sns.Options)) (*sns.TagResourceOutput, error)
@@ -65,9 +69,10 @@ type SNSAPI interface {
 	DeleteTopic(ctx context.Context, params *sns.DeleteTopicInput, optFns ...func(*sns.Options)) (*sns.DeleteTopicOutput, error)
 }
 
-// BudgetsAPI is the subset of AWS Budgets operations used by EnsureBudget and DeleteBudget.
+// BudgetsAPI is the subset of AWS Budgets operations used by EnsureBudget, DeleteBudget, and doctor.
 // *budgets.Client satisfies this interface.
 type BudgetsAPI interface {
+	DescribeBudgets(ctx context.Context, params *budgets.DescribeBudgetsInput, optFns ...func(*budgets.Options)) (*budgets.DescribeBudgetsOutput, error)
 	CreateBudget(ctx context.Context, params *budgets.CreateBudgetInput, optFns ...func(*budgets.Options)) (*budgets.CreateBudgetOutput, error)
 	DescribeBudget(ctx context.Context, params *budgets.DescribeBudgetInput, optFns ...func(*budgets.Options)) (*budgets.DescribeBudgetOutput, error)
 	DeleteBudget(ctx context.Context, params *budgets.DeleteBudgetInput, optFns ...func(*budgets.Options)) (*budgets.DeleteBudgetOutput, error)

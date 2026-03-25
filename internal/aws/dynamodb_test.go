@@ -26,6 +26,10 @@ type mockDynamoDB struct {
 	tagErr       error
 }
 
+func (m *mockDynamoDB) ListTables(_ context.Context, _ *dynamodb.ListTablesInput, _ ...func(*dynamodb.Options)) (*dynamodb.ListTablesOutput, error) {
+	return &dynamodb.ListTablesOutput{}, nil
+}
+
 func (m *mockDynamoDB) DescribeTable(_ context.Context, _ *dynamodb.DescribeTableInput, _ ...func(*dynamodb.Options)) (*dynamodb.DescribeTableOutput, error) {
 	if m.tableStatus == "" {
 		return nil, &dbtypes.ResourceNotFoundException{}
@@ -126,6 +130,10 @@ type concurrentMockDynamoDB struct {
 	createCalls   int
 }
 
+func (m *concurrentMockDynamoDB) ListTables(_ context.Context, _ *dynamodb.ListTablesInput, _ ...func(*dynamodb.Options)) (*dynamodb.ListTablesOutput, error) {
+	return &dynamodb.ListTablesOutput{}, nil
+}
+
 func (m *concurrentMockDynamoDB) DescribeTable(_ context.Context, _ *dynamodb.DescribeTableInput, _ ...func(*dynamodb.Options)) (*dynamodb.DescribeTableOutput, error) {
 	m.describeCalls++
 	if m.describeCalls == 1 {
@@ -155,6 +163,10 @@ func (m *concurrentMockDynamoDB) PutItem(_ context.Context, _ *dynamodb.PutItemI
 
 func (m *concurrentMockDynamoDB) Scan(_ context.Context, _ *dynamodb.ScanInput, _ ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
 	return &dynamodb.ScanOutput{}, nil
+}
+
+func (m *concurrentMockDynamoDB) DeleteTable(_ context.Context, _ *dynamodb.DeleteTableInput, _ ...func(*dynamodb.Options)) (*dynamodb.DeleteTableOutput, error) {
+	return &dynamodb.DeleteTableOutput{}, nil
 }
 
 // TestEnsureLockTable_Idempotent is the core idempotency test:
@@ -228,6 +240,10 @@ type schemaCapturingDynamoDB struct {
 	tableCreated    bool
 }
 
+func (m *schemaCapturingDynamoDB) ListTables(_ context.Context, _ *dynamodb.ListTablesInput, _ ...func(*dynamodb.Options)) (*dynamodb.ListTablesOutput, error) {
+	return &dynamodb.ListTablesOutput{}, nil
+}
+
 func (m *schemaCapturingDynamoDB) DescribeTable(_ context.Context, _ *dynamodb.DescribeTableInput, _ ...func(*dynamodb.Options)) (*dynamodb.DescribeTableOutput, error) {
 	if !m.tableCreated {
 		return nil, &dbtypes.ResourceNotFoundException{}
@@ -261,4 +277,8 @@ func (m *schemaCapturingDynamoDB) PutItem(_ context.Context, _ *dynamodb.PutItem
 
 func (m *schemaCapturingDynamoDB) Scan(_ context.Context, _ *dynamodb.ScanInput, _ ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
 	return &dynamodb.ScanOutput{}, nil
+}
+
+func (m *schemaCapturingDynamoDB) DeleteTable(_ context.Context, _ *dynamodb.DeleteTableInput, _ ...func(*dynamodb.Options)) (*dynamodb.DeleteTableOutput, error) {
+	return &dynamodb.DeleteTableOutput{}, nil
 }

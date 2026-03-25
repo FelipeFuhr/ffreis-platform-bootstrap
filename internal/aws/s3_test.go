@@ -25,6 +25,10 @@ type mockS3 struct {
 	taggingErr       error
 }
 
+func (m *mockS3) ListBuckets(_ context.Context, _ *s3.ListBucketsInput, _ ...func(*s3.Options)) (*s3.ListBucketsOutput, error) {
+	return &s3.ListBucketsOutput{}, nil
+}
+
 func (m *mockS3) HeadBucket(_ context.Context, _ *s3.HeadBucketInput, _ ...func(*s3.Options)) (*s3.HeadBucketOutput, error) {
 	if m.bucketExists {
 		return &s3.HeadBucketOutput{}, nil
