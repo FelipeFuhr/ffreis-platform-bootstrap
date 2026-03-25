@@ -112,3 +112,13 @@ func TestRun_DryRun(t *testing.T) {
 		t.Fatalf("Run dry-run: unexpected error: %v", err)
 	}
 }
+
+func TestRun_NilClientsWhenNotDryRun(t *testing.T) {
+	cfg := minimalConfig()
+	cfg.DryRun = false
+
+	err := Run(context.Background(), cfg, nil)
+	if err == nil {
+		t.Fatal("expected error for nil clients when dry-run is false")
+	}
+}

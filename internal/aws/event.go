@@ -6,7 +6,8 @@ import "time"
 // once they have been published, as consumers may depend on the string value.
 const (
 	EventTypeResourceCreated = "resource_created"
-	EventTypeResourceExists  = "resource_exists" // emitted on idempotent skip
+	EventTypeResourceExists  = "resource_exists"  // emitted on idempotent skip
+	EventTypeResourceEnsured = "resource_ensured" // existence unknown (e.g., permission error)
 )
 
 // Event is the common payload published to the platform SNS topic.

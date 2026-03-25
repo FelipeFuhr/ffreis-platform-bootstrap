@@ -220,12 +220,15 @@ func TestPublishEvent_EventTypeConstants(t *testing.T) {
 	if EventTypeResourceExists != "resource_exists" {
 		t.Errorf("EventTypeResourceExists changed: got %q", EventTypeResourceExists)
 	}
+	if EventTypeResourceEnsured != "resource_ensured" {
+		t.Errorf("EventTypeResourceEnsured changed: got %q", EventTypeResourceEnsured)
+	}
 	// Verify they are distinct.
-	if EventTypeResourceCreated == EventTypeResourceExists {
+	if EventTypeResourceCreated == EventTypeResourceExists || EventTypeResourceCreated == EventTypeResourceEnsured || EventTypeResourceExists == EventTypeResourceEnsured {
 		t.Error("event type constants must be distinct")
 	}
 	// Verify they use underscore convention, not dot or dash.
-	for _, c := range []string{EventTypeResourceCreated, EventTypeResourceExists} {
+	for _, c := range []string{EventTypeResourceCreated, EventTypeResourceExists, EventTypeResourceEnsured} {
 		if strings.ContainsAny(c, ". -") {
 			t.Errorf("event type %q must use underscore separators", c)
 		}

@@ -26,10 +26,17 @@ func runSteps(ctx context.Context, dryRun bool, mode stepRunMode, sequenceName s
 
 	var errs []error
 	for _, s := range steps {
-		logger.Info(sequenceName+" step: "+s.desc, "step", s.name)
+		logger.Info("step starting",
+			"sequence", sequenceName,
+			"step", s.name,
+			"desc", s.desc,
+		)
 
 		if dryRun {
-			logger.Info("dry-run: skipping", "step", s.name)
+			logger.Info("dry-run: skipping",
+				"sequence", sequenceName,
+				"step", s.name,
+			)
 			continue
 		}
 
@@ -37,13 +44,15 @@ func runSteps(ctx context.Context, dryRun bool, mode stepRunMode, sequenceName s
 			wrapped := fmt.Errorf("step %s: %w", s.name, err)
 			if mode == stepRunStopOnError {
 				logger.Error("step failed, aborting",
+					"sequence", sequenceName,
 					"step", s.name,
 					"error", err,
 				)
-				return wrapped
+				return fmt.Errorf("%s: %w", sequenceName, wrapped)
 			}
 
 			logger.Error("step failed, continuing",
+				"sequence", sequenceName,
 				"step", s.name,
 				"error", err,
 			)
@@ -51,7 +60,10 @@ func runSteps(ctx context.Context, dryRun bool, mode stepRunMode, sequenceName s
 			continue
 		}
 
-		logger.Info(sequenceName+" step complete", "step", s.name)
+		logger.Info("step complete",
+			"sequence", sequenceName,
+			"step", s.name,
+		)
 	}
 
 	if len(errs) > 0 {

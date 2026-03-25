@@ -34,6 +34,12 @@ func Nuke(ctx context.Context, cfg *config.Config, clients *platformaws.Clients)
 		"dry_run", cfg.DryRun,
 	)
 
+	if !cfg.DryRun {
+		if err := validateClientsForNuke(clients); err != nil {
+			return err
+		}
+	}
+
 	steps := []step{
 		{
 			name: "platform-budget",
