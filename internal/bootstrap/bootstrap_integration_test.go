@@ -54,9 +54,6 @@ func (m *integrationMockS3) HeadBucket(_ context.Context, _ *s3.HeadBucketInput,
 	}
 	return nil, &s3types.NotFound{}
 }
-func (m *integrationMockS3) ListBuckets(_ context.Context, _ *s3.ListBucketsInput, _ ...func(*s3.Options)) (*s3.ListBucketsOutput, error) {
-	return &s3.ListBucketsOutput{}, nil
-}
 func (m *integrationMockS3) CreateBucket(_ context.Context, _ *s3.CreateBucketInput, _ ...func(*s3.Options)) (*s3.CreateBucketOutput, error) {
 	m.createCalls++
 	m.bucketExists = true
@@ -110,9 +107,6 @@ func (m *integrationMockDynamoDB) DescribeTable(_ context.Context, in *dynamodb.
 		TableArn:    sdkaws.String("arn:aws:dynamodb:us-east-1:123456789012:table/" + name),
 	}}, nil
 }
-func (m *integrationMockDynamoDB) ListTables(_ context.Context, _ *dynamodb.ListTablesInput, _ ...func(*dynamodb.Options)) (*dynamodb.ListTablesOutput, error) {
-	return &dynamodb.ListTablesOutput{}, nil
-}
 func (m *integrationMockDynamoDB) CreateTable(_ context.Context, in *dynamodb.CreateTableInput, _ ...func(*dynamodb.Options)) (*dynamodb.CreateTableOutput, error) {
 	m.createTableCalls++
 	if m.tables == nil {
@@ -156,9 +150,6 @@ func (m *integrationMockIAM) GetRole(_ context.Context, _ *iam.GetRoleInput, _ .
 		return &iam.GetRoleOutput{Role: &iamtypes.Role{RoleName: sdkaws.String(config.RoleNamePlatformAdmin)}}, nil
 	}
 	return nil, &iamtypes.NoSuchEntityException{}
-}
-func (m *integrationMockIAM) GetAccountSummary(_ context.Context, _ *iam.GetAccountSummaryInput, _ ...func(*iam.Options)) (*iam.GetAccountSummaryOutput, error) {
-	return &iam.GetAccountSummaryOutput{}, nil
 }
 func (m *integrationMockIAM) CreateRole(_ context.Context, in *iam.CreateRoleInput, _ ...func(*iam.Options)) (*iam.CreateRoleOutput, error) {
 	m.createRoleCalls++
@@ -211,9 +202,6 @@ func (m *integrationMockSNS) CreateTopic(_ context.Context, _ *sns.CreateTopicIn
 	m.topicARN = arn
 	return &sns.CreateTopicOutput{TopicArn: sdkaws.String(arn)}, nil
 }
-func (m *integrationMockSNS) ListTopics(_ context.Context, _ *sns.ListTopicsInput, _ ...func(*sns.Options)) (*sns.ListTopicsOutput, error) {
-	return &sns.ListTopicsOutput{}, nil
-}
 func (m *integrationMockSNS) Publish(_ context.Context, _ *sns.PublishInput, _ ...func(*sns.Options)) (*sns.PublishOutput, error) {
 	m.publishCalls++
 	return &sns.PublishOutput{MessageId: sdkaws.String("msg-1")}, nil
@@ -252,9 +240,6 @@ func (m *integrationMockBudgets) DescribeBudget(_ context.Context, _ *budgets.De
 		return &budgets.DescribeBudgetOutput{Budget: &budgetstypes.Budget{}}, nil
 	}
 	return nil, &budgetstypes.NotFoundException{}
-}
-func (m *integrationMockBudgets) DescribeBudgets(_ context.Context, _ *budgets.DescribeBudgetsInput, _ ...func(*budgets.Options)) (*budgets.DescribeBudgetsOutput, error) {
-	return &budgets.DescribeBudgetsOutput{}, nil
 }
 func (m *integrationMockBudgets) CreateBudget(_ context.Context, _ *budgets.CreateBudgetInput, _ ...func(*budgets.Options)) (*budgets.CreateBudgetOutput, error) {
 	m.createCalls++

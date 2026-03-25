@@ -36,10 +36,6 @@ func (m *mockS3) HeadBucket(_ context.Context, _ *s3.HeadBucketInput, _ ...func(
 	return nil, &s3types.NotFound{}
 }
 
-func (m *mockS3) ListBuckets(_ context.Context, _ *s3.ListBucketsInput, _ ...func(*s3.Options)) (*s3.ListBucketsOutput, error) {
-	return &s3.ListBucketsOutput{}, nil
-}
-
 func (m *mockS3) CreateBucket(_ context.Context, _ *s3.CreateBucketInput, _ ...func(*s3.Options)) (*s3.CreateBucketOutput, error) {
 	m.createCalls++
 	if m.createErr != nil {

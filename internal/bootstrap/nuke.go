@@ -34,78 +34,53 @@ func Nuke(ctx context.Context, cfg *config.Config, clients *platformaws.Clients)
 		"dry_run", cfg.DryRun,
 	)
 
-	steps := []struct {
-		name string
-		desc string
-		run  func() error
-	}{
+	steps := []step{
 		{
 			name: "platform-budget",
 			desc: fmt.Sprintf("delete budget %s", cfg.BudgetName()),
-			run: func() error {
+			run: func(ctx context.Context) error {
 				return platformaws.DeleteBudget(ctx, clients.Budgets, clients.AccountID, cfg.BudgetName())
 			},
 		},
 		{
 			name: "platform-events-topic",
 			desc: fmt.Sprintf("delete SNS topic %s", cfg.EventsTopicName()),
-			run: func() error {
+			run: func(ctx context.Context) error {
 				return platformaws.DeleteSNSTopic(ctx, clients.SNS, clients.Region, clients.AccountID, cfg.EventsTopicName())
 			},
 		},
 		{
 			name: "platform-admin-role",
 			desc: fmt.Sprintf("delete IAM role %s", config.RoleNamePlatformAdmin),
-			run: func() error {
+			run: func(ctx context.Context) error {
 				return platformaws.DeleteIAMRole(ctx, clients.IAM, config.RoleNamePlatformAdmin)
 			},
 		},
 		{
 			name: "lock-table",
 			desc: fmt.Sprintf("delete DynamoDB lock table %s", cfg.LockTableName()),
-			run: func() error {
+			run: func(ctx context.Context) error {
 				return platformaws.DeleteDynamoDBTable(ctx, clients.DynamoDB, cfg.LockTableName())
 			},
 		},
 		{
 			name: "state-bucket",
 			desc: fmt.Sprintf("empty and delete S3 state bucket %s", cfg.StateBucketName()),
-			run: func() error {
+			run: func(ctx context.Context) error {
 				return platformaws.DeleteStateBucket(ctx, clients.S3, cfg.StateBucketName())
 			},
 		},
 		{
 			name: "registry-table",
 			desc: fmt.Sprintf("delete DynamoDB registry table %s", cfg.RegistryTableName()),
-			run: func() error {
+			run: func(ctx context.Context) error {
 				return platformaws.DeleteDynamoDBTable(ctx, clients.DynamoDB, cfg.RegistryTableName())
 			},
 		},
 	}
 
-	var errs []error
-	for _, step := range steps {
-		logger.Info("nuke step: "+step.desc, "step", step.name)
-
-		if cfg.DryRun {
-			logger.Info("dry-run: skipping", "step", step.name)
-			continue
-		}
-
-		if err := step.run(); err != nil {
-			logger.Error("nuke step failed, continuing",
-				"step", step.name,
-				"error", err,
-			)
-			errs = append(errs, fmt.Errorf("step %s: %w", step.name, err))
-			continue
-		}
-
-		logger.Info("nuke step complete", "step", step.name)
-	}
-
-	if len(errs) > 0 {
-		return fmt.Errorf("nuke completed with %d error(s): %w", len(errs), errs[0])
+	if err := runSteps(ctx, cfg.DryRun, stepRunContinueOnError, "nuke", steps); err != nil {
+		return err
 	}
 
 	logger.Info("nuke sequence complete")
