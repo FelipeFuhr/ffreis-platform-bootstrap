@@ -45,6 +45,9 @@ type integrationMockS3 struct {
 	versioningErr    error
 }
 
+func (m *integrationMockS3) ListBuckets(_ context.Context, _ *s3.ListBucketsInput, _ ...func(*s3.Options)) (*s3.ListBucketsOutput, error) {
+	return &s3.ListBucketsOutput{}, nil
+}
 func (m *integrationMockS3) HeadBucket(_ context.Context, _ *s3.HeadBucketInput, _ ...func(*s3.Options)) (*s3.HeadBucketOutput, error) {
 	if m.bucketExists {
 		return &s3.HeadBucketOutput{}, nil
@@ -77,6 +80,9 @@ type integrationMockDynamoDB struct {
 	putItemCalls     int
 }
 
+func (m *integrationMockDynamoDB) ListTables(_ context.Context, _ *dynamodb.ListTablesInput, _ ...func(*dynamodb.Options)) (*dynamodb.ListTablesOutput, error) {
+	return &dynamodb.ListTablesOutput{}, nil
+}
 func (m *integrationMockDynamoDB) DescribeTable(_ context.Context, in *dynamodb.DescribeTableInput, _ ...func(*dynamodb.Options)) (*dynamodb.DescribeTableOutput, error) {
 	if m.tables == nil {
 		m.tables = map[string]dbtypes.TableStatus{}
@@ -119,6 +125,9 @@ type integrationMockIAM struct {
 	tagCalls        int
 }
 
+func (m *integrationMockIAM) GetAccountSummary(_ context.Context, _ *iam.GetAccountSummaryInput, _ ...func(*iam.Options)) (*iam.GetAccountSummaryOutput, error) {
+	return &iam.GetAccountSummaryOutput{}, nil
+}
 func (m *integrationMockIAM) GetRole(_ context.Context, _ *iam.GetRoleInput, _ ...func(*iam.Options)) (*iam.GetRoleOutput, error) {
 	if m.roleExists {
 		return &iam.GetRoleOutput{Role: &iamtypes.Role{RoleName: sdkaws.String(config.RoleNamePlatformAdmin)}}, nil
@@ -150,6 +159,9 @@ type integrationMockSNS struct {
 	returnNilTopic   bool
 }
 
+func (m *integrationMockSNS) ListTopics(_ context.Context, _ *sns.ListTopicsInput, _ ...func(*sns.Options)) (*sns.ListTopicsOutput, error) {
+	return &sns.ListTopicsOutput{}, nil
+}
 func (m *integrationMockSNS) CreateTopic(_ context.Context, _ *sns.CreateTopicInput, _ ...func(*sns.Options)) (*sns.CreateTopicOutput, error) {
 	m.createTopicCalls++
 	m.topicExists = true
@@ -188,6 +200,9 @@ type integrationMockBudgets struct {
 	createCalls  int
 }
 
+func (m *integrationMockBudgets) DescribeBudgets(_ context.Context, _ *budgets.DescribeBudgetsInput, _ ...func(*budgets.Options)) (*budgets.DescribeBudgetsOutput, error) {
+	return &budgets.DescribeBudgetsOutput{}, nil
+}
 func (m *integrationMockBudgets) DescribeBudget(_ context.Context, _ *budgets.DescribeBudgetInput, _ ...func(*budgets.Options)) (*budgets.DescribeBudgetOutput, error) {
 	if m.budgetExists {
 		return &budgets.DescribeBudgetOutput{Budget: &budgetstypes.Budget{}}, nil

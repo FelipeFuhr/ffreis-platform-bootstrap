@@ -23,6 +23,10 @@ type mockBudgets struct {
 	describeCalls int
 }
 
+func (m *mockBudgets) DescribeBudgets(_ context.Context, _ *budgets.DescribeBudgetsInput, _ ...func(*budgets.Options)) (*budgets.DescribeBudgetsOutput, error) {
+	return &budgets.DescribeBudgetsOutput{}, nil
+}
+
 func (m *mockBudgets) DescribeBudget(_ context.Context, _ *budgets.DescribeBudgetInput, _ ...func(*budgets.Options)) (*budgets.DescribeBudgetOutput, error) {
 	m.describeCalls++
 	if m.budgetExists {
@@ -140,6 +144,10 @@ type capturingBudgets struct {
 	lastInput *budgets.CreateBudgetInput
 }
 
+func (c *capturingBudgets) DescribeBudgets(_ context.Context, _ *budgets.DescribeBudgetsInput, _ ...func(*budgets.Options)) (*budgets.DescribeBudgetsOutput, error) {
+	return &budgets.DescribeBudgetsOutput{}, nil
+}
+
 func (c *capturingBudgets) DescribeBudget(_ context.Context, _ *budgets.DescribeBudgetInput, _ ...func(*budgets.Options)) (*budgets.DescribeBudgetOutput, error) {
 	return nil, &budgetstypes.NotFoundException{}
 }
@@ -147,4 +155,8 @@ func (c *capturingBudgets) DescribeBudget(_ context.Context, _ *budgets.Describe
 func (c *capturingBudgets) CreateBudget(_ context.Context, params *budgets.CreateBudgetInput, _ ...func(*budgets.Options)) (*budgets.CreateBudgetOutput, error) {
 	c.lastInput = params
 	return &budgets.CreateBudgetOutput{}, nil
+}
+
+func (c *capturingBudgets) DeleteBudget(_ context.Context, _ *budgets.DeleteBudgetInput, _ ...func(*budgets.Options)) (*budgets.DeleteBudgetOutput, error) {
+	return &budgets.DeleteBudgetOutput{}, nil
 }

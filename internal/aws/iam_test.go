@@ -22,6 +22,10 @@ type mockIAM struct {
 	tagRoleErr      error
 }
 
+func (m *mockIAM) GetAccountSummary(_ context.Context, _ *iam.GetAccountSummaryInput, _ ...func(*iam.Options)) (*iam.GetAccountSummaryOutput, error) {
+	return &iam.GetAccountSummaryOutput{}, nil
+}
+
 func (m *mockIAM) GetRole(_ context.Context, _ *iam.GetRoleInput, _ ...func(*iam.Options)) (*iam.GetRoleOutput, error) {
 	if m.roleExists {
 		return &iam.GetRoleOutput{Role: &iamtypes.Role{RoleName: sdkaws.String("platform-admin")}}, nil

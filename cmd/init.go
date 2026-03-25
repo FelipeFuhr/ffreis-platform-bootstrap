@@ -11,14 +11,15 @@ import (
 var initCmd = &cobra.Command{
 	Use:   "init",
 	Short: "Provision Layer 0 — the bootstrap foundation",
-	Long: `init provisions the resources required before any Terraform can run:
+	Long: `init provisions the shared AWS resources required before any Terraform can run:
 
-  1. AWS Organizations (enabled with all features)
-  2. Terraform state S3 bucket  ({org}-mgmt-l1-tfstate)
-  3. Terraform lock DynamoDB table ({org}-mgmt-l1-tflock)
-  4. Bootstrap state DynamoDB table ({org}-mgmt-bootstrap-state)
-  5. Bootstrap IAM user with a scoped policy
-  6. Access key pair written to the local [bootstrap] AWS profile
+  1. Bootstrap registry DynamoDB table for configuration and metadata
+  2. Terraform state S3 bucket
+  3. Terraform lock DynamoDB table
+  4. Bootstrap IAM role and scoped policy for automation
+  5. SNS topic and policy for platform and budget notifications
+  6. Monthly AWS Budget and alert subscriptions
+  7. Stored bootstrap configuration records (accounts, regions, admin email)
 
 All steps are idempotent. Re-running after a partial failure is safe.
 Pass --dry-run to see what would be created without making any changes.`,
@@ -57,9 +58,11 @@ Pass --dry-run to see what would be created without making any changes.`,
 		}
 
 		deps.logger.Info("init complete",
+			"registry_table", deps.cfg.RegistryTableName(),
 			"state_bucket", deps.cfg.StateBucketName(),
 			"lock_table", deps.cfg.LockTableName(),
-			"bootstrap_user", deps.cfg.BootstrapUserName(),
+			"events_topic", deps.cfg.EventsTopicName(),
+			"budget", deps.cfg.BudgetName(),
 		)
 
 		return nil

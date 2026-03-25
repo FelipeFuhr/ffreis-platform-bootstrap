@@ -26,6 +26,10 @@ type mockSNS struct {
 	setAttrErr        error
 }
 
+func (m *mockSNS) ListTopics(_ context.Context, _ *sns.ListTopicsInput, _ ...func(*sns.Options)) (*sns.ListTopicsOutput, error) {
+	return &sns.ListTopicsOutput{}, nil
+}
+
 func (m *mockSNS) CreateTopic(_ context.Context, _ *sns.CreateTopicInput, _ ...func(*sns.Options)) (*sns.CreateTopicOutput, error) {
 	m.createCalls++
 	return &sns.CreateTopicOutput{TopicArn: sdkaws.String(testTopicARN)}, nil

@@ -25,6 +25,9 @@ type s3ErrorMock struct {
 	publicErr     error
 }
 
+func (m *s3ErrorMock) ListBuckets(_ context.Context, _ *s3.ListBucketsInput, _ ...func(*s3.Options)) (*s3.ListBucketsOutput, error) {
+	return &s3.ListBucketsOutput{}, nil
+}
 func (m *s3ErrorMock) HeadBucket(_ context.Context, _ *s3.HeadBucketInput, _ ...func(*s3.Options)) (*s3.HeadBucketOutput, error) {
 	if m.headErr != nil {
 		return nil, m.headErr
@@ -86,6 +89,9 @@ type iamErrorMock struct {
 	tagErr       error
 }
 
+func (m *iamErrorMock) GetAccountSummary(_ context.Context, _ *iam.GetAccountSummaryInput, _ ...func(*iam.Options)) (*iam.GetAccountSummaryOutput, error) {
+	return &iam.GetAccountSummaryOutput{}, nil
+}
 func (m *iamErrorMock) GetRole(_ context.Context, _ *iam.GetRoleInput, _ ...func(*iam.Options)) (*iam.GetRoleOutput, error) {
 	if m.getErr == nil {
 		return &iam.GetRoleOutput{}, nil
@@ -135,6 +141,9 @@ type snsErrorMock struct {
 	setErr    error
 }
 
+func (m *snsErrorMock) ListTopics(_ context.Context, _ *sns.ListTopicsInput, _ ...func(*sns.Options)) (*sns.ListTopicsOutput, error) {
+	return &sns.ListTopicsOutput{}, nil
+}
 func (m *snsErrorMock) CreateTopic(_ context.Context, _ *sns.CreateTopicInput, _ ...func(*sns.Options)) (*sns.CreateTopicOutput, error) {
 	if m.createErr != nil {
 		return nil, m.createErr
@@ -188,6 +197,9 @@ type dynamoPollErrorMock struct {
 	err    error
 }
 
+func (m *dynamoPollErrorMock) ListTables(_ context.Context, _ *dynamodb.ListTablesInput, _ ...func(*dynamodb.Options)) (*dynamodb.ListTablesOutput, error) {
+	return &dynamodb.ListTablesOutput{}, nil
+}
 func (m *dynamoPollErrorMock) DescribeTable(_ context.Context, _ *dynamodb.DescribeTableInput, _ ...func(*dynamodb.Options)) (*dynamodb.DescribeTableOutput, error) {
 	if m.err != nil {
 		return nil, m.err
