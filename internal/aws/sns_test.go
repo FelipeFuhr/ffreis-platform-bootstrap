@@ -16,14 +16,14 @@ const testTopicARN = "arn:aws:sns:us-east-1:123456789012:ffreis-platform-events"
 // mockSNS implements SNSAPI. CreateTopic always returns the same ARN,
 // mirroring the AWS API contract (same name → same topic, no duplication).
 type mockSNS struct {
-	createCalls       int
-	publishCalls      int
-	publishErr        error
-	lastPublish       *sns.PublishInput
-	tagCalls          int
-	tagErr            error
-	setAttrCalls      int
-	setAttrErr        error
+	createCalls  int
+	publishCalls int
+	publishErr   error
+	lastPublish  *sns.PublishInput
+	tagCalls     int
+	tagErr       error
+	setAttrCalls int
+	setAttrErr   error
 }
 
 func (m *mockSNS) ListTopics(_ context.Context, _ *sns.ListTopicsInput, _ ...func(*sns.Options)) (*sns.ListTopicsOutput, error) {
@@ -33,6 +33,10 @@ func (m *mockSNS) ListTopics(_ context.Context, _ *sns.ListTopicsInput, _ ...fun
 func (m *mockSNS) CreateTopic(_ context.Context, _ *sns.CreateTopicInput, _ ...func(*sns.Options)) (*sns.CreateTopicOutput, error) {
 	m.createCalls++
 	return &sns.CreateTopicOutput{TopicArn: sdkaws.String(testTopicARN)}, nil
+}
+
+func (m *mockSNS) ListTopics(_ context.Context, _ *sns.ListTopicsInput, _ ...func(*sns.Options)) (*sns.ListTopicsOutput, error) {
+	return &sns.ListTopicsOutput{}, nil
 }
 
 func (m *mockSNS) Publish(_ context.Context, params *sns.PublishInput, _ ...func(*sns.Options)) (*sns.PublishOutput, error) {

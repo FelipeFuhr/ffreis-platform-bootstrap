@@ -19,11 +19,11 @@ func init() {
 // tableStatus is empty string when the table does not exist.
 // CreateTable transitions it to ACTIVE, mirroring real AWS behaviour.
 type mockDynamoDB struct {
-	tableStatus  dbtypes.TableStatus // empty = table does not exist
-	createCalls  int
-	createErr    error
-	tagCalls     int
-	tagErr       error
+	tableStatus dbtypes.TableStatus // empty = table does not exist
+	createCalls int
+	createErr   error
+	tagCalls    int
+	tagErr      error
 }
 
 func (m *mockDynamoDB) ListTables(_ context.Context, _ *dynamodb.ListTablesInput, _ ...func(*dynamodb.Options)) (*dynamodb.ListTablesOutput, error) {
@@ -40,6 +40,10 @@ func (m *mockDynamoDB) DescribeTable(_ context.Context, _ *dynamodb.DescribeTabl
 			TableArn:    sdkaws.String("arn:aws:dynamodb:us-east-1:123:table/test-table"),
 		},
 	}, nil
+}
+
+func (m *mockDynamoDB) ListTables(_ context.Context, _ *dynamodb.ListTablesInput, _ ...func(*dynamodb.Options)) (*dynamodb.ListTablesOutput, error) {
+	return &dynamodb.ListTablesOutput{}, nil
 }
 
 func (m *mockDynamoDB) CreateTable(_ context.Context, params *dynamodb.CreateTableInput, _ ...func(*dynamodb.Options)) (*dynamodb.CreateTableOutput, error) {
@@ -148,6 +152,10 @@ func (m *concurrentMockDynamoDB) DescribeTable(_ context.Context, _ *dynamodb.De
 	}, nil
 }
 
+func (m *concurrentMockDynamoDB) ListTables(_ context.Context, _ *dynamodb.ListTablesInput, _ ...func(*dynamodb.Options)) (*dynamodb.ListTablesOutput, error) {
+	return &dynamodb.ListTablesOutput{}, nil
+}
+
 func (m *concurrentMockDynamoDB) CreateTable(_ context.Context, _ *dynamodb.CreateTableInput, _ ...func(*dynamodb.Options)) (*dynamodb.CreateTableOutput, error) {
 	m.createCalls++
 	return nil, &dbtypes.ResourceInUseException{}
@@ -155,6 +163,10 @@ func (m *concurrentMockDynamoDB) CreateTable(_ context.Context, _ *dynamodb.Crea
 
 func (m *concurrentMockDynamoDB) TagResource(_ context.Context, _ *dynamodb.TagResourceInput, _ ...func(*dynamodb.Options)) (*dynamodb.TagResourceOutput, error) {
 	return &dynamodb.TagResourceOutput{}, nil
+}
+
+func (m *concurrentMockDynamoDB) DeleteTable(_ context.Context, _ *dynamodb.DeleteTableInput, _ ...func(*dynamodb.Options)) (*dynamodb.DeleteTableOutput, error) {
+	return &dynamodb.DeleteTableOutput{}, nil
 }
 
 func (m *concurrentMockDynamoDB) PutItem(_ context.Context, _ *dynamodb.PutItemInput, _ ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error) {
@@ -256,6 +268,10 @@ func (m *schemaCapturingDynamoDB) DescribeTable(_ context.Context, _ *dynamodb.D
 	}, nil
 }
 
+func (m *schemaCapturingDynamoDB) ListTables(_ context.Context, _ *dynamodb.ListTablesInput, _ ...func(*dynamodb.Options)) (*dynamodb.ListTablesOutput, error) {
+	return &dynamodb.ListTablesOutput{}, nil
+}
+
 func (m *schemaCapturingDynamoDB) CreateTable(_ context.Context, params *dynamodb.CreateTableInput, _ ...func(*dynamodb.Options)) (*dynamodb.CreateTableOutput, error) {
 	m.lastCreateInput = params
 	m.tableCreated = true
@@ -269,6 +285,11 @@ func (m *schemaCapturingDynamoDB) CreateTable(_ context.Context, params *dynamod
 
 func (m *schemaCapturingDynamoDB) TagResource(_ context.Context, _ *dynamodb.TagResourceInput, _ ...func(*dynamodb.Options)) (*dynamodb.TagResourceOutput, error) {
 	return &dynamodb.TagResourceOutput{}, nil
+}
+
+func (m *schemaCapturingDynamoDB) DeleteTable(_ context.Context, _ *dynamodb.DeleteTableInput, _ ...func(*dynamodb.Options)) (*dynamodb.DeleteTableOutput, error) {
+	m.tableCreated = false
+	return &dynamodb.DeleteTableOutput{}, nil
 }
 
 func (m *schemaCapturingDynamoDB) PutItem(_ context.Context, _ *dynamodb.PutItemInput, _ ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error) {

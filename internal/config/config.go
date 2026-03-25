@@ -10,7 +10,6 @@ import (
 	"github.com/spf13/pflag"
 )
 
-
 // Config holds all resolved configuration for a single CLI invocation.
 // It is populated once in root's PersistentPreRunE and read-only thereafter.
 type Config struct {

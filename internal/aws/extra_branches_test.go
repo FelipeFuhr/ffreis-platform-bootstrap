@@ -34,6 +34,9 @@ func (m *s3ErrorMock) HeadBucket(_ context.Context, _ *s3.HeadBucketInput, _ ...
 	}
 	return nil, &s3types.NotFound{}
 }
+func (m *s3ErrorMock) ListBuckets(_ context.Context, _ *s3.ListBucketsInput, _ ...func(*s3.Options)) (*s3.ListBucketsOutput, error) {
+	return &s3.ListBucketsOutput{}, nil
+}
 func (m *s3ErrorMock) CreateBucket(_ context.Context, _ *s3.CreateBucketInput, _ ...func(*s3.Options)) (*s3.CreateBucketOutput, error) {
 	return &s3.CreateBucketOutput{}, m.createErr
 }
@@ -98,6 +101,9 @@ func (m *iamErrorMock) GetRole(_ context.Context, _ *iam.GetRoleInput, _ ...func
 	}
 	return nil, m.getErr
 }
+func (m *iamErrorMock) GetAccountSummary(_ context.Context, _ *iam.GetAccountSummaryInput, _ ...func(*iam.Options)) (*iam.GetAccountSummaryOutput, error) {
+	return &iam.GetAccountSummaryOutput{}, nil
+}
 func (m *iamErrorMock) CreateRole(_ context.Context, _ *iam.CreateRoleInput, _ ...func(*iam.Options)) (*iam.CreateRoleOutput, error) {
 	return &iam.CreateRoleOutput{}, m.createErr
 }
@@ -136,9 +142,9 @@ func TestEnsurePlatformAdminRole_TagError(t *testing.T) {
 // --- SNS error-path coverage ------------------------------------------------
 
 type snsErrorMock struct {
-	createErr error
+	createErr  error
 	publishErr error
-	setErr    error
+	setErr     error
 }
 
 func (m *snsErrorMock) ListTopics(_ context.Context, _ *sns.ListTopicsInput, _ ...func(*sns.Options)) (*sns.ListTopicsOutput, error) {
@@ -149,6 +155,9 @@ func (m *snsErrorMock) CreateTopic(_ context.Context, _ *sns.CreateTopicInput, _
 		return nil, m.createErr
 	}
 	return &sns.CreateTopicOutput{TopicArn: sdkaws.String("arn:aws:sns:us-east-1:123456789012:test")}, nil
+}
+func (m *snsErrorMock) ListTopics(_ context.Context, _ *sns.ListTopicsInput, _ ...func(*sns.Options)) (*sns.ListTopicsOutput, error) {
+	return &sns.ListTopicsOutput{}, nil
 }
 func (m *snsErrorMock) Publish(_ context.Context, _ *sns.PublishInput, _ ...func(*sns.Options)) (*sns.PublishOutput, error) {
 	return &sns.PublishOutput{}, m.publishErr
@@ -205,6 +214,9 @@ func (m *dynamoPollErrorMock) DescribeTable(_ context.Context, _ *dynamodb.Descr
 		return nil, m.err
 	}
 	return &dynamodb.DescribeTableOutput{Table: &dbtypes.TableDescription{TableStatus: m.status}}, nil
+}
+func (m *dynamoPollErrorMock) ListTables(_ context.Context, _ *dynamodb.ListTablesInput, _ ...func(*dynamodb.Options)) (*dynamodb.ListTablesOutput, error) {
+	return &dynamodb.ListTablesOutput{}, nil
 }
 func (m *dynamoPollErrorMock) CreateTable(_ context.Context, _ *dynamodb.CreateTableInput, _ ...func(*dynamodb.Options)) (*dynamodb.CreateTableOutput, error) {
 	return &dynamodb.CreateTableOutput{}, nil

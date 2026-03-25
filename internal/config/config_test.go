@@ -318,8 +318,8 @@ func TestLoad_AllowedRegionsEnv(t *testing.T) {
 // rather than stopping at the first one.
 func TestValidate_MultipleErrors(t *testing.T) {
 	cfg := &Config{
-		OrgName:          "",  // missing
-		Region:           "",  // missing
+		OrgName:          "", // missing
+		Region:           "", // missing
 		LogLevel:         "bad",
 		BudgetMonthlyUSD: DefaultBudgetUSD,
 	}

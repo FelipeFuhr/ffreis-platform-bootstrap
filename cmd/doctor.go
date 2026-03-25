@@ -127,4 +127,3 @@ This command does not create or modify any AWS resources.`,
 func init() {
 	rootCmd.AddCommand(doctorCmd)
 }
-

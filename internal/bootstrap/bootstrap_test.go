@@ -37,7 +37,10 @@ func TestExpectedResources_ContainsAllTypes(t *testing.T) {
 		typeCounts[r.ResourceType]++
 	}
 
-	cases := []struct{ typ string; wantMin int }{
+	cases := []struct {
+		typ     string
+		wantMin int
+	}{
 		{"DynamoDBTable", 2},
 		{"S3Bucket", 1},
 		{"IAMRole", 1},
@@ -80,12 +83,12 @@ func TestExpectedResources_NamesMatchConfig(t *testing.T) {
 
 	// Build a set of expected names so we can verify membership.
 	wantNames := map[string]bool{
-		cfg.RegistryTableName(): true,
-		cfg.StateBucketName():   true,
-		cfg.LockTableName():     true,
+		cfg.RegistryTableName():      true,
+		cfg.StateBucketName():        true,
+		cfg.LockTableName():          true,
 		config.RoleNamePlatformAdmin: true,
-		cfg.EventsTopicName():   true,
-		cfg.BudgetName():        true,
+		cfg.EventsTopicName():        true,
+		cfg.BudgetName():             true,
 	}
 	for _, r := range resources {
 		if !wantNames[r.ResourceName] {
