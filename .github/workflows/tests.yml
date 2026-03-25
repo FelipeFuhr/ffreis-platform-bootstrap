@@ -11,14 +11,14 @@ on:
       - '**'
       - '.github/workflows/**'
 
+permissions:
+  contents: read
+  actions: write
+
 jobs:
   tests:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-          cache: true
-      - name: Run unit tests
-        run: go test ./...
+    uses: FelipeFuhr/ffreis-workflows-go/.github/workflows/go-test.yml@main
+    with:
+      go-version: "1.25.8"
+      working-directory: "."
+      run-govulncheck: false

@@ -7,27 +7,13 @@ on:
       - '.github/workflows/**'
 
 permissions:
+  contents: read
   security-events: write
 
 jobs:
   semgrep:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-      - name: Install semgrep
-        run: pip install semgrep
-      - name: Run semgrep
-        run: semgrep scan --config p/default --sarif --output semgrep.sarif .
-      - name: Validate SARIF output
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -s semgrep.sarif || (echo "semgrep.sarif was not generated or is empty" && exit 1)
-      - uses: actions/upload-artifact@v4
-        with:
-          name: semgrep-sarif
-          path: semgrep.sarif
-      - uses: github/codeql-action/upload-sarif@v4
-        with:
-          sarif_file: semgrep.sarif
+    uses: FelipeFuhr/ffreis-workflows-go/.github/workflows/go-semgrep-sarif.yml@main
+    with:
+      working-directory: "."
+      config: "p/default"
+      upload-sarif: true
