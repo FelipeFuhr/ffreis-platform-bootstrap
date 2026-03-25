@@ -37,10 +37,6 @@ func (m *mockBudgets) DescribeBudget(_ context.Context, _ *budgets.DescribeBudge
 	return nil, &budgetstypes.NotFoundException{}
 }
 
-func (m *mockBudgets) DescribeBudgets(_ context.Context, _ *budgets.DescribeBudgetsInput, _ ...func(*budgets.Options)) (*budgets.DescribeBudgetsOutput, error) {
-	return &budgets.DescribeBudgetsOutput{}, nil
-}
-
 func (m *mockBudgets) CreateBudget(_ context.Context, _ *budgets.CreateBudgetInput, _ ...func(*budgets.Options)) (*budgets.CreateBudgetOutput, error) {
 	m.createCalls++
 	if m.createErr != nil {
@@ -154,10 +150,6 @@ func (c *capturingBudgets) DescribeBudgets(_ context.Context, _ *budgets.Describ
 
 func (c *capturingBudgets) DescribeBudget(_ context.Context, _ *budgets.DescribeBudgetInput, _ ...func(*budgets.Options)) (*budgets.DescribeBudgetOutput, error) {
 	return nil, &budgetstypes.NotFoundException{}
-}
-
-func (c *capturingBudgets) DescribeBudgets(_ context.Context, _ *budgets.DescribeBudgetsInput, _ ...func(*budgets.Options)) (*budgets.DescribeBudgetsOutput, error) {
-	return &budgets.DescribeBudgetsOutput{}, nil
 }
 
 func (c *capturingBudgets) CreateBudget(_ context.Context, params *budgets.CreateBudgetInput, _ ...func(*budgets.Options)) (*budgets.CreateBudgetOutput, error) {

@@ -33,10 +33,6 @@ func (m *mockIAM) GetRole(_ context.Context, _ *iam.GetRoleInput, _ ...func(*iam
 	return nil, &iamtypes.NoSuchEntityException{}
 }
 
-func (m *mockIAM) GetAccountSummary(_ context.Context, _ *iam.GetAccountSummaryInput, _ ...func(*iam.Options)) (*iam.GetAccountSummaryOutput, error) {
-	return &iam.GetAccountSummaryOutput{}, nil
-}
-
 func (m *mockIAM) CreateRole(_ context.Context, params *iam.CreateRoleInput, _ ...func(*iam.Options)) (*iam.CreateRoleOutput, error) {
 	m.createRoleCalls++
 	if m.createRoleErr != nil {

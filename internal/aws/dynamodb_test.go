@@ -42,10 +42,6 @@ func (m *mockDynamoDB) DescribeTable(_ context.Context, _ *dynamodb.DescribeTabl
 	}, nil
 }
 
-func (m *mockDynamoDB) ListTables(_ context.Context, _ *dynamodb.ListTablesInput, _ ...func(*dynamodb.Options)) (*dynamodb.ListTablesOutput, error) {
-	return &dynamodb.ListTablesOutput{}, nil
-}
-
 func (m *mockDynamoDB) CreateTable(_ context.Context, params *dynamodb.CreateTableInput, _ ...func(*dynamodb.Options)) (*dynamodb.CreateTableOutput, error) {
 	m.createCalls++
 	if m.createErr != nil {
@@ -152,10 +148,6 @@ func (m *concurrentMockDynamoDB) DescribeTable(_ context.Context, _ *dynamodb.De
 	}, nil
 }
 
-func (m *concurrentMockDynamoDB) ListTables(_ context.Context, _ *dynamodb.ListTablesInput, _ ...func(*dynamodb.Options)) (*dynamodb.ListTablesOutput, error) {
-	return &dynamodb.ListTablesOutput{}, nil
-}
-
 func (m *concurrentMockDynamoDB) CreateTable(_ context.Context, _ *dynamodb.CreateTableInput, _ ...func(*dynamodb.Options)) (*dynamodb.CreateTableOutput, error) {
 	m.createCalls++
 	return nil, &dbtypes.ResourceInUseException{}
@@ -175,10 +167,6 @@ func (m *concurrentMockDynamoDB) PutItem(_ context.Context, _ *dynamodb.PutItemI
 
 func (m *concurrentMockDynamoDB) Scan(_ context.Context, _ *dynamodb.ScanInput, _ ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
 	return &dynamodb.ScanOutput{}, nil
-}
-
-func (m *concurrentMockDynamoDB) DeleteTable(_ context.Context, _ *dynamodb.DeleteTableInput, _ ...func(*dynamodb.Options)) (*dynamodb.DeleteTableOutput, error) {
-	return &dynamodb.DeleteTableOutput{}, nil
 }
 
 // TestEnsureLockTable_Idempotent is the core idempotency test:
@@ -268,10 +256,6 @@ func (m *schemaCapturingDynamoDB) DescribeTable(_ context.Context, _ *dynamodb.D
 	}, nil
 }
 
-func (m *schemaCapturingDynamoDB) ListTables(_ context.Context, _ *dynamodb.ListTablesInput, _ ...func(*dynamodb.Options)) (*dynamodb.ListTablesOutput, error) {
-	return &dynamodb.ListTablesOutput{}, nil
-}
-
 func (m *schemaCapturingDynamoDB) CreateTable(_ context.Context, params *dynamodb.CreateTableInput, _ ...func(*dynamodb.Options)) (*dynamodb.CreateTableOutput, error) {
 	m.lastCreateInput = params
 	m.tableCreated = true
@@ -298,8 +282,4 @@ func (m *schemaCapturingDynamoDB) PutItem(_ context.Context, _ *dynamodb.PutItem
 
 func (m *schemaCapturingDynamoDB) Scan(_ context.Context, _ *dynamodb.ScanInput, _ ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
 	return &dynamodb.ScanOutput{}, nil
-}
-
-func (m *schemaCapturingDynamoDB) DeleteTable(_ context.Context, _ *dynamodb.DeleteTableInput, _ ...func(*dynamodb.Options)) (*dynamodb.DeleteTableOutput, error) {
-	return &dynamodb.DeleteTableOutput{}, nil
 }

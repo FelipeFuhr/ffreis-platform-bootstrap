@@ -35,10 +35,6 @@ func (m *mockSNS) CreateTopic(_ context.Context, _ *sns.CreateTopicInput, _ ...f
 	return &sns.CreateTopicOutput{TopicArn: sdkaws.String(testTopicARN)}, nil
 }
 
-func (m *mockSNS) ListTopics(_ context.Context, _ *sns.ListTopicsInput, _ ...func(*sns.Options)) (*sns.ListTopicsOutput, error) {
-	return &sns.ListTopicsOutput{}, nil
-}
-
 func (m *mockSNS) Publish(_ context.Context, params *sns.PublishInput, _ ...func(*sns.Options)) (*sns.PublishOutput, error) {
 	m.publishCalls++
 	m.lastPublish = params
