@@ -1,0 +1,24 @@
+name: Security Scan (OSV Scanner)
+
+on:
+  pull_request:
+    paths:
+      - '**'
+      - '.github/workflows/**'
+  push:
+    branches: [main, master]
+    paths:
+      - '**'
+      - '.github/workflows/**'
+
+permissions:
+  contents: read
+  actions: read
+  security-events: write
+
+jobs:
+  osv-scan:
+    uses: FelipeFuhr/ffreis-workflows-go/.github/workflows/go-osv-scanner.yml@main
+    with:
+      working-directory: "."
+      upload-sarif: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false }}
