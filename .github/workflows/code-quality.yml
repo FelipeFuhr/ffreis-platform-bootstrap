@@ -20,26 +20,18 @@ concurrency:
 
 jobs:
   verify-secrets:
-    name: Verify SonarQube credentials
+    name: Verify SonarCloud credentials
     runs-on: ubuntu-latest
     if: vars.SONAR_ENABLED != 'false' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false)
     steps:
-      - name: Verify SonarQube credentials
+      - name: Verify SonarCloud credentials
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
         run: |
           set -euo pipefail
-          missing=""
           if [ -z "${SONAR_TOKEN}" ]; then
-            missing="${missing}  • SONAR_TOKEN (secret): your SonarQube authentication token\n"
-          fi
-          if [ -z "${SONAR_HOST_URL}" ]; then
-            missing="${missing}  • SONAR_HOST_URL (secret): your SonarQube server URL\n"
-          fi
-          if [ -n "${missing}" ]; then
-            echo "::error title=SonarQube not configured::Missing configuration:"
-            printf "%b" "${missing}"
+            echo "::error title=SonarCloud not configured::Missing SONAR_TOKEN secret"
+            echo "  • SONAR_TOKEN (secret): your SonarCloud authentication token"
             echo ""
             echo "Add in: Settings → Secrets and variables → Actions → New repository secret"
             echo "To skip this job entirely: Settings → Variables → add SONAR_ENABLED=false"
@@ -50,11 +42,10 @@ jobs:
     name: SonarQube
     needs: [verify-secrets]
     if: vars.SONAR_ENABLED != 'false' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false)
-    uses: FelipeFuhr/ffreis-workflows-go/.github/workflows/go-sonarqube.yml@main
+    uses: FelipeFuhr/ffreis-workflows-go/.github/workflows/go-sonar.yml@main
     with:
       go-version: "1.25.8"
       working-directory: "."
       sonar-project-key: "ffreis-platform-bootstrap"
     secrets:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-      SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
