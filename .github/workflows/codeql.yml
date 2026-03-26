@@ -14,6 +14,12 @@ permissions:
 
 jobs:
   codeql:
+    # GitHub Code Scanning cannot process SARIF uploads from "advanced" CodeQL
+    # workflows when repository "default setup" is enabled.
+    #
+    # Enable this workflow explicitly by setting the repository variable:
+    #   CODEQL_ADVANCED_ENABLED=true
+    if: vars.CODEQL_ADVANCED_ENABLED == 'true'
     uses: FelipeFuhr/ffreis-workflows-general/.github/workflows/general-codeql.yml@main
     with:
       languages: "go"
