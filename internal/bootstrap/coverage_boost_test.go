@@ -18,10 +18,10 @@ import (
 )
 
 type okS3 struct {
-	headCalls        int
-	listVersionsCalls int
+	headCalls          int
+	listVersionsCalls  int
 	deleteObjectsCalls int
-	deleteBucketCalls int
+	deleteBucketCalls  int
 }
 
 func (o *okS3) HeadBucket(_ context.Context, _ *s3.HeadBucketInput, _ ...func(*s3.Options)) (*s3.HeadBucketOutput, error) {
@@ -88,9 +88,9 @@ func (o *okDynamoDB) DeleteTable(_ context.Context, _ *dynamodb.DeleteTableInput
 }
 
 type okIAM struct {
-	roleExists      bool
-	deleteRoleCalls int
-	listCalls       int
+	roleExists        bool
+	deleteRoleCalls   int
+	listCalls         int
 	deletePolicyCalls int
 }
 
@@ -371,4 +371,3 @@ func TestNuke_ContinuesOnError(t *testing.T) {
 type testSink struct{}
 
 func (testSink) Write(p []byte) (int, error) { return len(p), nil }
-

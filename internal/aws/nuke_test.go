@@ -8,9 +8,9 @@ import (
 
 	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
 	budgetstypes "github.com/aws/aws-sdk-go-v2/service/budgets/types"
-	"github.com/aws/aws-sdk-go-v2/service/s3"
 	dbtypes "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	iamtypes "github.com/aws/aws-sdk-go-v2/service/iam/types"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	s3types "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	snstypes "github.com/aws/aws-sdk-go-v2/service/sns/types"
 )
@@ -54,7 +54,7 @@ func TestDeleteStateBucket_DeletesAfterEmptying(t *testing.T) {
 
 func TestDeleteStateBucket_DeleteObjectsAPIErr(t *testing.T) {
 	m := &mockS3{
-		bucketExists:          true,
+		bucketExists: true,
 		listObjectVersionsSeq: []*s3.ListObjectVersionsOutput{{
 			Versions: []s3types.ObjectVersion{{Key: sdkaws.String("k1"), VersionId: sdkaws.String("v1")}},
 		}},
@@ -72,7 +72,7 @@ func TestDeleteStateBucket_DeleteObjectsAPIErr(t *testing.T) {
 
 func TestDeleteStateBucket_DeleteObjectsOutputErrors(t *testing.T) {
 	m := &mockS3{
-		bucketExists:          true,
+		bucketExists: true,
 		listObjectVersionsSeq: []*s3.ListObjectVersionsOutput{{
 			Versions: []s3types.ObjectVersion{{Key: sdkaws.String("k1"), VersionId: sdkaws.String("v1")}},
 		}},
