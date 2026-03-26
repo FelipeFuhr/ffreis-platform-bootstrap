@@ -1,0 +1,31 @@
+name: Commit Checks
+
+on:
+  pull_request:
+    paths:
+      - '**'
+      - '.github/workflows/**'
+  push:
+    branches: [main, master]
+    paths:
+      - '**'
+      - '.github/workflows/**'
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  mod-tidy:
+    name: go mod tidy (clean)
+    uses: FelipeFuhr/ffreis-workflows-go/.github/workflows/go-mod-tidy-check.yml@main
+    with:
+      go-version: "1.25.8"
+      working-directory: "."
+
+  fmt:
+    name: Format (gofmt)
+    uses: FelipeFuhr/ffreis-workflows-go/.github/workflows/go-fmt.yml@main
+    with:
+      go-version: "1.25.8"
+      working-directory: "."

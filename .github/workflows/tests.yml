@@ -1,0 +1,24 @@
+name: Unit Tests
+
+on:
+  pull_request:
+    paths:
+      - '**'
+      - '.github/workflows/**'
+  push:
+    branches: [main, master]
+    paths:
+      - '**'
+      - '.github/workflows/**'
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  tests:
+    uses: FelipeFuhr/ffreis-workflows-go/.github/workflows/go-test.yml@main
+    with:
+      go-version: "1.25.8"
+      working-directory: "."
+      run-govulncheck: false

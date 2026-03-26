@@ -1,0 +1,20 @@
+name: Semgrep Code Analysis
+
+on:
+  pull_request:
+    paths:
+      - '**'
+      - '.github/workflows/**'
+
+permissions:
+  contents: read
+  actions: read
+  security-events: write
+
+jobs:
+  semgrep:
+    uses: FelipeFuhr/ffreis-workflows-go/.github/workflows/go-semgrep-sarif.yml@main
+    with:
+      working-directory: "."
+      config: "p/default"
+      upload-sarif: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false }}

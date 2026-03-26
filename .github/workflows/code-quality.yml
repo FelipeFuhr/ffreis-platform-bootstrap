@@ -1,0 +1,52 @@
+name: Code Quality (SonarQube)
+
+on:
+  pull_request:
+    paths:
+      - '**/*.go'
+      - 'go.mod'
+      - 'go.sum'
+      - 'sonar-project.properties'
+      - '.github/workflows/code-quality.yml'
+  push:
+    branches: [main, master]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify-secrets:
+    name: Verify SonarCloud credentials
+    runs-on: ubuntu-latest
+    if: vars.SONAR_ENABLED != 'false' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false)
+    steps:
+      - name: Verify SonarCloud credentials
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SONAR_TOKEN}" ]; then
+            echo "::error title=SonarCloud not configured::Missing SONAR_TOKEN secret"
+            echo "  • SONAR_TOKEN (secret): your SonarCloud authentication token"
+            echo ""
+            echo "Add in: Settings → Secrets and variables → Actions → New repository secret"
+            echo "To skip this job entirely: Settings → Variables → add SONAR_ENABLED=false"
+            exit 1
+          fi
+
+  sonar:
+    name: SonarQube
+    needs: [verify-secrets]
+    if: vars.SONAR_ENABLED != 'false' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false)
+    uses: FelipeFuhr/ffreis-workflows-go/.github/workflows/go-sonar.yml@main
+    with:
+      go-version: "1.25.8"
+      working-directory: "."
+      sonar-project-key: "ffreis-platform-bootstrap"
+      run-on-pr: false
+    secrets:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
