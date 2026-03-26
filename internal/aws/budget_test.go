@@ -21,6 +21,7 @@ type mockBudgets struct {
 	createCalls   int
 	createErr     error
 	describeCalls int
+	deleteErr     error
 }
 
 func (m *mockBudgets) DescribeBudgets(_ context.Context, _ *budgets.DescribeBudgetsInput, _ ...func(*budgets.Options)) (*budgets.DescribeBudgetsOutput, error) {
@@ -47,6 +48,9 @@ func (m *mockBudgets) CreateBudget(_ context.Context, _ *budgets.CreateBudgetInp
 }
 
 func (m *mockBudgets) DeleteBudget(_ context.Context, _ *budgets.DeleteBudgetInput, _ ...func(*budgets.Options)) (*budgets.DeleteBudgetOutput, error) {
+	if m.deleteErr != nil {
+		return nil, m.deleteErr
+	}
 	m.budgetExists = false
 	return &budgets.DeleteBudgetOutput{}, nil
 }

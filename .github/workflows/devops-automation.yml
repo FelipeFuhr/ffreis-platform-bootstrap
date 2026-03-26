@@ -37,8 +37,25 @@ jobs:
     with:
       only: "both"
 
+  verify-release-please:
+    if: vars.RELEASE_PLEASE_ENABLED != 'false' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify Release Please credentials
+        env:
+          RELEASE_PLEASE_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${RELEASE_PLEASE_TOKEN}" ]; then
+            echo "::error title=Release Please not configured::Missing RELEASE_PLEASE_TOKEN secret."
+            echo "Add in: Settings → Secrets and variables → Actions → New repository secret"
+            echo "To skip this job entirely: Settings → Variables → add RELEASE_PLEASE_ENABLED=false"
+            exit 1
+          fi
+
   release-please:
-    if: vars.RELEASE_PLEASE_ENABLED != 'false' && github.event_name == 'push' && secrets.RELEASE_PLEASE_TOKEN != ''
+    needs: [verify-release-please]
+    if: vars.RELEASE_PLEASE_ENABLED != 'false' && github.event_name == 'push'
     permissions:
       contents: write
       pull-requests: write
@@ -47,4 +64,3 @@ jobs:
       target-branch: "main"
     secrets:
       RELEASE_PLEASE_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
-

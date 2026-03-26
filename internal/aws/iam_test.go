@@ -15,11 +15,16 @@ import (
 // after CreateRole, mirroring real AWS behaviour.
 type mockIAM struct {
 	roleExists      bool
+	getRoleErr      error
 	createRoleErr   error
 	createRoleCalls int
 	putPolicyCalls  int
 	tagRoleCalls    int
 	tagRoleErr      error
+	policyNames     []string
+	listPoliciesErr error
+	deletePolicyErr error
+	deleteRoleErr   error
 }
 
 func (m *mockIAM) GetAccountSummary(_ context.Context, _ *iam.GetAccountSummaryInput, _ ...func(*iam.Options)) (*iam.GetAccountSummaryOutput, error) {
@@ -27,6 +32,9 @@ func (m *mockIAM) GetAccountSummary(_ context.Context, _ *iam.GetAccountSummaryI
 }
 
 func (m *mockIAM) GetRole(_ context.Context, _ *iam.GetRoleInput, _ ...func(*iam.Options)) (*iam.GetRoleOutput, error) {
+	if m.getRoleErr != nil {
+		return nil, m.getRoleErr
+	}
 	if m.roleExists {
 		return &iam.GetRoleOutput{Role: &iamtypes.Role{RoleName: sdkaws.String("platform-admin")}}, nil
 	}
@@ -55,14 +63,20 @@ func (m *mockIAM) TagRole(_ context.Context, _ *iam.TagRoleInput, _ ...func(*iam
 }
 
 func (m *mockIAM) ListRolePolicies(_ context.Context, _ *iam.ListRolePoliciesInput, _ ...func(*iam.Options)) (*iam.ListRolePoliciesOutput, error) {
-	return &iam.ListRolePoliciesOutput{}, nil
+	if m.listPoliciesErr != nil {
+		return nil, m.listPoliciesErr
+	}
+	return &iam.ListRolePoliciesOutput{PolicyNames: m.policyNames}, nil
 }
 
 func (m *mockIAM) DeleteRolePolicy(_ context.Context, _ *iam.DeleteRolePolicyInput, _ ...func(*iam.Options)) (*iam.DeleteRolePolicyOutput, error) {
-	return &iam.DeleteRolePolicyOutput{}, nil
+	return &iam.DeleteRolePolicyOutput{}, m.deletePolicyErr
 }
 
 func (m *mockIAM) DeleteRole(_ context.Context, _ *iam.DeleteRoleInput, _ ...func(*iam.Options)) (*iam.DeleteRoleOutput, error) {
+	if m.deleteRoleErr != nil {
+		return nil, m.deleteRoleErr
+	}
 	m.roleExists = false
 	return &iam.DeleteRoleOutput{}, nil
 }

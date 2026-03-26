@@ -17,12 +17,24 @@ var errTaggingFailed = errors.New("tagging failed")
 // after a successful CreateBucket, mirroring real AWS behaviour.
 type mockS3 struct {
 	bucketExists     bool
+	headErr          error
 	createErr        error
 	createCalls      int
 	versioningCalls  int
 	publicBlockCalls int
 	taggingCalls     int
 	taggingErr       error
+
+	listObjectVersionsCalls int
+	listObjectVersionsSeq   []*s3.ListObjectVersionsOutput
+	listObjectVersionsErr   error
+
+	deleteObjectsCalls int
+	deleteObjectsOut   *s3.DeleteObjectsOutput
+	deleteObjectsErr   error
+
+	deleteBucketCalls int
+	deleteBucketErr   error
 }
 
 func (m *mockS3) ListBuckets(_ context.Context, _ *s3.ListBucketsInput, _ ...func(*s3.Options)) (*s3.ListBucketsOutput, error) {
@@ -30,6 +42,9 @@ func (m *mockS3) ListBuckets(_ context.Context, _ *s3.ListBucketsInput, _ ...fun
 }
 
 func (m *mockS3) HeadBucket(_ context.Context, _ *s3.HeadBucketInput, _ ...func(*s3.Options)) (*s3.HeadBucketOutput, error) {
+	if m.headErr != nil {
+		return nil, m.headErr
+	}
 	if m.bucketExists {
 		return &s3.HeadBucketOutput{}, nil
 	}
@@ -61,14 +76,37 @@ func (m *mockS3) PutBucketTagging(_ context.Context, _ *s3.PutBucketTaggingInput
 }
 
 func (m *mockS3) ListObjectVersions(_ context.Context, _ *s3.ListObjectVersionsInput, _ ...func(*s3.Options)) (*s3.ListObjectVersionsOutput, error) {
+	m.listObjectVersionsCalls++
+	if m.listObjectVersionsErr != nil {
+		return nil, m.listObjectVersionsErr
+	}
+	if len(m.listObjectVersionsSeq) > 0 {
+		idx := m.listObjectVersionsCalls - 1
+		if idx < len(m.listObjectVersionsSeq) {
+			return m.listObjectVersionsSeq[idx], nil
+		}
+		return m.listObjectVersionsSeq[len(m.listObjectVersionsSeq)-1], nil
+	}
 	return &s3.ListObjectVersionsOutput{}, nil
 }
 
 func (m *mockS3) DeleteObjects(_ context.Context, _ *s3.DeleteObjectsInput, _ ...func(*s3.Options)) (*s3.DeleteObjectsOutput, error) {
+	m.deleteObjectsCalls++
+	if m.deleteObjectsOut != nil || m.deleteObjectsErr != nil {
+		out := m.deleteObjectsOut
+		if out == nil {
+			out = &s3.DeleteObjectsOutput{}
+		}
+		return out, m.deleteObjectsErr
+	}
 	return &s3.DeleteObjectsOutput{}, nil
 }
 
 func (m *mockS3) DeleteBucket(_ context.Context, _ *s3.DeleteBucketInput, _ ...func(*s3.Options)) (*s3.DeleteBucketOutput, error) {
+	m.deleteBucketCalls++
+	if m.deleteBucketErr != nil {
+		return nil, m.deleteBucketErr
+	}
 	m.bucketExists = false
 	return &s3.DeleteBucketOutput{}, nil
 }

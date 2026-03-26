@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	dbtypes "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/aws/aws-sdk-go-v2/service/sns"
 )
@@ -62,6 +63,60 @@ func TestTableExists_TableNotFound(t *testing.T) {
 	c := newTestClients(nil, &mockDynamoDB{tableStatus: ""}, nil, nil, nil)
 	if c.TableExists(context.Background(), "missing-table") {
 		t.Error("want false for non-existent table, got true")
+	}
+}
+
+func TestTableExistsChecked_True(t *testing.T) {
+	c := newTestClients(nil, &mockDynamoDB{tableStatus: dbtypes.TableStatusActive}, nil, nil, nil)
+	ok, err := c.TableExistsChecked(context.Background(), "my-table")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !ok {
+		t.Error("want true, got false")
+	}
+}
+
+func TestTableExistsChecked_NotFoundIsNil(t *testing.T) {
+	c := newTestClients(nil, &mockDynamoDB{tableStatus: ""}, nil, nil, nil)
+	ok, err := c.TableExistsChecked(context.Background(), "missing-table")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ok {
+		t.Error("want false, got true")
+	}
+}
+
+type erringDynamoDB struct{}
+
+func (e *erringDynamoDB) DescribeTable(_ context.Context, _ *dynamodb.DescribeTableInput, _ ...func(*dynamodb.Options)) (*dynamodb.DescribeTableOutput, error) {
+	return nil, errors.New("boom")
+}
+func (e *erringDynamoDB) ListTables(_ context.Context, _ *dynamodb.ListTablesInput, _ ...func(*dynamodb.Options)) (*dynamodb.ListTablesOutput, error) {
+	return &dynamodb.ListTablesOutput{}, nil
+}
+func (e *erringDynamoDB) CreateTable(_ context.Context, _ *dynamodb.CreateTableInput, _ ...func(*dynamodb.Options)) (*dynamodb.CreateTableOutput, error) {
+	return &dynamodb.CreateTableOutput{}, nil
+}
+func (e *erringDynamoDB) TagResource(_ context.Context, _ *dynamodb.TagResourceInput, _ ...func(*dynamodb.Options)) (*dynamodb.TagResourceOutput, error) {
+	return &dynamodb.TagResourceOutput{}, nil
+}
+func (e *erringDynamoDB) PutItem(_ context.Context, _ *dynamodb.PutItemInput, _ ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error) {
+	return &dynamodb.PutItemOutput{}, nil
+}
+func (e *erringDynamoDB) Scan(_ context.Context, _ *dynamodb.ScanInput, _ ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
+	return &dynamodb.ScanOutput{}, nil
+}
+func (e *erringDynamoDB) DeleteTable(_ context.Context, _ *dynamodb.DeleteTableInput, _ ...func(*dynamodb.Options)) (*dynamodb.DeleteTableOutput, error) {
+	return &dynamodb.DeleteTableOutput{}, nil
+}
+
+func TestTableExistsChecked_UnexpectedError(t *testing.T) {
+	c := newTestClients(nil, &erringDynamoDB{}, nil, nil, nil)
+	_, err := c.TableExistsChecked(context.Background(), "my-table")
+	if err == nil {
+		t.Fatal("expected error, got nil")
 	}
 }
 

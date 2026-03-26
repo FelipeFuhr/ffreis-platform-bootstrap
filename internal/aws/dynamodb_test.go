@@ -24,6 +24,7 @@ type mockDynamoDB struct {
 	createErr   error
 	tagCalls    int
 	tagErr      error
+	deleteErr   error
 }
 
 func (m *mockDynamoDB) ListTables(_ context.Context, _ *dynamodb.ListTablesInput, _ ...func(*dynamodb.Options)) (*dynamodb.ListTablesOutput, error) {
@@ -63,6 +64,9 @@ func (m *mockDynamoDB) TagResource(_ context.Context, _ *dynamodb.TagResourceInp
 }
 
 func (m *mockDynamoDB) DeleteTable(_ context.Context, _ *dynamodb.DeleteTableInput, _ ...func(*dynamodb.Options)) (*dynamodb.DeleteTableOutput, error) {
+	if m.deleteErr != nil {
+		return nil, m.deleteErr
+	}
 	m.tableStatus = ""
 	return &dynamodb.DeleteTableOutput{}, nil
 }

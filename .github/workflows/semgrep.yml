@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
   security-events: write
 
 jobs:
@@ -16,4 +17,4 @@ jobs:
     with:
       working-directory: "."
       config: "p/default"
-      upload-sarif: true
+      upload-sarif: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false }}

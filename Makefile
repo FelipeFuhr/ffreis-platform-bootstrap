@@ -1,3 +1,6 @@
+BASH_SHELL := /usr/bin/env bash
+SHELL := $(BASH_SHELL)
+
 BINARY     := platform-bootstrap
 BUILD_DIR  := ./bin
 MODULE     := github.com/ffreis/platform-bootstrap

@@ -24,6 +24,7 @@ type mockSNS struct {
 	tagErr       error
 	setAttrCalls int
 	setAttrErr   error
+	deleteErr    error
 }
 
 func (m *mockSNS) ListTopics(_ context.Context, _ *sns.ListTopicsInput, _ ...func(*sns.Options)) (*sns.ListTopicsOutput, error) {
@@ -56,7 +57,7 @@ func (m *mockSNS) SetTopicAttributes(_ context.Context, _ *sns.SetTopicAttribute
 }
 
 func (m *mockSNS) DeleteTopic(_ context.Context, _ *sns.DeleteTopicInput, _ ...func(*sns.Options)) (*sns.DeleteTopicOutput, error) {
-	return &sns.DeleteTopicOutput{}, nil
+	return &sns.DeleteTopicOutput{}, m.deleteErr
 }
 
 // TestEnsureEventsTopic_ReturnsARN verifies that the topic ARN is returned.

@@ -13,14 +13,32 @@ on:
 
 permissions:
   contents: read
+  actions: read
   security-events: write
 
 jobs:
+  verify-secrets:
+    if: vars.SNYK_ENABLED != 'false' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify Snyk credentials
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SNYK_TOKEN}" ]; then
+            echo "::error title=Snyk not configured::Missing SNYK_TOKEN secret."
+            echo "Add in: Settings → Secrets and variables → Actions → New repository secret"
+            echo "To skip this job entirely: Settings → Variables → add SNYK_ENABLED=false"
+            exit 1
+          fi
+
   snyk:
-    if: ${{ secrets.SNYK_TOKEN != '' }}
+    needs: [verify-secrets]
+    if: vars.SNYK_ENABLED != 'false' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false)
     uses: FelipeFuhr/ffreis-workflows-go/.github/workflows/go-snyk.yml@main
     with:
       working-directory: "."
-      upload-sarif: true
+      upload-sarif: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false }}
     secrets:
       SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
