@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"os"
 
-	platformaws "github.com/ffreis/platform-bootstrap/internal/aws"
 	"github.com/spf13/cobra"
+
+	platformaws "github.com/ffreis/platform-bootstrap/internal/aws"
 )
 
 // fetchedConfig is the JSON structure written to the output file.

@@ -35,9 +35,6 @@ linters-settings:
   errcheck:
     check-type-assertions: true
     check-blank: false  # `_ = expr` is intentional in tests
-  gosec:
-    excludes:
-      - G404   # weak random (math/rand) — acceptable outside crypto
   godot:
     scope: declarations
     capital: false

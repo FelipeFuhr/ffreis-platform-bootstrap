@@ -3,13 +3,14 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
+
+	"github.com/spf13/cobra"
 
 	platformaws "github.com/ffreis/platform-bootstrap/internal/aws"
 	"github.com/ffreis/platform-bootstrap/internal/config"
 	"github.com/ffreis/platform-bootstrap/internal/logging"
-	"github.com/spf13/cobra"
-	"log/slog"
 )
 
 // deps is populated by root's PersistentPreRunE and is available to all

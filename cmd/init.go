@@ -3,9 +3,10 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/spf13/cobra"
+
 	"github.com/ffreis/platform-bootstrap/internal/bootstrap"
 	"github.com/ffreis/platform-bootstrap/internal/config"
-	"github.com/spf13/cobra"
 )
 
 var initCmd = &cobra.Command{
