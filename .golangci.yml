@@ -23,13 +23,15 @@ linters:
     # Bugs
     - bodyclose      # HTTP response body must be closed
     - noctx          # HTTP requests must carry context
-    - copylock       # mutexes must not be copied
 
     # Maintainability
     - godot          # comments must end in a period
     - nolintlint     # nolint directives must be specific and justified
 
 linters-settings:
+  govet:
+    enable:
+      - copylocks
   errcheck:
     check-type-assertions: true
     check-blank: false  # `_ = expr` is intentional in tests
