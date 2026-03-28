@@ -1,14 +1,5 @@
 name: Lint
 
-# Job dependency graph:
-#
-#   fmt ─┐
-#        ├─→ golangci-lint
-#   vet ─┘
-#
-# fmt and vet run in parallel; golangci-lint waits for both.
-# Any failure blocks all downstream jobs.
-
 on:
   pull_request:
     paths:
@@ -22,7 +13,6 @@ on:
 
 permissions:
   contents: read
-  actions: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -39,22 +29,8 @@ jobs:
   lint:
     name: Lint (vet + golangci-lint)
     needs: [fmt]
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: "."
-    steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
-        with:
-          go-version: "1.25.8"
-          cache: true
-          cache-dependency-path: "./go.sum"
-      - name: go vet
-        run: go vet ./...
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@9fae48acfc02a90574d7c304a1758ef9895495fa # v7
-        with:
-          version: v2.1.6
-          args: --path-prefix=. --timeout=5m
-          working-directory: "."
+    uses: FelipeFuhr/ffreis-workflows-go/.github/workflows/go-lint.yml@main
+    with:
+      go-version: "1.25.8"
+      working-directory: "."
+      lint-args: "--path-prefix=. --timeout=5m"

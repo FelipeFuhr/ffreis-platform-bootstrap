@@ -66,7 +66,7 @@ func buildTopicPolicy(topicARN, accountID string) (string, error) {
 			{
 				Sid:       "AllowAccountManagement",
 				Effect:    "Allow",
-				Principal: map[string]string{"AWS": fmt.Sprintf("arn:aws:iam::%s:root", accountID)},
+				Principal: map[string]string{"AWS": fmt.Sprintf(IAMRootPrincipalARNFormat, accountID)},
 				Action:    "SNS:*",
 				Resource:  topicARN,
 			},

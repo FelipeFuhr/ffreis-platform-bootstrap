@@ -102,7 +102,7 @@ func buildTrustPolicy(accountID string) policyDocument {
 		Statement: []policyStatement{
 			{
 				Effect:    "Allow",
-				Principal: map[string]string{"AWS": fmt.Sprintf("arn:aws:iam::%s:root", accountID)},
+				Principal: map[string]string{"AWS": fmt.Sprintf(IAMRootPrincipalARNFormat, accountID)},
 				Action:    "sts:AssumeRole",
 			},
 		},

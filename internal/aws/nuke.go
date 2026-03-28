@@ -62,19 +62,7 @@ func emptyBucket(ctx context.Context, client S3API, name string) error {
 			return fmt.Errorf("listing versions: %w", err)
 		}
 
-		var toDelete []s3types.ObjectIdentifier
-		for _, v := range out.Versions {
-			toDelete = append(toDelete, s3types.ObjectIdentifier{
-				Key:       v.Key,
-				VersionId: v.VersionId,
-			})
-		}
-		for _, d := range out.DeleteMarkers {
-			toDelete = append(toDelete, s3types.ObjectIdentifier{
-				Key:       d.Key,
-				VersionId: d.VersionId,
-			})
-		}
+		toDelete := collectObjectIDs(out.Versions, out.DeleteMarkers)
 
 		if len(toDelete) > 0 {
 			delOut, err := client.DeleteObjects(ctx, &s3.DeleteObjectsInput{
@@ -99,6 +87,18 @@ func emptyBucket(ctx context.Context, client S3API, name string) error {
 	}
 
 	return nil
+}
+
+// collectObjectIDs builds a flat list of ObjectIdentifiers from ListObjectVersions output.
+func collectObjectIDs(versions []s3types.ObjectVersion, markers []s3types.DeleteMarkerEntry) []s3types.ObjectIdentifier {
+	ids := make([]s3types.ObjectIdentifier, 0, len(versions)+len(markers))
+	for _, v := range versions {
+		ids = append(ids, s3types.ObjectIdentifier{Key: v.Key, VersionId: v.VersionId})
+	}
+	for _, d := range markers {
+		ids = append(ids, s3types.ObjectIdentifier{Key: d.Key, VersionId: d.VersionId})
+	}
+	return ids
 }
 
 // DeleteDynamoDBTable deletes the named DynamoDB table.
@@ -162,7 +162,7 @@ func DeleteIAMRole(ctx context.Context, client IAMAPI, roleName string) error {
 // The ARN is constructed from the account ID, region, and topic name.
 // Idempotency: if the topic does not exist, returns nil immediately.
 func DeleteSNSTopic(ctx context.Context, client SNSAPI, region, accountID, topicName string) error {
-	topicARN := fmt.Sprintf("arn:aws:sns:%s:%s:%s", region, accountID, topicName)
+	topicARN := fmt.Sprintf(SNSTopicARNFormat, region, accountID, topicName)
 
 	_, err := client.DeleteTopic(ctx, &sns.DeleteTopicInput{
 		TopicArn: sdkaws.String(topicARN),

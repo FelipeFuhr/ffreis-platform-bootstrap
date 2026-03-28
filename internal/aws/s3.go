@@ -66,7 +66,7 @@ func ensureBucketExists(ctx context.Context, client S3API, name, region string) 
 	input := &s3.CreateBucketInput{
 		Bucket: sdkaws.String(name),
 	}
-	if region != "us-east-1" {
+	if region != RegionUSEast1 {
 		input.CreateBucketConfiguration = &s3types.CreateBucketConfiguration{
 			LocationConstraint: s3types.BucketLocationConstraint(region),
 		}

@@ -36,7 +36,7 @@ func (m *mockIAM) GetRole(_ context.Context, _ *iam.GetRoleInput, _ ...func(*iam
 		return nil, m.getRoleErr
 	}
 	if m.roleExists {
-		return &iam.GetRoleOutput{Role: &iamtypes.Role{RoleName: sdkaws.String("platform-admin")}}, nil
+		return &iam.GetRoleOutput{Role: &iamtypes.Role{RoleName: sdkaws.String(testRoleName)}}, nil
 	}
 	return nil, &iamtypes.NoSuchEntityException{}
 }
@@ -86,8 +86,8 @@ func (m *mockIAM) DeleteRole(_ context.Context, _ *iam.DeleteRoleInput, _ ...fun
 func TestEnsurePlatformAdminRole_Create(t *testing.T) {
 	m := &mockIAM{}
 
-	if err := EnsurePlatformAdminRole(context.Background(), m, "platform-admin", "123456789012", nil); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	if err := EnsurePlatformAdminRole(context.Background(), m, testRoleName, "123456789012", nil); err != nil {
+		t.Fatalf(errUnexpectedFmt, err)
 	}
 
 	if m.createRoleCalls != 1 {
@@ -107,8 +107,8 @@ func TestEnsurePlatformAdminRole_Create(t *testing.T) {
 func TestEnsurePlatformAdminRole_AlreadyExists(t *testing.T) {
 	m := &mockIAM{roleExists: true}
 
-	if err := EnsurePlatformAdminRole(context.Background(), m, "platform-admin", "123456789012", nil); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	if err := EnsurePlatformAdminRole(context.Background(), m, testRoleName, "123456789012", nil); err != nil {
+		t.Fatalf(errUnexpectedFmt, err)
 	}
 
 	if m.createRoleCalls != 0 {
@@ -126,7 +126,7 @@ func TestEnsurePlatformAdminRole_EntityAlreadyExists(t *testing.T) {
 		createRoleErr: &iamtypes.EntityAlreadyExistsException{},
 	}
 
-	if err := EnsurePlatformAdminRole(context.Background(), m, "platform-admin", "123456789012", nil); err != nil {
+	if err := EnsurePlatformAdminRole(context.Background(), m, testRoleName, "123456789012", nil); err != nil {
 		t.Fatalf("expected EntityAlreadyExists to be treated as success, got: %v", err)
 	}
 
@@ -141,7 +141,7 @@ func TestEnsurePlatformAdminRole_Idempotent(t *testing.T) {
 	m := &mockIAM{}
 
 	// First call — role does not exist.
-	if err := EnsurePlatformAdminRole(context.Background(), m, "platform-admin", "123456789012", nil); err != nil {
+	if err := EnsurePlatformAdminRole(context.Background(), m, testRoleName, "123456789012", nil); err != nil {
 		t.Fatalf("first call: %v", err)
 	}
 	if m.createRoleCalls != 1 {
@@ -149,7 +149,7 @@ func TestEnsurePlatformAdminRole_Idempotent(t *testing.T) {
 	}
 
 	// Second call — role now exists (mock state updated by CreateRole).
-	if err := EnsurePlatformAdminRole(context.Background(), m, "platform-admin", "123456789012", nil); err != nil {
+	if err := EnsurePlatformAdminRole(context.Background(), m, testRoleName, "123456789012", nil); err != nil {
 		t.Fatalf("second call: %v", err)
 	}
 	if m.createRoleCalls != 1 {
@@ -167,8 +167,8 @@ func TestEnsurePlatformAdminRole_TrustPolicy(t *testing.T) {
 	capture := &trustCapturingIAM{}
 
 	accountID := "123456789012"
-	if err := EnsurePlatformAdminRole(context.Background(), capture, "platform-admin", accountID, nil); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	if err := EnsurePlatformAdminRole(context.Background(), capture, testRoleName, accountID, nil); err != nil {
+		t.Fatalf(errUnexpectedFmt, err)
 	}
 
 	raw := capture.lastTrustDoc
@@ -202,8 +202,8 @@ func TestEnsurePlatformAdminRole_TrustPolicy(t *testing.T) {
 func TestEnsurePlatformAdminRole_DenyList(t *testing.T) {
 	capture := &policyCapturingIAM{}
 
-	if err := EnsurePlatformAdminRole(context.Background(), capture, "platform-admin", "123456789012", nil); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	if err := EnsurePlatformAdminRole(context.Background(), capture, testRoleName, "123456789012", nil); err != nil {
+		t.Fatalf(errUnexpectedFmt, err)
 	}
 
 	raw := capture.lastPolicyDoc
@@ -233,8 +233,8 @@ func TestEnsurePlatformAdminRole_TagsApplied(t *testing.T) {
 	m := &mockIAM{}
 	tags := map[string]string{"Project": "platform", "Owner": "ffreis"}
 
-	if err := EnsurePlatformAdminRole(context.Background(), m, "platform-admin", "123456789012", tags); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	if err := EnsurePlatformAdminRole(context.Background(), m, testRoleName, "123456789012", tags); err != nil {
+		t.Fatalf(errUnexpectedFmt, err)
 	}
 
 	if m.tagRoleCalls != 1 {

@@ -76,7 +76,7 @@ func (m *registryMockDynamoDB) Scan(_ context.Context, in *dynamodb.ScanInput, _
 func TestEnsureRegistryTable_Schema(t *testing.T) {
 	capture := &schemaCapturingDynamoDB{}
 
-	if err := EnsureRegistryTable(context.Background(), capture, "test-registry", nil); err != nil {
+	if err := EnsureRegistryTable(context.Background(), capture, testRegistryTable, nil); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -110,12 +110,12 @@ func TestEnsureRegistryTable_Schema(t *testing.T) {
 func TestRegisterResource_WritesRecord(t *testing.T) {
 	m := newRegistryMock()
 
-	rec, err := NewRegistryRecord("S3Bucket", "ffreis-tf-state-root", "arn:aws:iam::123:root", map[string]string{"Project": "platform"})
+	rec, err := NewRegistryRecord("S3Bucket", testStateBucket, "arn:aws:iam::123:root", map[string]string{"Project": "platform"})
 	if err != nil {
 		t.Fatalf("NewRegistryRecord: %v", err)
 	}
 
-	if err := RegisterResource(context.Background(), m, "test-registry", rec); err != nil {
+	if err := RegisterResource(context.Background(), m, testRegistryTable, rec); err != nil {
 		t.Fatalf("RegisterResource: %v", err)
 	}
 
@@ -131,12 +131,12 @@ func TestRegisterResource_Idempotent(t *testing.T) {
 	m := newRegistryMock()
 	m.condFailOnDup = true
 
-	rec, _ := NewRegistryRecord("S3Bucket", "ffreis-tf-state-root", "arn:aws:iam::123:root", nil)
+	rec, _ := NewRegistryRecord("S3Bucket", testStateBucket, "arn:aws:iam::123:root", nil)
 
-	if err := RegisterResource(context.Background(), m, "test-registry", rec); err != nil {
+	if err := RegisterResource(context.Background(), m, testRegistryTable, rec); err != nil {
 		t.Fatalf("first call: %v", err)
 	}
-	if err := RegisterResource(context.Background(), m, "test-registry", rec); err != nil {
+	if err := RegisterResource(context.Background(), m, testRegistryTable, rec); err != nil {
 		t.Fatalf("second call (should be idempotent): %v", err)
 	}
 
@@ -153,7 +153,7 @@ func TestRegisterResource_Idempotent(t *testing.T) {
 func TestNewRegistryRecord_Fields(t *testing.T) {
 	before := time.Now().UTC()
 	tags := map[string]string{"Project": "platform"}
-	rec, err := NewRegistryRecord("IAMRole", "platform-admin", "arn:aws:iam::123:role/caller", tags)
+	rec, err := NewRegistryRecord("IAMRole", "platform-admin", testCallerRoleARN, tags)
 	after := time.Now().UTC()
 
 	if err != nil {
@@ -169,7 +169,7 @@ func TestNewRegistryRecord_Fields(t *testing.T) {
 	if rec.ResourceType != "IAMRole" {
 		t.Errorf("ResourceType: want IAMRole, got %s", rec.ResourceType)
 	}
-	if rec.CreatedBy != "arn:aws:iam::123:role/caller" {
+	if rec.CreatedBy != testCallerRoleARN {
 		t.Errorf("CreatedBy: want arn, got %s", rec.CreatedBy)
 	}
 	if rec.CreatedAt.Before(before) || rec.CreatedAt.After(after) {
@@ -186,13 +186,13 @@ func TestWriteConfig_WritesRecord(t *testing.T) {
 	m := newRegistryMock()
 	ctx := context.Background()
 
-	err := WriteConfig(ctx, m, "test-registry", "account", "development",
-		"arn:aws:iam::123:role/caller", map[string]string{"email": "dev@example.com"})
+	err := WriteConfig(ctx, m, testRegistryTable, "account", "development",
+		testCallerRoleARN, map[string]string{"email": testDevEmail})
 	if err != nil {
 		t.Fatalf("WriteConfig: %v", err)
 	}
 
-	records, err := FetchConfig(ctx, m, "test-registry", "account")
+	records, err := FetchConfig(ctx, m, testRegistryTable, "account")
 	if err != nil {
 		t.Fatalf("FetchConfig: %v", err)
 	}
@@ -207,7 +207,7 @@ func TestWriteConfig_WritesRecord(t *testing.T) {
 	if rec.SK != "development" {
 		t.Errorf("SK: want development, got %s", rec.SK)
 	}
-	if rec.Data["email"] != "dev@example.com" {
+	if rec.Data["email"] != testDevEmail {
 		t.Errorf("Data[email]: want dev@example.com, got %s", rec.Data["email"])
 	}
 }
@@ -218,10 +218,10 @@ func TestWriteConfig_Overwrites(t *testing.T) {
 	m := newRegistryMock()
 	ctx := context.Background()
 
-	_ = WriteConfig(ctx, m, "test-registry", "account", "development", "actor", map[string]string{"email": "old@example.com"})
-	_ = WriteConfig(ctx, m, "test-registry", "account", "development", "actor", map[string]string{"email": "new@example.com"})
+	_ = WriteConfig(ctx, m, testRegistryTable, "account", "development", "actor", map[string]string{"email": "old@example.com"})
+	_ = WriteConfig(ctx, m, testRegistryTable, "account", "development", "actor", map[string]string{"email": "new@example.com"})
 
-	records, _ := FetchConfig(ctx, m, "test-registry", "account")
+	records, _ := FetchConfig(ctx, m, testRegistryTable, "account")
 	if len(records) != 1 {
 		t.Fatalf("records: want 1, got %d (duplicate written)", len(records))
 	}
@@ -236,14 +236,14 @@ func TestFetchConfig_FiltersType(t *testing.T) {
 	m := newRegistryMock()
 	ctx := context.Background()
 
-	_ = WriteConfig(ctx, m, "test-registry", "account", "development", "actor", map[string]string{"email": "dev@example.com"})
-	_ = WriteConfig(ctx, m, "test-registry", "account", "staging", "actor", map[string]string{"email": "staging@example.com"})
+	_ = WriteConfig(ctx, m, testRegistryTable, "account", "development", "actor", map[string]string{"email": testDevEmail})
+	_ = WriteConfig(ctx, m, testRegistryTable, "account", "staging", "actor", map[string]string{"email": "staging@example.com"})
 
 	// Also write a resource record that must not appear in account fetch.
-	rec, _ := NewRegistryRecord("S3Bucket", "ffreis-tf-state-root", "actor", nil)
-	_ = RegisterResource(ctx, m, "test-registry", rec)
+	rec, _ := NewRegistryRecord("S3Bucket", testStateBucket, "actor", nil)
+	_ = RegisterResource(ctx, m, testRegistryTable, rec)
 
-	records, err := FetchConfig(ctx, m, "test-registry", "account")
+	records, err := FetchConfig(ctx, m, testRegistryTable, "account")
 	if err != nil {
 		t.Fatalf("FetchConfig: %v", err)
 	}
@@ -265,14 +265,14 @@ func TestScanRegistry_ReturnsList(t *testing.T) {
 	rec1, _ := NewRegistryRecord("S3Bucket", "bucket-1", "actor", nil)
 	rec2, _ := NewRegistryRecord("IAMRole", "role-1", "actor", nil)
 
-	if err := RegisterResource(context.Background(), m, "test-registry", rec1); err != nil {
+	if err := RegisterResource(context.Background(), m, testRegistryTable, rec1); err != nil {
 		t.Fatalf("register rec1: %v", err)
 	}
-	if err := RegisterResource(context.Background(), m, "test-registry", rec2); err != nil {
+	if err := RegisterResource(context.Background(), m, testRegistryTable, rec2); err != nil {
 		t.Fatalf("register rec2: %v", err)
 	}
 
-	records, err := ScanRegistry(context.Background(), m, "test-registry")
+	records, err := ScanRegistry(context.Background(), m, testRegistryTable)
 	if err != nil {
 		t.Fatalf("ScanRegistry: %v", err)
 	}

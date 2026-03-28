@@ -64,9 +64,9 @@ func (m *mockSNS) DeleteTopic(_ context.Context, _ *sns.DeleteTopicInput, _ ...f
 func TestEnsureEventsTopic_ReturnsARN(t *testing.T) {
 	m := &mockSNS{}
 
-	arn, err := EnsureEventsTopic(context.Background(), m, "ffreis-platform-events", nil)
+	arn, err := EnsureEventsTopic(context.Background(), m, testEventsTopicName, nil)
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpectedFmt, err)
 	}
 	if arn != testTopicARN {
 		t.Errorf("ARN: want %s, got %s", testTopicARN, arn)
@@ -79,12 +79,12 @@ func TestEnsureEventsTopic_ReturnsARN(t *testing.T) {
 func TestEnsureEventsTopic_Idempotent(t *testing.T) {
 	m := &mockSNS{}
 
-	arn1, err := EnsureEventsTopic(context.Background(), m, "ffreis-platform-events", nil)
+	arn1, err := EnsureEventsTopic(context.Background(), m, testEventsTopicName, nil)
 	if err != nil {
 		t.Fatalf("first call: %v", err)
 	}
 
-	arn2, err := EnsureEventsTopic(context.Background(), m, "ffreis-platform-events", nil)
+	arn2, err := EnsureEventsTopic(context.Background(), m, testEventsTopicName, nil)
 	if err != nil {
 		t.Fatalf("second call: %v", err)
 	}
@@ -103,9 +103,9 @@ func TestEnsureEventsTopic_TagsApplied(t *testing.T) {
 	m := &mockSNS{}
 	tags := map[string]string{"Project": "platform", "Layer": "bootstrap"}
 
-	_, err := EnsureEventsTopic(context.Background(), m, "ffreis-platform-events", tags)
+	_, err := EnsureEventsTopic(context.Background(), m, testEventsTopicName, tags)
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpectedFmt, err)
 	}
 
 	if m.tagCalls != 1 {
@@ -119,7 +119,7 @@ func TestEnsureTopicBudgetPolicy_SetsAttributes(t *testing.T) {
 	m := &mockSNS{}
 
 	if err := EnsureTopicBudgetPolicy(context.Background(), m, testTopicARN, "123456789012"); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpectedFmt, err)
 	}
 
 	if m.setAttrCalls != 1 {
@@ -131,10 +131,10 @@ func TestEnsureTopicBudgetPolicy_SetsAttributes(t *testing.T) {
 // body is valid JSON containing all Event fields.
 func TestPublishEvent_SendsCorrectPayload(t *testing.T) {
 	m := &mockSNS{}
-	e := NewEvent(EventTypeResourceCreated, "S3Bucket", "ffreis-tf-state-root", "arn:aws:iam::123:root")
+	e := NewEvent(EventTypeResourceCreated, "S3Bucket", "ffreis-tf-state-root", testRootARN)
 
 	if err := PublishEvent(context.Background(), m, testTopicARN, e); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpectedFmt, err)
 	}
 
 	if m.publishCalls != 1 {
@@ -156,7 +156,7 @@ func TestPublishEvent_SendsCorrectPayload(t *testing.T) {
 	if got.ResourceName != "ffreis-tf-state-root" {
 		t.Errorf("ResourceName: want ffreis-tf-state-root, got %s", got.ResourceName)
 	}
-	if got.Actor != "arn:aws:iam::123:root" {
+	if got.Actor != testRootARN {
 		t.Errorf("Actor: want arn:aws:iam::123:root, got %s", got.Actor)
 	}
 	if got.Timestamp.IsZero() {
@@ -168,10 +168,10 @@ func TestPublishEvent_SendsCorrectPayload(t *testing.T) {
 // to the event type so filtering rules can act without parsing the body.
 func TestPublishEvent_SubjectIsEventType(t *testing.T) {
 	m := &mockSNS{}
-	e := NewEvent(EventTypeResourceExists, "DynamoDBTable", "ffreis-tf-locks-root", "arn:aws:iam::123:root")
+	e := NewEvent(EventTypeResourceExists, "DynamoDBTable", "ffreis-tf-locks-root", testRootARN)
 
 	if err := PublishEvent(context.Background(), m, testTopicARN, e); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpectedFmt, err)
 	}
 
 	subject := sdkaws.ToString(m.lastPublish.Subject)
@@ -188,7 +188,7 @@ func TestPublishEvent_UsesProvidedARN(t *testing.T) {
 	e := NewEvent(EventTypeResourceCreated, "IAMRole", "platform-admin", "arn:aws:iam::999:root")
 
 	if err := PublishEvent(context.Background(), m, customARN, e); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpectedFmt, err)
 	}
 
 	got := sdkaws.ToString(m.lastPublish.TopicArn)

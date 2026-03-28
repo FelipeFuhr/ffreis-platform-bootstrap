@@ -13,7 +13,7 @@ import (
 	platformcfg "github.com/ffreis/platform-bootstrap/internal/config"
 )
 
-// mockSTS implements STSAPI for verifyIdentity tests.
+// mockSTS implements CallerIdentityGetter for verifyIdentity tests.
 type mockSTS struct {
 	out *sts.GetCallerIdentityOutput
 	err error
@@ -27,7 +27,7 @@ func (m *mockSTS) GetCallerIdentity(_ context.Context, _ *sts.GetCallerIdentityI
 }
 
 func TestNew_NoCredentials(t *testing.T) {
-	cfg := &platformcfg.Config{Region: "us-east-1"}
+	cfg := &platformcfg.Config{Region: testRegion}
 	t.Setenv("AWS_ACCESS_KEY_ID", "")
 	t.Setenv("AWS_SECRET_ACCESS_KEY", "")
 	t.Setenv("AWS_SESSION_TOKEN", "")
@@ -39,7 +39,7 @@ func TestNew_NoCredentials(t *testing.T) {
 }
 
 func TestLoadConfig_EnvCredentials(t *testing.T) {
-	cfg := &platformcfg.Config{Region: "us-east-1"}
+	cfg := &platformcfg.Config{Region: testRegion}
 	t.Setenv("AWS_ACCESS_KEY_ID", "test-key")
 	t.Setenv("AWS_SECRET_ACCESS_KEY", "test-secret")
 	t.Setenv("AWS_SESSION_TOKEN", "")
@@ -48,13 +48,13 @@ func TestLoadConfig_EnvCredentials(t *testing.T) {
 	if err != nil {
 		t.Fatalf("loadConfig() unexpected error: %v", err)
 	}
-	if awsCfg.Region != "us-east-1" {
+	if awsCfg.Region != testRegion {
 		t.Fatalf("Region: want us-east-1, got %s", awsCfg.Region)
 	}
 }
 
 func TestLoadConfig_ProfileNotFound(t *testing.T) {
-	cfg := &platformcfg.Config{Region: "us-east-1", AWSProfile: "profile-that-should-not-exist"}
+	cfg := &platformcfg.Config{Region: testRegion, AWSProfile: "profile-that-should-not-exist"}
 	t.Setenv("AWS_ACCESS_KEY_ID", "")
 	t.Setenv("AWS_SECRET_ACCESS_KEY", "")
 	t.Setenv("AWS_SESSION_TOKEN", "")
@@ -71,7 +71,7 @@ func TestLoadConfig_ProfileNotFound(t *testing.T) {
 func TestVerifyIdentity_Success(t *testing.T) {
 	c := &Clients{STS: &mockSTS{out: &sts.GetCallerIdentityOutput{
 		Account: sdkaws.String("123456789012"),
-		Arn:     sdkaws.String("arn:aws:iam::123456789012:user/bootstrap"),
+		Arn:     sdkaws.String(testBootstrapARN),
 	}}}
 
 	err := c.verifyIdentity(context.Background())
@@ -81,7 +81,7 @@ func TestVerifyIdentity_Success(t *testing.T) {
 	if c.AccountID != "123456789012" {
 		t.Fatalf("AccountID: want 123456789012, got %s", c.AccountID)
 	}
-	if c.CallerARN != "arn:aws:iam::123456789012:user/bootstrap" {
+	if c.CallerARN != testBootstrapARN {
 		t.Fatalf("CallerARN not populated correctly: %s", c.CallerARN)
 	}
 }
@@ -115,7 +115,7 @@ func TestNew_SuccessWithLocalSTS(t *testing.T) {
 	}))
 	defer stsServer.Close()
 
-	cfg := &platformcfg.Config{Region: "us-east-1"}
+	cfg := &platformcfg.Config{Region: testRegion}
 	t.Setenv("AWS_ACCESS_KEY_ID", "test-key")
 	t.Setenv("AWS_SECRET_ACCESS_KEY", "test-secret")
 	t.Setenv("AWS_SESSION_TOKEN", "")
@@ -129,10 +129,10 @@ func TestNew_SuccessWithLocalSTS(t *testing.T) {
 	if clients.AccountID != "123456789012" {
 		t.Fatalf("AccountID: want 123456789012, got %s", clients.AccountID)
 	}
-	if clients.CallerARN != "arn:aws:iam::123456789012:user/bootstrap" {
+	if clients.CallerARN != testBootstrapARN {
 		t.Fatalf("CallerARN: unexpected value %s", clients.CallerARN)
 	}
-	if clients.Region != "us-east-1" {
+	if clients.Region != testRegion {
 		t.Fatalf("Region: want us-east-1, got %s", clients.Region)
 	}
 }

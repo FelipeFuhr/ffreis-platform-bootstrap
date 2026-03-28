@@ -116,8 +116,8 @@ func (m *mockS3) DeleteBucket(_ context.Context, _ *s3.DeleteBucketInput, _ ...f
 func TestEnsureStateBucket_Create(t *testing.T) {
 	m := &mockS3{}
 
-	if err := EnsureStateBucket(context.Background(), m, "test-bucket", "us-east-1", nil); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	if err := EnsureStateBucket(context.Background(), m, testS3Bucket, testRegion, nil); err != nil {
+		t.Fatalf(errUnexpectedFmt, err)
 	}
 
 	if m.createCalls != 1 {
@@ -139,8 +139,8 @@ func TestEnsureStateBucket_Create(t *testing.T) {
 func TestEnsureStateBucket_AlreadyExists(t *testing.T) {
 	m := &mockS3{bucketExists: true}
 
-	if err := EnsureStateBucket(context.Background(), m, "test-bucket", "us-east-1", nil); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	if err := EnsureStateBucket(context.Background(), m, testS3Bucket, testRegion, nil); err != nil {
+		t.Fatalf(errUnexpectedFmt, err)
 	}
 
 	if m.createCalls != 0 {
@@ -161,7 +161,7 @@ func TestEnsureStateBucket_BucketAlreadyOwnedByYou(t *testing.T) {
 		createErr: &s3types.BucketAlreadyOwnedByYou{},
 	}
 
-	if err := EnsureStateBucket(context.Background(), m, "test-bucket", "us-east-1", nil); err != nil {
+	if err := EnsureStateBucket(context.Background(), m, testS3Bucket, testRegion, nil); err != nil {
 		t.Fatalf("expected BucketAlreadyOwnedByYou to be treated as success, got: %v", err)
 	}
 
@@ -176,7 +176,7 @@ func TestEnsureStateBucket_Idempotent(t *testing.T) {
 	m := &mockS3{}
 
 	// First call — bucket does not exist yet.
-	if err := EnsureStateBucket(context.Background(), m, "test-bucket", "us-east-1", nil); err != nil {
+	if err := EnsureStateBucket(context.Background(), m, testS3Bucket, testRegion, nil); err != nil {
 		t.Fatalf("first call: %v", err)
 	}
 	if m.createCalls != 1 {
@@ -184,7 +184,7 @@ func TestEnsureStateBucket_Idempotent(t *testing.T) {
 	}
 
 	// Second call — bucket now exists (mock state updated by CreateBucket).
-	if err := EnsureStateBucket(context.Background(), m, "test-bucket", "us-east-1", nil); err != nil {
+	if err := EnsureStateBucket(context.Background(), m, testS3Bucket, testRegion, nil); err != nil {
 		t.Fatalf("second call: %v", err)
 	}
 	if m.createCalls != 1 {
@@ -207,8 +207,8 @@ func TestEnsureStateBucket_LocationConstraint(t *testing.T) {
 	// Wrap the mock to capture the input.
 	capture := &capturingS3{mockS3: m}
 
-	if err := EnsureStateBucket(context.Background(), capture, "test-bucket", "eu-west-1", nil); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	if err := EnsureStateBucket(context.Background(), capture, testS3Bucket, "eu-west-1", nil); err != nil {
+		t.Fatalf(errUnexpectedFmt, err)
 	}
 
 	capturedInput = capture.lastCreateInput
@@ -231,8 +231,8 @@ func TestEnsureStateBucket_TagsApplied(t *testing.T) {
 	m := &mockS3{}
 	tags := map[string]string{"Project": "platform", "Layer": "bootstrap"}
 
-	if err := EnsureStateBucket(context.Background(), m, "test-bucket", "us-east-1", tags); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	if err := EnsureStateBucket(context.Background(), m, testS3Bucket, testRegion, tags); err != nil {
+		t.Fatalf(errUnexpectedFmt, err)
 	}
 
 	if m.taggingCalls != 1 {
@@ -246,7 +246,7 @@ func TestEnsureStateBucket_TaggingFailureFatal(t *testing.T) {
 	m := &mockS3{taggingErr: errTaggingFailed}
 	tags := map[string]string{"Project": "platform"}
 
-	if err := EnsureStateBucket(context.Background(), m, "test-bucket", "us-east-1", tags); err == nil {
+	if err := EnsureStateBucket(context.Background(), m, testS3Bucket, testRegion, tags); err == nil {
 		t.Fatal("expected tagging error to be returned, got nil")
 	}
 }
