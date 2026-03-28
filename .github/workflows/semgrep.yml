@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   semgrep:
-    uses: FelipeFuhr/ffreis-workflows-go/.github/workflows/go-semgrep-sarif.yml@main
+    uses: FelipeFuhr/ffreis-workflows-go/.github/workflows/go-semgrep-sarif.yml@ed2f7d29467bf1fd6ec40df3953b3ee128ba3f04
     with:
       working-directory: "."
       config: "p/default"

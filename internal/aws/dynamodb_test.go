@@ -38,7 +38,7 @@ func (m *mockDynamoDB) DescribeTable(_ context.Context, _ *dynamodb.DescribeTabl
 	return &dynamodb.DescribeTableOutput{
 		Table: &dbtypes.TableDescription{
 			TableStatus: m.tableStatus,
-			TableArn:    sdkaws.String("arn:aws:dynamodb:us-east-1:123:table/test-table"),
+			TableArn:    sdkaws.String(testDynamoARN),
 		},
 	}, nil
 }
@@ -53,7 +53,7 @@ func (m *mockDynamoDB) CreateTable(_ context.Context, params *dynamodb.CreateTab
 		TableDescription: &dbtypes.TableDescription{
 			TableName:   params.TableName,
 			TableStatus: dbtypes.TableStatusActive,
-			TableArn:    sdkaws.String("arn:aws:dynamodb:us-east-1:123:table/test-table"),
+			TableArn:    sdkaws.String(testDynamoARN),
 		},
 	}, nil
 }
@@ -84,8 +84,8 @@ func (m *mockDynamoDB) Scan(_ context.Context, _ *dynamodb.ScanInput, _ ...func(
 func TestEnsureLockTable_Create(t *testing.T) {
 	m := &mockDynamoDB{}
 
-	if err := EnsureLockTable(context.Background(), m, "test-table", nil); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	if err := EnsureLockTable(context.Background(), m, testLockTable, nil); err != nil {
+		t.Fatalf(errUnexpectedFmt, err)
 	}
 
 	if m.createCalls != 1 {
@@ -104,8 +104,8 @@ func TestEnsureLockTable_Create(t *testing.T) {
 func TestEnsureLockTable_AlreadyActive(t *testing.T) {
 	m := &mockDynamoDB{tableStatus: dbtypes.TableStatusActive}
 
-	if err := EnsureLockTable(context.Background(), m, "test-table", nil); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	if err := EnsureLockTable(context.Background(), m, testLockTable, nil); err != nil {
+		t.Fatalf(errUnexpectedFmt, err)
 	}
 
 	if m.createCalls != 0 {
@@ -117,7 +117,7 @@ func TestEnsureLockTable_AlreadyActive(t *testing.T) {
 // (ResourceInUseException) is treated as success.
 func TestEnsureLockTable_ResourceInUse(t *testing.T) {
 	concurrent := &concurrentMockDynamoDB{}
-	if err := EnsureLockTable(context.Background(), concurrent, "test-table", nil); err != nil {
+	if err := EnsureLockTable(context.Background(), concurrent, testLockTable, nil); err != nil {
 		t.Fatalf("expected ResourceInUseException to be handled, got: %v", err)
 	}
 	if concurrent.createCalls != 1 {
@@ -147,7 +147,7 @@ func (m *concurrentMockDynamoDB) DescribeTable(_ context.Context, _ *dynamodb.De
 	return &dynamodb.DescribeTableOutput{
 		Table: &dbtypes.TableDescription{
 			TableStatus: dbtypes.TableStatusActive,
-			TableArn:    sdkaws.String("arn:aws:dynamodb:us-east-1:123:table/test-table"),
+			TableArn:    sdkaws.String(testDynamoARN),
 		},
 	}, nil
 }
@@ -179,7 +179,7 @@ func TestEnsureLockTable_Idempotent(t *testing.T) {
 	m := &mockDynamoDB{}
 
 	// First call — table does not exist.
-	if err := EnsureLockTable(context.Background(), m, "test-table", nil); err != nil {
+	if err := EnsureLockTable(context.Background(), m, testLockTable, nil); err != nil {
 		t.Fatalf("first call: %v", err)
 	}
 	if m.createCalls != 1 {
@@ -187,7 +187,7 @@ func TestEnsureLockTable_Idempotent(t *testing.T) {
 	}
 
 	// Second call — table is now ACTIVE (mock state updated by CreateTable).
-	if err := EnsureLockTable(context.Background(), m, "test-table", nil); err != nil {
+	if err := EnsureLockTable(context.Background(), m, testLockTable, nil); err != nil {
 		t.Fatalf("second call: %v", err)
 	}
 	if m.createCalls != 1 {
@@ -200,8 +200,8 @@ func TestEnsureLockTable_Idempotent(t *testing.T) {
 func TestEnsureLockTable_Schema(t *testing.T) {
 	capture := &schemaCapturingDynamoDB{}
 
-	if err := EnsureLockTable(context.Background(), capture, "test-table", nil); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	if err := EnsureLockTable(context.Background(), capture, testLockTable, nil); err != nil {
+		t.Fatalf(errUnexpectedFmt, err)
 	}
 
 	in := capture.lastCreateInput
@@ -230,8 +230,8 @@ func TestEnsureLockTable_TagsApplied(t *testing.T) {
 	m := &mockDynamoDB{}
 	tags := map[string]string{"Project": "platform", "Layer": "bootstrap"}
 
-	if err := EnsureLockTable(context.Background(), m, "test-table", tags); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	if err := EnsureLockTable(context.Background(), m, testLockTable, tags); err != nil {
+		t.Fatalf(errUnexpectedFmt, err)
 	}
 
 	if m.tagCalls != 1 {
@@ -255,7 +255,7 @@ func (m *schemaCapturingDynamoDB) DescribeTable(_ context.Context, _ *dynamodb.D
 	return &dynamodb.DescribeTableOutput{
 		Table: &dbtypes.TableDescription{
 			TableStatus: dbtypes.TableStatusActive,
-			TableArn:    sdkaws.String("arn:aws:dynamodb:us-east-1:123:table/test-table"),
+			TableArn:    sdkaws.String(testDynamoARN),
 		},
 	}, nil
 }
@@ -266,7 +266,7 @@ func (m *schemaCapturingDynamoDB) CreateTable(_ context.Context, params *dynamod
 	return &dynamodb.CreateTableOutput{
 		TableDescription: &dbtypes.TableDescription{
 			TableStatus: dbtypes.TableStatusActive,
-			TableArn:    sdkaws.String("arn:aws:dynamodb:us-east-1:123:table/test-table"),
+			TableArn:    sdkaws.String(testDynamoARN),
 		},
 	}, nil
 }

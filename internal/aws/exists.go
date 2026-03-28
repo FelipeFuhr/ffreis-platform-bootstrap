@@ -101,7 +101,7 @@ func (c *Clients) TopicExists(ctx context.Context, name string) bool {
 // TopicExistsChecked reports whether the SNS topic with the given name exists.
 // It returns (false, nil) when the topic does not exist.
 func (c *Clients) TopicExistsChecked(ctx context.Context, name string) (bool, error) {
-	topicARN := fmt.Sprintf("arn:aws:sns:%s:%s:%s", c.Region, c.AccountID, name)
+	topicARN := fmt.Sprintf(SNSTopicARNFormat, c.Region, c.AccountID, name)
 	_, err := c.SNS.GetTopicAttributes(ctx, &sns.GetTopicAttributesInput{
 		TopicArn: sdkaws.String(topicARN),
 	})

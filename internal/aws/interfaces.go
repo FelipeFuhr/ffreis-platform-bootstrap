@@ -11,9 +11,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 )
 
-// STSAPI is the subset of STS operations used to verify caller identity.
+// CallerIdentityGetter is the subset of STS operations used to verify caller identity.
 // *sts.Client satisfies this interface.
-type STSAPI interface {
+type CallerIdentityGetter interface {
 	GetCallerIdentity(ctx context.Context, params *sts.GetCallerIdentityInput, optFns ...func(*sts.Options)) (*sts.GetCallerIdentityOutput, error)
 }
 

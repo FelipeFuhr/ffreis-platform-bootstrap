@@ -10,8 +10,8 @@ import (
 func TestNuke_DryRunAllowsNilClients(t *testing.T) {
 	cfg := &config.Config{
 		OrgName:          "acme",
-		Region:           "us-east-1",
-		StateRegion:      "us-east-1",
+		Region:           testRegion,
+		StateRegion:      testRegion,
 		LogLevel:         "info",
 		BudgetMonthlyUSD: 20.0,
 		Accounts:         map[string]string{},
@@ -26,8 +26,8 @@ func TestNuke_DryRunAllowsNilClients(t *testing.T) {
 func TestNuke_NilClientsWhenNotDryRun(t *testing.T) {
 	cfg := &config.Config{
 		OrgName:          "acme",
-		Region:           "us-east-1",
-		StateRegion:      "us-east-1",
+		Region:           testRegion,
+		StateRegion:      testRegion,
 		LogLevel:         "info",
 		BudgetMonthlyUSD: 20.0,
 		Accounts:         map[string]string{},

@@ -6,8 +6,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/ffreis/platform-bootstrap/internal/bootstrap"
 	"github.com/spf13/cobra"
+
+	"github.com/ffreis/platform-bootstrap/internal/bootstrap"
 )
 
 var nukeCmd = &cobra.Command{

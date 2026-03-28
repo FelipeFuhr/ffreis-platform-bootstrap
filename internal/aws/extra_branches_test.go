@@ -58,7 +58,7 @@ func (m *s3ErrorMock) DeleteBucket(_ context.Context, _ *s3.DeleteBucketInput, _
 
 func TestEnsureStateBucket_HeadBucketUnexpectedError(t *testing.T) {
 	errSentinel := errors.New("forbidden")
-	err := EnsureStateBucket(context.Background(), &s3ErrorMock{headErr: errSentinel}, "bucket", "us-east-1", nil)
+	err := EnsureStateBucket(context.Background(), &s3ErrorMock{headErr: errSentinel}, "bucket", testRegion, nil)
 	if err == nil || !strings.Contains(err.Error(), "checking bucket") {
 		t.Fatalf("expected wrapped head bucket error, got: %v", err)
 	}
@@ -66,7 +66,7 @@ func TestEnsureStateBucket_HeadBucketUnexpectedError(t *testing.T) {
 
 func TestEnsureStateBucket_CreateBucketError(t *testing.T) {
 	errSentinel := errors.New("create failed")
-	err := EnsureStateBucket(context.Background(), &s3ErrorMock{createErr: errSentinel}, "bucket", "us-east-1", nil)
+	err := EnsureStateBucket(context.Background(), &s3ErrorMock{createErr: errSentinel}, "bucket", testRegion, nil)
 	if err == nil || !strings.Contains(err.Error(), "creating bucket") {
 		t.Fatalf("expected wrapped create error, got: %v", err)
 	}
@@ -74,7 +74,7 @@ func TestEnsureStateBucket_CreateBucketError(t *testing.T) {
 
 func TestEnsureStateBucket_PublicBlockError(t *testing.T) {
 	errSentinel := errors.New("public block failed")
-	err := EnsureStateBucket(context.Background(), &s3ErrorMock{publicErr: errSentinel}, "bucket", "us-east-1", nil)
+	err := EnsureStateBucket(context.Background(), &s3ErrorMock{publicErr: errSentinel}, "bucket", testRegion, nil)
 	if err == nil || !strings.Contains(err.Error(), "blocking public access") {
 		t.Fatalf("expected wrapped public block error, got: %v", err)
 	}

@@ -19,7 +19,7 @@ func TestDeleteStateBucket_NotFoundIsNil(t *testing.T) {
 	m := &mockS3{bucketExists: false}
 
 	if err := DeleteStateBucket(context.Background(), m, "missing"); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpectedFmt, err)
 	}
 	if m.deleteBucketCalls != 0 {
 		t.Errorf("deleteBucketCalls: want 0, got %d", m.deleteBucketCalls)
@@ -31,10 +31,10 @@ func TestDeleteStateBucket_HeadBucketUnexpectedError(t *testing.T) {
 
 	err := DeleteStateBucket(context.Background(), m, "state")
 	if err == nil {
-		t.Fatal("expected error, got nil")
+		t.Fatal(errExpectedGotNil)
 	}
 	if !strings.Contains(err.Error(), "checking bucket state before delete") {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpectedFmt, err)
 	}
 }
 
@@ -45,7 +45,7 @@ func TestDeleteStateBucket_DeletesAfterEmptying(t *testing.T) {
 	}
 
 	if err := DeleteStateBucket(context.Background(), m, "state"); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpectedFmt, err)
 	}
 	if m.deleteBucketCalls != 1 {
 		t.Errorf("deleteBucketCalls: want 1, got %d", m.deleteBucketCalls)
@@ -63,10 +63,10 @@ func TestDeleteStateBucket_DeleteObjectsAPIErr(t *testing.T) {
 
 	err := DeleteStateBucket(context.Background(), m, "state")
 	if err == nil {
-		t.Fatal("expected error, got nil")
+		t.Fatal(errExpectedGotNil)
 	}
 	if !strings.Contains(err.Error(), "batch deleting objects") {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpectedFmt, err)
 	}
 }
 
@@ -86,10 +86,10 @@ func TestDeleteStateBucket_DeleteObjectsOutputErrors(t *testing.T) {
 
 	err := DeleteStateBucket(context.Background(), m, "state")
 	if err == nil {
-		t.Fatal("expected error, got nil")
+		t.Fatal(errExpectedGotNil)
 	}
 	if !strings.Contains(err.Error(), "deleting objects") {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpectedFmt, err)
 	}
 }
 
@@ -111,7 +111,7 @@ func TestDeleteStateBucket_PaginatesUntilNotTruncated(t *testing.T) {
 	}
 
 	if err := DeleteStateBucket(context.Background(), m, "state"); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpectedFmt, err)
 	}
 	if m.listObjectVersionsCalls != 2 {
 		t.Errorf("listObjectVersionsCalls: want 2, got %d", m.listObjectVersionsCalls)
@@ -125,7 +125,7 @@ func TestDeleteDynamoDBTable_NotFoundIsNil(t *testing.T) {
 	m := &mockDynamoDB{deleteErr: &dbtypes.ResourceNotFoundException{}}
 
 	if err := DeleteDynamoDBTable(context.Background(), m, "missing"); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpectedFmt, err)
 	}
 }
 
@@ -134,10 +134,10 @@ func TestDeleteDynamoDBTable_UnexpectedError(t *testing.T) {
 
 	err := DeleteDynamoDBTable(context.Background(), m, "tbl")
 	if err == nil {
-		t.Fatal("expected error, got nil")
+		t.Fatal(errExpectedGotNil)
 	}
 	if !strings.Contains(err.Error(), "deleting DynamoDB table tbl") {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpectedFmt, err)
 	}
 }
 
@@ -145,7 +145,7 @@ func TestDeleteIAMRole_NotFoundIsNil(t *testing.T) {
 	m := &mockIAM{roleExists: false}
 
 	if err := DeleteIAMRole(context.Background(), m, "missing-role"); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpectedFmt, err)
 	}
 }
 
@@ -154,10 +154,10 @@ func TestDeleteIAMRole_CheckRoleError(t *testing.T) {
 
 	err := DeleteIAMRole(context.Background(), m, "role")
 	if err == nil {
-		t.Fatal("expected error, got nil")
+		t.Fatal(errExpectedGotNil)
 	}
 	if !strings.Contains(err.Error(), "checking IAM role role before delete") {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpectedFmt, err)
 	}
 }
 
@@ -166,10 +166,10 @@ func TestDeleteIAMRole_ListPoliciesError(t *testing.T) {
 
 	err := DeleteIAMRole(context.Background(), m, "role")
 	if err == nil {
-		t.Fatal("expected error, got nil")
+		t.Fatal(errExpectedGotNil)
 	}
 	if !strings.Contains(err.Error(), "listing inline policies for role role") {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpectedFmt, err)
 	}
 }
 
@@ -182,10 +182,10 @@ func TestDeleteIAMRole_DeletePolicyError(t *testing.T) {
 
 	err := DeleteIAMRole(context.Background(), m, "role")
 	if err == nil {
-		t.Fatal("expected error, got nil")
+		t.Fatal(errExpectedGotNil)
 	}
 	if !strings.Contains(err.Error(), "deleting inline policy p1 from role role") {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpectedFmt, err)
 	}
 }
 
@@ -197,10 +197,10 @@ func TestDeleteIAMRole_DeleteRoleError(t *testing.T) {
 
 	err := DeleteIAMRole(context.Background(), m, "role")
 	if err == nil {
-		t.Fatal("expected error, got nil")
+		t.Fatal(errExpectedGotNil)
 	}
 	if !strings.Contains(err.Error(), "deleting IAM role role") {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpectedFmt, err)
 	}
 }
 
@@ -211,7 +211,7 @@ func TestDeleteIAMRole_SuccessDeletesInlinePoliciesThenRole(t *testing.T) {
 	}
 
 	if err := DeleteIAMRole(context.Background(), m, "role"); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpectedFmt, err)
 	}
 	if m.roleExists {
 		t.Error("roleExists: want false after delete, got true")
@@ -222,7 +222,7 @@ func TestDeleteSNSTopic_NotFoundIsNil(t *testing.T) {
 	m := &mockSNS{deleteErr: &snstypes.NotFoundException{}}
 
 	if err := DeleteSNSTopic(context.Background(), m, "us-east-1", testAccountID, "missing-topic"); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpectedFmt, err)
 	}
 }
 
@@ -231,10 +231,10 @@ func TestDeleteSNSTopic_UnexpectedError(t *testing.T) {
 
 	err := DeleteSNSTopic(context.Background(), m, "us-east-1", testAccountID, "topic")
 	if err == nil {
-		t.Fatal("expected error, got nil")
+		t.Fatal(errExpectedGotNil)
 	}
 	if !strings.Contains(err.Error(), "deleting SNS topic") {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpectedFmt, err)
 	}
 }
 
@@ -242,7 +242,7 @@ func TestDeleteBudget_NotFoundIsNil(t *testing.T) {
 	m := &mockBudgets{deleteErr: &budgetstypes.NotFoundException{}}
 
 	if err := DeleteBudget(context.Background(), m, testAccountID, testBudgetName); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpectedFmt, err)
 	}
 }
 
@@ -251,10 +251,10 @@ func TestDeleteBudget_UnexpectedError(t *testing.T) {
 
 	err := DeleteBudget(context.Background(), m, testAccountID, testBudgetName)
 	if err == nil {
-		t.Fatal("expected error, got nil")
+		t.Fatal(errExpectedGotNil)
 	}
 	if !strings.Contains(err.Error(), "deleting budget") {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpectedFmt, err)
 	}
 }
 
@@ -264,7 +264,7 @@ func TestDeleteStateBucket_NotFoundErrorTypeMatch(t *testing.T) {
 	m := &mockS3{headErr: &s3types.NotFound{}}
 
 	if err := DeleteStateBucket(context.Background(), m, "missing"); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpectedFmt, err)
 	}
 }
 
@@ -273,6 +273,6 @@ func TestDeleteIAMRole_NotFoundErrorTypeMatch(t *testing.T) {
 	m := &mockIAM{getRoleErr: &iamtypes.NoSuchEntityException{}}
 
 	if err := DeleteIAMRole(context.Background(), m, "missing-role"); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpectedFmt, err)
 	}
 }

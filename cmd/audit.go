@@ -8,9 +8,10 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/spf13/cobra"
+
 	platformaws "github.com/ffreis/platform-bootstrap/internal/aws"
 	"github.com/ffreis/platform-bootstrap/internal/bootstrap"
-	"github.com/spf13/cobra"
 )
 
 // AuditResult is the structured result of a single audited resource.

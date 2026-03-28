@@ -61,7 +61,7 @@ func TestEnsureBudget_Create(t *testing.T) {
 	m := &mockBudgets{}
 
 	if err := EnsureBudget(context.Background(), m, testAccountID, testBudgetARN, testBudgetName, 20.0); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpectedFmt, err)
 	}
 
 	if m.createCalls != 1 {
@@ -75,7 +75,7 @@ func TestEnsureBudget_AlreadyExists(t *testing.T) {
 	m := &mockBudgets{budgetExists: true}
 
 	if err := EnsureBudget(context.Background(), m, testAccountID, testBudgetARN, testBudgetName, 20.0); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpectedFmt, err)
 	}
 
 	if m.createCalls != 0 {
@@ -124,7 +124,7 @@ func TestEnsureBudget_ThreeNotifications(t *testing.T) {
 	captureMock := &capturingBudgets{}
 
 	if err := EnsureBudget(context.Background(), captureMock, testAccountID, testBudgetARN, testBudgetName, 20.0); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpectedFmt, err)
 	}
 
 	captured = captureMock.lastInput

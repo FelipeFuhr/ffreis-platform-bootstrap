@@ -190,12 +190,12 @@ func TestValidateClientsForBootstrap_Success(t *testing.T) {
 		SNS:       typedNilSNS,
 		Budgets:   typedNilBudgets,
 		AccountID: "123",
-		CallerARN: "arn:aws:iam::123:root",
-		Region:    "us-east-1",
+		CallerARN: testCallerARN,
+		Region:    testRegion,
 	}
 
 	if err := validateClientsForBootstrap(clients); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpectedFmt, err)
 	}
 }
 
@@ -220,11 +220,11 @@ func TestValidateClientsForNuke_Success(t *testing.T) {
 		SNS:       typedNilSNS,
 		Budgets:   typedNilBudgets,
 		AccountID: "123",
-		Region:    "us-east-1",
+		Region:    testRegion,
 	}
 
 	if err := validateClientsForNuke(clients); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpectedFmt, err)
 	}
 }
 
@@ -243,7 +243,7 @@ func TestBootstrapRunner_TryPublish_PublishErrorStillContinues(t *testing.T) {
 		cfg: &config.Config{OrgName: "acme"},
 		c: &platformaws.Clients{
 			SNS:       snsMock,
-			CallerARN: "arn:aws:iam::123:root",
+			CallerARN: testCallerARN,
 		},
 		log:   slog.Default(),
 		topic: "arn:aws:sns:us-east-1:123:topic",
@@ -264,7 +264,7 @@ func TestBootstrapRunner_TryRegister_RegisterErrorStillContinues(t *testing.T) {
 		cfg: &config.Config{OrgName: "acme"},
 		c: &platformaws.Clients{
 			DynamoDB:  dbMock,
-			CallerARN: "arn:aws:iam::123:root",
+			CallerARN: testCallerARN,
 		},
 		log:           slog.Default(),
 		tags:          platformaws.RequiredTags("acme"),
@@ -279,8 +279,8 @@ func TestNuke_NonDryRunSuccessRunsAllSteps(t *testing.T) {
 
 	cfg := &config.Config{
 		OrgName:          "acme",
-		Region:           "us-east-1",
-		StateRegion:      "us-east-1",
+		Region:           testRegion,
+		StateRegion:      testRegion,
 		LogLevel:         "info",
 		BudgetMonthlyUSD: 20.0,
 		Accounts:         map[string]string{},
@@ -300,11 +300,11 @@ func TestNuke_NonDryRunSuccessRunsAllSteps(t *testing.T) {
 		SNS:       snsMock,
 		Budgets:   budMock,
 		AccountID: "123456789012",
-		Region:    "us-east-1",
+		Region:    testRegion,
 	}
 
 	if err := Nuke(ctx, cfg, clients); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpectedFmt, err)
 	}
 
 	if budMock.deleteCalls != 1 {
@@ -329,8 +329,8 @@ func TestNuke_ContinuesOnError(t *testing.T) {
 
 	cfg := &config.Config{
 		OrgName:          "acme",
-		Region:           "us-east-1",
-		StateRegion:      "us-east-1",
+		Region:           testRegion,
+		StateRegion:      testRegion,
 		LogLevel:         "info",
 		BudgetMonthlyUSD: 20.0,
 		Accounts:         map[string]string{},
@@ -350,7 +350,7 @@ func TestNuke_ContinuesOnError(t *testing.T) {
 		SNS:       snsMock,
 		Budgets:   budMock,
 		AccountID: "123456789012",
-		Region:    "us-east-1",
+		Region:    testRegion,
 	}
 
 	if err := Nuke(ctx, cfg, clients); err == nil {

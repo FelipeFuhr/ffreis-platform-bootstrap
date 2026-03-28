@@ -87,17 +87,7 @@ func overlayEnv(cfg *Config) {
 	if v := os.Getenv(EnvAWSProfile); v != "" {
 		cfg.AWSProfile = v
 	}
-	// Fall back to standard AWS env vars when platform-specific profile env is
-	// not provided. This is especially useful for AWS SSO:
-	//   aws sso login --profile my-sso
-	//   AWS_PROFILE=my-sso platform-bootstrap init ...
-	if cfg.AWSProfile == "" {
-		if v := os.Getenv(AWSProfileEnv); v != "" {
-			cfg.AWSProfile = v
-		} else if v := os.Getenv(AWSDefaultProfileEnv); v != "" {
-			cfg.AWSProfile = v
-		}
-	}
+	resolveAWSProfileFallback(cfg)
 	if v := os.Getenv(EnvRegion); v != "" {
 		cfg.Region = v
 	}
@@ -111,26 +101,55 @@ func overlayEnv(cfg *Config) {
 		cfg.LogLevel = v
 	}
 	if v := os.Getenv(EnvDryRun); v != "" {
-		// ParseBool accepts: 1, t, T, TRUE, true, True, 0, f, F, FALSE, false, False.
-		if b, err := strconv.ParseBool(v); err == nil {
-			cfg.DryRun = b
-		}
+		applyDryRun(cfg, v)
 	}
 	if v := os.Getenv(EnvRootEmail); v != "" {
 		cfg.RootEmail = v
 	}
 	if v := os.Getenv(EnvBudgetUSD); v != "" {
-		if f, err := strconv.ParseFloat(v, 64); err == nil && f > 0 {
-			cfg.BudgetMonthlyUSD = f
-		}
+		applyBudgetUSD(cfg, v)
 	}
 	if v := os.Getenv(EnvAccounts); v != "" {
-		if parsed, err := parseAccounts(splitTrimmed(v, ",")); err == nil {
-			cfg.Accounts = parsed
-		}
+		applyAccountsEnv(cfg, v)
 	}
 	if v := os.Getenv(EnvAdminEmail); v != "" {
 		cfg.AdminEmail = v
+	}
+}
+
+// resolveAWSProfileFallback falls back to standard AWS env vars when the
+// platform-specific profile env is not set. This is especially useful for
+// AWS SSO: aws sso login --profile my-sso && AWS_PROFILE=my-sso platform-bootstrap ...
+func resolveAWSProfileFallback(cfg *Config) {
+	if cfg.AWSProfile != "" {
+		return
+	}
+	if v := os.Getenv(AWSProfileEnv); v != "" {
+		cfg.AWSProfile = v
+	} else if v := os.Getenv(AWSDefaultProfileEnv); v != "" {
+		cfg.AWSProfile = v
+	}
+}
+
+// applyDryRun parses a boolean string and sets cfg.DryRun on success.
+// ParseBool accepts: 1, t, T, TRUE, true, True, 0, f, F, FALSE, false, False.
+func applyDryRun(cfg *Config, v string) {
+	if b, err := strconv.ParseBool(v); err == nil {
+		cfg.DryRun = b
+	}
+}
+
+// applyBudgetUSD parses a positive float string and sets cfg.BudgetMonthlyUSD on success.
+func applyBudgetUSD(cfg *Config, v string) {
+	if f, err := strconv.ParseFloat(v, 64); err == nil && f > 0 {
+		cfg.BudgetMonthlyUSD = f
+	}
+}
+
+// applyAccountsEnv parses a comma-separated list of name:email pairs and sets cfg.Accounts on success.
+func applyAccountsEnv(cfg *Config, v string) {
+	if parsed, err := parseAccounts(splitTrimmed(v, ",")); err == nil {
+		cfg.Accounts = parsed
 	}
 }
 

@@ -38,7 +38,7 @@ func TestLoad_ValidConfig(t *testing.T) {
 
 	cfg, err := Load(nil)
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(testUnexpectedErrorFmt, err)
 	}
 
 	if cfg.OrgName != "acme" {
@@ -59,7 +59,7 @@ func TestLoad_ValidConfig(t *testing.T) {
 // TestLoad_MissingOrg verifies that an empty org name causes a validation error.
 func TestLoad_MissingOrg(t *testing.T) {
 	t.Setenv(EnvOrgName, "")
-	t.Setenv(EnvRegion, "us-east-1")
+	t.Setenv(EnvRegion, DefaultRegion)
 
 	_, err := Load(nil)
 	if err == nil {
@@ -75,7 +75,7 @@ func TestLoad_InvalidOrgName(t *testing.T) {
 	for _, bad := range []string{"AB", "ab", "toolongname", "1abc", "ab-cd"} {
 		t.Run(bad, func(t *testing.T) {
 			t.Setenv(EnvOrgName, bad)
-			t.Setenv(EnvRegion, "us-east-1")
+			t.Setenv(EnvRegion, DefaultRegion)
 
 			_, err := Load(nil)
 			if err == nil {
@@ -90,7 +90,7 @@ func TestLoad_ValidOrgNames(t *testing.T) {
 	for _, good := range []string{"abc", "a1b2c3", "abcdef"} {
 		t.Run(good, func(t *testing.T) {
 			t.Setenv(EnvOrgName, good)
-			t.Setenv(EnvRegion, "us-east-1")
+			t.Setenv(EnvRegion, DefaultRegion)
 
 			_, err := Load(nil)
 			if err != nil {
@@ -102,8 +102,8 @@ func TestLoad_ValidOrgNames(t *testing.T) {
 
 // TestLoad_InvalidLogLevel verifies that an unknown log level is rejected.
 func TestLoad_InvalidLogLevel(t *testing.T) {
-	t.Setenv(EnvOrgName, "abc")
-	t.Setenv(EnvRegion, "us-east-1")
+	t.Setenv(EnvOrgName, testOrgName)
+	t.Setenv(EnvRegion, DefaultRegion)
 	t.Setenv(EnvLogLevel, "verbose")
 
 	_, err := Load(nil)
@@ -118,7 +118,7 @@ func TestLoad_InvalidLogLevel(t *testing.T) {
 // TestLoad_DefaultsApplied verifies that defaults are used when no env vars
 // or flags override them.
 func TestLoad_DefaultsApplied(t *testing.T) {
-	t.Setenv(EnvOrgName, "abc")
+	t.Setenv(EnvOrgName, testOrgName)
 	// Clear any env vars that might leak from the test environment.
 	t.Setenv(EnvRegion, "")
 	t.Setenv(EnvLogLevel, "")
@@ -141,14 +141,14 @@ func TestLoad_DefaultsApplied(t *testing.T) {
 
 // TestLoad_RegionDefault verifies the built-in region default when env is empty.
 func TestLoad_RegionDefault(t *testing.T) {
-	t.Setenv(EnvOrgName, "abc")
+	t.Setenv(EnvOrgName, testOrgName)
 	t.Setenv(EnvRegion, "")
-	t.Setenv(EnvLogLevel, "info")
+	t.Setenv(EnvLogLevel, DefaultLogLevel)
 
-	// With no region env var, region starts as DefaultRegion "us-east-1".
+	// With no region env var, region starts as DefaultRegion.
 	cfg, err := Load(nil)
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(testUnexpectedErrorFmt, err)
 	}
 	if cfg.Region != DefaultRegion {
 		t.Errorf("Region: want %s (default), got %s", DefaultRegion, cfg.Region)
@@ -157,13 +157,13 @@ func TestLoad_RegionDefault(t *testing.T) {
 
 // TestLoad_StateRegionDefault verifies that state_region falls back to region.
 func TestLoad_StateRegionDefault(t *testing.T) {
-	t.Setenv(EnvOrgName, "abc")
+	t.Setenv(EnvOrgName, testOrgName)
 	t.Setenv(EnvRegion, "eu-west-1")
 	t.Setenv(EnvStateRegion, "")
 
 	cfg, err := Load(nil)
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(testUnexpectedErrorFmt, err)
 	}
 	if cfg.StateRegion != "eu-west-1" {
 		t.Errorf("StateRegion: want eu-west-1 (same as region), got %s", cfg.StateRegion)
@@ -172,16 +172,16 @@ func TestLoad_StateRegionDefault(t *testing.T) {
 
 // TestLoad_ExplicitStateRegion verifies that state_region can differ from region.
 func TestLoad_ExplicitStateRegion(t *testing.T) {
-	t.Setenv(EnvOrgName, "abc")
+	t.Setenv(EnvOrgName, testOrgName)
 	t.Setenv(EnvRegion, "eu-west-1")
-	t.Setenv(EnvStateRegion, "us-east-1")
+	t.Setenv(EnvStateRegion, DefaultRegion)
 
 	cfg, err := Load(nil)
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(testUnexpectedErrorFmt, err)
 	}
-	if cfg.StateRegion != "us-east-1" {
-		t.Errorf("StateRegion: want us-east-1 (explicit), got %s", cfg.StateRegion)
+	if cfg.StateRegion != DefaultRegion {
+		t.Errorf("StateRegion: want %s (explicit), got %s", DefaultRegion, cfg.StateRegion)
 	}
 }
 
@@ -189,12 +189,12 @@ func TestLoad_ExplicitStateRegion(t *testing.T) {
 // the corresponding environment variable.
 func TestLoad_FlagOverridesEnv(t *testing.T) {
 	t.Setenv(EnvOrgName, "env01")
-	t.Setenv(EnvRegion, "us-east-1")
+	t.Setenv(EnvRegion, DefaultRegion)
 
 	flags := makeFlagSet(t, []string{"--org=flag01"})
 	cfg, err := Load(flags)
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(testUnexpectedErrorFmt, err)
 	}
 	if cfg.OrgName != "flag01" {
 		t.Errorf("OrgName: want flag01 (flag wins), got %s", cfg.OrgName)
@@ -205,13 +205,13 @@ func TestLoad_FlagOverridesEnv(t *testing.T) {
 // explicitly set on the command-line does not clobber the environment value.
 func TestLoad_UnchangedFlagDoesNotOverrideEnv(t *testing.T) {
 	t.Setenv(EnvOrgName, "env01")
-	t.Setenv(EnvRegion, "us-east-1")
+	t.Setenv(EnvRegion, DefaultRegion)
 
 	// Build a flagset but do NOT pass --org, so org flag is not Changed.
 	flags := makeFlagSet(t, []string{})
 	cfg, err := Load(flags)
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(testUnexpectedErrorFmt, err)
 	}
 	if cfg.OrgName != "env01" {
 		t.Errorf("OrgName: want env01 (env wins when flag not set), got %s", cfg.OrgName)
@@ -220,14 +220,14 @@ func TestLoad_UnchangedFlagDoesNotOverrideEnv(t *testing.T) {
 
 // TestLoad_DryRunFlag verifies that --dry-run flag is applied.
 func TestLoad_DryRunFlag(t *testing.T) {
-	t.Setenv(EnvOrgName, "abc")
-	t.Setenv(EnvRegion, "us-east-1")
+	t.Setenv(EnvOrgName, testOrgName)
+	t.Setenv(EnvRegion, DefaultRegion)
 	t.Setenv(EnvDryRun, "")
 
 	flags := makeFlagSet(t, []string{"--dry-run"})
 	cfg, err := Load(flags)
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(testUnexpectedErrorFmt, err)
 	}
 	if !cfg.DryRun {
 		t.Error("DryRun: want true (flag set), got false")
@@ -236,13 +236,13 @@ func TestLoad_DryRunFlag(t *testing.T) {
 
 // TestLoad_DryRunEnv verifies that PLATFORM_DRY_RUN env var is applied.
 func TestLoad_DryRunEnv(t *testing.T) {
-	t.Setenv(EnvOrgName, "abc")
-	t.Setenv(EnvRegion, "us-east-1")
+	t.Setenv(EnvOrgName, testOrgName)
+	t.Setenv(EnvRegion, DefaultRegion)
 	t.Setenv(EnvDryRun, "true")
 
 	cfg, err := Load(nil)
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(testUnexpectedErrorFmt, err)
 	}
 	if !cfg.DryRun {
 		t.Error("DryRun: want true (from env), got false")
@@ -252,13 +252,13 @@ func TestLoad_DryRunEnv(t *testing.T) {
 // TestLoad_BudgetUSDEnv verifies that PLATFORM_BUDGET_USD overrides the
 // default budget amount.
 func TestLoad_BudgetUSDEnv(t *testing.T) {
-	t.Setenv(EnvOrgName, "abc")
-	t.Setenv(EnvRegion, "us-east-1")
+	t.Setenv(EnvOrgName, testOrgName)
+	t.Setenv(EnvRegion, DefaultRegion)
 	t.Setenv(EnvBudgetUSD, "150.50")
 
 	cfg, err := Load(nil)
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(testUnexpectedErrorFmt, err)
 	}
 	if cfg.BudgetMonthlyUSD != 150.50 {
 		t.Errorf("BudgetMonthlyUSD: want 150.50, got %.2f", cfg.BudgetMonthlyUSD)
@@ -267,13 +267,13 @@ func TestLoad_BudgetUSDEnv(t *testing.T) {
 
 // TestLoad_AccountsFromEnv verifies that PLATFORM_ACCOUNTS parses correctly.
 func TestLoad_AccountsFromEnv(t *testing.T) {
-	t.Setenv(EnvOrgName, "abc")
-	t.Setenv(EnvRegion, "us-east-1")
+	t.Setenv(EnvOrgName, testOrgName)
+	t.Setenv(EnvRegion, DefaultRegion)
 	t.Setenv(EnvAccounts, "dev:dev@example.com,prod:prod@example.com")
 
 	cfg, err := Load(nil)
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(testUnexpectedErrorFmt, err)
 	}
 	if cfg.Accounts["dev"] != "dev@example.com" {
 		t.Errorf("Accounts[dev]: want dev@example.com, got %s", cfg.Accounts["dev"])
@@ -285,14 +285,14 @@ func TestLoad_AccountsFromEnv(t *testing.T) {
 
 // TestLoad_AccountsFromFlag verifies that --account flags parse correctly.
 func TestLoad_AccountsFromFlag(t *testing.T) {
-	t.Setenv(EnvOrgName, "abc")
-	t.Setenv(EnvRegion, "us-east-1")
+	t.Setenv(EnvOrgName, testOrgName)
+	t.Setenv(EnvRegion, DefaultRegion)
 	t.Setenv(EnvAccounts, "")
 
 	flags := makeFlagSet(t, []string{"--account=dev:dev@example.com", "--account=prod:prod@example.com"})
 	cfg, err := Load(flags)
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(testUnexpectedErrorFmt, err)
 	}
 	if cfg.Accounts["dev"] != "dev@example.com" {
 		t.Errorf("Accounts[dev]: want dev@example.com, got %s", cfg.Accounts["dev"])
@@ -301,13 +301,13 @@ func TestLoad_AccountsFromFlag(t *testing.T) {
 
 // TestLoad_AllowedRegionsEnv verifies comma-separated PLATFORM_ALLOWED_REGIONS.
 func TestLoad_AllowedRegionsEnv(t *testing.T) {
-	t.Setenv(EnvOrgName, "abc")
-	t.Setenv(EnvRegion, "us-east-1")
+	t.Setenv(EnvOrgName, testOrgName)
+	t.Setenv(EnvRegion, DefaultRegion)
 	t.Setenv(EnvAllowedRegions, "us-east-1, eu-west-1")
 
 	cfg, err := Load(nil)
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(testUnexpectedErrorFmt, err)
 	}
 	if len(cfg.AllowedRegions) != 2 {
 		t.Errorf("AllowedRegions: want 2, got %d", len(cfg.AllowedRegions))
@@ -332,7 +332,7 @@ func TestValidate_MultipleErrors(t *testing.T) {
 // TestValidate_AllLogLevels verifies each valid log level is accepted.
 func TestValidate_AllLogLevels(t *testing.T) {
 	for _, level := range []string{"debug", "info", "warn", "error", "DEBUG", "INFO"} {
-		cfg := &Config{OrgName: "abc", Region: "us-east-1", LogLevel: level, BudgetMonthlyUSD: DefaultBudgetUSD}
+		cfg := &Config{OrgName: testOrgName, Region: DefaultRegion, LogLevel: level, BudgetMonthlyUSD: DefaultBudgetUSD}
 		if errs := cfg.Validate(); len(errs) != 0 {
 			t.Errorf("log level %q: unexpected error: %v", level, errs)
 		}
@@ -371,7 +371,7 @@ func TestParseAccounts_Valid(t *testing.T) {
 	pairs := []string{"dev:dev@example.com", "prod:prod@example.com"}
 	out, err := parseAccounts(pairs)
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(testUnexpectedErrorFmt, err)
 	}
 	if out["dev"] != "dev@example.com" {
 		t.Errorf("dev: want dev@example.com, got %s", out["dev"])
@@ -409,7 +409,7 @@ func TestParseAccounts_EmptyEmail(t *testing.T) {
 func TestParseAccounts_EmptySlice(t *testing.T) {
 	out, err := parseAccounts(nil)
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(testUnexpectedErrorFmt, err)
 	}
 	if len(out) != 0 {
 		t.Errorf("want empty map, got %d entries", len(out))
