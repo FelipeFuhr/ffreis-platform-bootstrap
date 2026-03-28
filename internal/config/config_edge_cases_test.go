@@ -29,4 +29,3 @@ func TestLoad_AccountsEnv_InvalidDoesNotPopulateAccounts(t *testing.T) {
 		t.Fatalf("Accounts: expected nil/empty on invalid env, got %#v", cfg.Accounts)
 	}
 }
-

@@ -53,4 +53,3 @@ func TestVersionCmd_TrimsWhitespace(t *testing.T) {
 		t.Fatalf("output: got %q, want %q", got, want)
 	}
 }
-
