@@ -102,6 +102,44 @@ func TestBootstrapRunner_EnsureResource_PostEnsureRuns(t *testing.T) {
 	}
 }
 
+func TestBootstrapRunner_EnsureResource_ErrorDoesNotPostEnsure(t *testing.T) {
+	t.Parallel()
+
+	cfg := minimalConfig()
+	db := &fakeDynamoDB{}
+	clients := &platformaws.Clients{
+		DynamoDB:  db,
+		AccountID: "123456789012",
+		CallerARN: "arn:aws:iam::123:root",
+		Region:    "us-east-1",
+	}
+
+	r := newBootstrapRunner(context.Background(), cfg, clients)
+
+	called := false
+	existed := false
+	err := r.ensureResource(context.Background(), ResourceTypeDynamoDBTable, "t", &existed, func(context.Context) error {
+		called = true
+		return errors.New("boom")
+	})
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !called {
+		t.Fatal("expected ensure fn to be called")
+	}
+	if len(db.putInputs) != 0 {
+		t.Fatalf("expected no registry writes when ensure fails, got %d", len(db.putInputs))
+	}
+}
+
+func TestBootstrapRunner_TryPublish_NoTopicDoesNothing(t *testing.T) {
+	t.Parallel()
+
+	r := &bootstrapRunner{}
+	r.tryPublish(context.Background(), platformaws.Event{})
+}
+
 func TestBootstrapRunner_ExistedOrUnknown(t *testing.T) {
 	t.Parallel()
 

@@ -1,0 +1,29 @@
+name: DevOps / Labeler
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  labeler:
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    uses: FelipeFuhr/ffreis-workflows-general/.github/workflows/general-labeler.yml@main
+    with:
+      rules-json: |-
+        [
+          {"label":"ci","patterns":[".github/workflows/**",".github/actions/**"]},
+          {"label":"go","patterns":["**/*.go","go.mod","go.sum"]},
+          {"label":"aws","patterns":["internal/aws/**"]},
+          {"label":"bootstrap","patterns":["internal/bootstrap/**","cmd/**"]},
+          {"label":"docs","patterns":["**/*.md"]}
+        ]

@@ -1,7 +1,6 @@
 name: Code Scanning (CodeQL)
 
 on:
-  pull_request:
   push:
     branches: [main, master]
   schedule:
