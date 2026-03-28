@@ -1,6 +1,6 @@
 package aws
 
-// AWS domain constants used across the bootstrap package.
+// AWS domain constants used across the internal/aws package.
 const (
 	RegionUSEast1             = "us-east-1"
 	IAMRootPrincipalARNFormat = "arn:aws:iam::%s:root"
