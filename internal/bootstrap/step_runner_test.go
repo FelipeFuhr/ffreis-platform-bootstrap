@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestRunSteps_DryRunSkipsAllSteps(t *testing.T) {
+func TestRunStepsDryRunSkipsAllSteps(t *testing.T) {
 	ctx := context.Background()
 
 	calls := 0
@@ -24,7 +24,7 @@ func TestRunSteps_DryRunSkipsAllSteps(t *testing.T) {
 	}
 }
 
-func TestRunSteps_StopOnErrorAborts(t *testing.T) {
+func TestRunStepsStopOnErrorAborts(t *testing.T) {
 	ctx := context.Background()
 
 	calls := 0
@@ -46,7 +46,7 @@ func TestRunSteps_StopOnErrorAborts(t *testing.T) {
 	}
 }
 
-func TestRunSteps_ContinueOnErrorRunsAllStepsAndJoinsErrors(t *testing.T) {
+func TestRunStepsContinueOnErrorRunsAllStepsAndJoinsErrors(t *testing.T) {
 	ctx := context.Background()
 
 	calls := 0
@@ -65,5 +65,36 @@ func TestRunSteps_ContinueOnErrorRunsAllStepsAndJoinsErrors(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "step one") || !strings.Contains(err.Error(), "step three") {
 		t.Fatalf("expected joined step errors, got: %v", err)
+	}
+}
+
+func TestRunStep(t *testing.T) {
+	ctx := context.Background()
+
+	if outcome := runStep(ctx, true, step{name: "dry"}); !outcome.skipped || outcome.err != nil {
+		t.Fatalf("dry-run outcome = %+v, want skipped without error", outcome)
+	}
+
+	if outcome := runStep(ctx, false, step{name: "ok", run: func(context.Context) error { return nil }}); outcome.skipped || outcome.err != nil {
+		t.Fatalf("success outcome = %+v, want success without skip/error", outcome)
+	}
+
+	boom := errors.New("boom")
+	if outcome := runStep(ctx, false, step{name: "fail", run: func(context.Context) error { return boom }}); outcome.skipped || !errors.Is(outcome.err, boom) {
+		t.Fatalf("error outcome = %+v, want wrapped boom", outcome)
+	}
+}
+
+func TestJoinStepErrors(t *testing.T) {
+	if err := joinStepErrors("bootstrap", nil); err != nil {
+		t.Fatalf("joinStepErrors() unexpected error: %v", err)
+	}
+
+	err := joinStepErrors("bootstrap", []error{errors.New("one"), errors.New("two")})
+	if err == nil {
+		t.Fatal("joinStepErrors() expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "bootstrap completed with 2 error(s)") {
+		t.Fatalf("joinStepErrors() unexpected error: %v", err)
 	}
 }

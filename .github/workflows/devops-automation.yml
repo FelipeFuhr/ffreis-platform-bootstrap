@@ -8,9 +8,6 @@ on:
   push:
     branches: [main]
 
-permissions:
-  contents: read
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -20,12 +17,17 @@ jobs:
     if: vars.SCORECARD_ENABLED != 'false' && github.event_name != 'pull_request'
     permissions:
       contents: read
-      actions: read
-      security-events: write
-      id-token: write
-    uses: FelipeFuhr/ffreis-workflows-general/.github/workflows/general-scorecard.yml@c3e3e0a44d4b79697f1babaa9bf287d1b264da52
-    with:
-      upload-sarif: true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Run OSSF Scorecard
+        uses: ossf/scorecard-action@4eaacf0543bb3f2c246792bd56e8cdeffafb205a # v2.4.3
+        with:
+          results_format: json
+          results_file: scorecard.json
+          publish_results: false
 
   stale:
     if: vars.STALE_ENABLED != 'false' && github.event_name != 'pull_request'
@@ -39,6 +41,8 @@ jobs:
 
   verify-release-please:
     if: vars.RELEASE_PLEASE_ENABLED != 'false' && github.event_name == 'push'
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     steps:
       - name: Verify Release Please credentials
@@ -57,8 +61,8 @@ jobs:
     needs: [verify-release-please]
     if: vars.RELEASE_PLEASE_ENABLED != 'false' && github.event_name == 'push'
     permissions:
-      contents: write
-      pull-requests: write
+      contents: read
+      pull-requests: read
     uses: FelipeFuhr/ffreis-workflows-general/.github/workflows/general-release-please.yml@c3e3e0a44d4b79697f1babaa9bf287d1b264da52
     with:
       target-branch: "main"

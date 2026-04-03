@@ -28,14 +28,14 @@ func newTestClients(s3 S3API, db DynamoDBAPI, iam IAMAPI, snsAPI SNSAPI, bud Bud
 
 // ── BucketExists ─────────────────────────────────────────────────────────────
 
-func TestBucketExists_True(t *testing.T) {
+func TestBucketExistsTrue(t *testing.T) {
 	c := newTestClients(&mockS3{bucketExists: true}, nil, nil, nil, nil)
 	if !c.BucketExists(context.Background(), testExistsBucket) {
 		t.Error(errWantTrue)
 	}
 }
 
-func TestBucketExists_False(t *testing.T) {
+func TestBucketExistsFalse(t *testing.T) {
 	c := newTestClients(&mockS3{bucketExists: false}, nil, nil, nil, nil)
 	if c.BucketExists(context.Background(), testExistsBucket) {
 		t.Error(errWantFalse)
@@ -44,21 +44,21 @@ func TestBucketExists_False(t *testing.T) {
 
 // ── TableExists ──────────────────────────────────────────────────────────────
 
-func TestTableExists_ActiveTable(t *testing.T) {
+func TestTableExistsActiveTable(t *testing.T) {
 	c := newTestClients(nil, &mockDynamoDB{tableStatus: dbtypes.TableStatusActive}, nil, nil, nil)
 	if !c.TableExists(context.Background(), testExistsTable) {
 		t.Error("want true for ACTIVE table, got false")
 	}
 }
 
-func TestTableExists_NonActiveTable(t *testing.T) {
+func TestTableExistsNonActiveTable(t *testing.T) {
 	c := newTestClients(nil, &mockDynamoDB{tableStatus: dbtypes.TableStatusCreating}, nil, nil, nil)
 	if c.TableExists(context.Background(), testExistsTable) {
 		t.Error("want false for non-ACTIVE table, got true")
 	}
 }
 
-func TestTableExists_TableNotFound(t *testing.T) {
+func TestTableExistsTableNotFound(t *testing.T) {
 	// tableStatus == "" → DescribeTable returns ResourceNotFoundException
 	c := newTestClients(nil, &mockDynamoDB{tableStatus: ""}, nil, nil, nil)
 	if c.TableExists(context.Background(), "missing-table") {
@@ -66,22 +66,22 @@ func TestTableExists_TableNotFound(t *testing.T) {
 	}
 }
 
-func TestTableExistsChecked_True(t *testing.T) {
+func TestTableExistsCheckedTrue(t *testing.T) {
 	c := newTestClients(nil, &mockDynamoDB{tableStatus: dbtypes.TableStatusActive}, nil, nil, nil)
 	ok, err := c.TableExistsChecked(context.Background(), testExistsTable)
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpectedFmt, err)
 	}
 	if !ok {
 		t.Error(errWantTrue)
 	}
 }
 
-func TestTableExistsChecked_NotFoundIsNil(t *testing.T) {
+func TestTableExistsCheckedNotFoundIsNil(t *testing.T) {
 	c := newTestClients(nil, &mockDynamoDB{tableStatus: ""}, nil, nil, nil)
 	ok, err := c.TableExistsChecked(context.Background(), "missing-table")
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpectedFmt, err)
 	}
 	if ok {
 		t.Error(errWantFalse)
@@ -112,24 +112,24 @@ func (e *erringDynamoDB) DeleteTable(_ context.Context, _ *dynamodb.DeleteTableI
 	return &dynamodb.DeleteTableOutput{}, nil
 }
 
-func TestTableExistsChecked_UnexpectedError(t *testing.T) {
+func TestTableExistsCheckedUnexpectedError(t *testing.T) {
 	c := newTestClients(nil, &erringDynamoDB{}, nil, nil, nil)
 	_, err := c.TableExistsChecked(context.Background(), testExistsTable)
 	if err == nil {
-		t.Fatal("expected error, got nil")
+		t.Fatal(errExpectedGotNil)
 	}
 }
 
 // ── RoleExists ───────────────────────────────────────────────────────────────
 
-func TestRoleExists_True(t *testing.T) {
+func TestRoleExistsTrue(t *testing.T) {
 	c := newTestClients(nil, nil, &mockIAM{roleExists: true}, nil, nil)
 	if !c.RoleExists(context.Background(), testRoleName) {
 		t.Error(errWantTrue)
 	}
 }
 
-func TestRoleExists_False(t *testing.T) {
+func TestRoleExistsFalse(t *testing.T) {
 	c := newTestClients(nil, nil, &mockIAM{roleExists: false}, nil, nil)
 	if c.RoleExists(context.Background(), testRoleName) {
 		t.Error(errWantFalse)
@@ -138,7 +138,7 @@ func TestRoleExists_False(t *testing.T) {
 
 // ── TopicExists ──────────────────────────────────────────────────────────────
 
-func TestTopicExists_True(t *testing.T) {
+func TestTopicExistsTrue(t *testing.T) {
 	// mockSNS.GetTopicAttributes always returns nil error → topic exists.
 	c := newTestClients(nil, nil, nil, &mockSNS{}, nil)
 	if !c.TopicExists(context.Background(), testExistsTopicName) {
@@ -155,7 +155,7 @@ func (e *erringSNS) GetTopicAttributes(_ context.Context, _ *sns.GetTopicAttribu
 	return nil, errors.New("topic not found")
 }
 
-func TestTopicExists_False(t *testing.T) {
+func TestTopicExistsFalse(t *testing.T) {
 	c := newTestClients(nil, nil, nil, &erringSNS{&mockSNS{}}, nil)
 	if c.TopicExists(context.Background(), testExistsTopicName) {
 		t.Error("want false when GetTopicAttributes errors, got true")
@@ -164,14 +164,14 @@ func TestTopicExists_False(t *testing.T) {
 
 // ── BudgetExists ─────────────────────────────────────────────────────────────
 
-func TestBudgetExists_True(t *testing.T) {
+func TestBudgetExistsTrue(t *testing.T) {
 	c := newTestClients(nil, nil, nil, nil, &mockBudgets{budgetExists: true})
 	if !c.BudgetExists(context.Background(), testBudgetName) {
 		t.Error(errWantTrue)
 	}
 }
 
-func TestBudgetExists_False(t *testing.T) {
+func TestBudgetExistsFalse(t *testing.T) {
 	c := newTestClients(nil, nil, nil, nil, &mockBudgets{budgetExists: false})
 	if c.BudgetExists(context.Background(), testBudgetName) {
 		t.Error(errWantFalse)
@@ -180,42 +180,42 @@ func TestBudgetExists_False(t *testing.T) {
 
 // ── ResourceExists dispatch ───────────────────────────────────────────────────
 
-func TestResourceExists_S3Bucket(t *testing.T) {
+func TestResourceExistsS3Bucket(t *testing.T) {
 	c := newTestClients(&mockS3{bucketExists: true}, nil, nil, nil, nil)
 	if !c.ResourceExists(context.Background(), "S3Bucket", testExistsBucket) {
 		t.Error("S3Bucket dispatch: want true")
 	}
 }
 
-func TestResourceExists_DynamoDBTable(t *testing.T) {
+func TestResourceExistsDynamoDBTable(t *testing.T) {
 	c := newTestClients(nil, &mockDynamoDB{tableStatus: dbtypes.TableStatusActive}, nil, nil, nil)
 	if !c.ResourceExists(context.Background(), "DynamoDBTable", testExistsTable) {
 		t.Error("DynamoDBTable dispatch: want true")
 	}
 }
 
-func TestResourceExists_IAMRole(t *testing.T) {
+func TestResourceExistsIAMRole(t *testing.T) {
 	c := newTestClients(nil, nil, &mockIAM{roleExists: true}, nil, nil)
 	if !c.ResourceExists(context.Background(), "IAMRole", testRoleName) {
 		t.Error("IAMRole dispatch: want true")
 	}
 }
 
-func TestResourceExists_SNSTopic(t *testing.T) {
+func TestResourceExistsSNSTopic(t *testing.T) {
 	c := newTestClients(nil, nil, nil, &mockSNS{}, nil)
 	if !c.ResourceExists(context.Background(), "SNSTopic", testExistsTopicName) {
 		t.Error("SNSTopic dispatch: want true")
 	}
 }
 
-func TestResourceExists_AWSBudget(t *testing.T) {
+func TestResourceExistsAWSBudget(t *testing.T) {
 	c := newTestClients(nil, nil, nil, nil, &mockBudgets{budgetExists: true})
 	if !c.ResourceExists(context.Background(), "AWSBudget", testBudgetName) {
 		t.Error("AWSBudget dispatch: want true")
 	}
 }
 
-func TestResourceExists_UnknownType(t *testing.T) {
+func TestResourceExistsUnknownType(t *testing.T) {
 	c := newTestClients(nil, nil, nil, nil, nil)
 	if c.ResourceExists(context.Background(), "KinesisStream", "my-stream") {
 		t.Error("unknown resource type: want false, got true")

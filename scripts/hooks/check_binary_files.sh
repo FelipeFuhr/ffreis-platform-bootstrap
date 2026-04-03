@@ -1,49 +1,38 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+source "$(dirname "$0")/../lib/common.sh"
+
 has_error=0
 
-if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  echo "This hook must run inside a Git repository." >&2
-  exit 1
-fi
+common_require_git_repo
 
 is_allowlisted() {
   local path="$1"
-  local ext="${path##*.}"
-  ext="${ext,,}"
-
-  case "$path" in
-    testdata/*|*/testdata/*|examples/*|*/examples/*)
-      return 0
-      ;;
-  esac
-
-  case "$ext" in
-    png|jpg|jpeg|svg|webp|ico|woff|woff2|ttf)
-      return 0
-      ;;
-  esac
-
-  return 1
+  common_is_allowlisted_path "$path"
+  return $?
 }
 
 while IFS= read -r -d '' entry; do
   IFS=$'\t' read -r added deleted file <<<"$entry"
 
-  if [ "$added" != "-" ] || [ "$deleted" != "-" ]; then
-    continue
-  fi
+  case "${added}:${deleted}" in
+    -:-)
+      ;;
+    *)
+      continue
+      ;;
+  esac
 
   if is_allowlisted "$file"; then
     continue
   fi
 
-  echo "Unexpected staged binary file: ${file}" >&2
+  common_err "Unexpected staged binary file: ${file}"
   has_error=1
 done < <(git diff --cached --numstat --diff-filter=ACM -z)
 
-if [ "$has_error" -ne 0 ]; then
-  echo "Binary files are blocked unless they match allowlisted paths/extensions." >&2
+if [[ "$has_error" -ne 0 ]]; then
+  common_err "Binary files are blocked unless they match allowlisted paths/extensions."
   exit 1
 fi

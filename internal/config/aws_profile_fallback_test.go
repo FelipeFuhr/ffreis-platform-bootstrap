@@ -2,50 +2,58 @@ package config
 
 import "testing"
 
-func TestLoad_AWSProfileFallback_AWSProfileEnv(t *testing.T) {
+const (
+	testSSOProfile       = "sso-profile"
+	testDefaultProfile   = "default-profile"
+	testPlatformProfile  = "platform-profile"
+	errLoadConfig        = "Load: %v"
+	errUnexpectedProfile = "AWSProfile: got %q, want %q"
+)
+
+func TestLoadAWSProfileFallbackAWSProfileEnv(t *testing.T) {
 	t.Setenv(EnvOrgName, testOrgName)
 	t.Setenv(EnvRegion, DefaultRegion)
 	t.Setenv(EnvAWSProfile, "")
-	t.Setenv(AWSProfileEnv, "sso-profile")
+	t.Setenv(AWSProfileEnv, testSSOProfile)
 	t.Setenv(AWSDefaultProfileEnv, "")
 
 	cfg, err := Load(nil)
 	if err != nil {
-		t.Fatalf("Load: %v", err)
+		t.Fatalf(errLoadConfig, err)
 	}
-	if cfg.AWSProfile != "sso-profile" {
-		t.Fatalf("AWSProfile: got %q, want %q", cfg.AWSProfile, "sso-profile")
+	if cfg.AWSProfile != testSSOProfile {
+		t.Fatalf(errUnexpectedProfile, cfg.AWSProfile, testSSOProfile)
 	}
 }
 
-func TestLoad_AWSProfileFallback_AWSDefaultProfileEnv(t *testing.T) {
+func TestLoadAWSProfileFallbackAWSDefaultProfileEnv(t *testing.T) {
 	t.Setenv(EnvOrgName, testOrgName)
 	t.Setenv(EnvRegion, DefaultRegion)
 	t.Setenv(EnvAWSProfile, "")
 	t.Setenv(AWSProfileEnv, "")
-	t.Setenv(AWSDefaultProfileEnv, "default-profile")
+	t.Setenv(AWSDefaultProfileEnv, testDefaultProfile)
 
 	cfg, err := Load(nil)
 	if err != nil {
-		t.Fatalf("Load: %v", err)
+		t.Fatalf(errLoadConfig, err)
 	}
-	if cfg.AWSProfile != "default-profile" {
-		t.Fatalf("AWSProfile: got %q, want %q", cfg.AWSProfile, "default-profile")
+	if cfg.AWSProfile != testDefaultProfile {
+		t.Fatalf(errUnexpectedProfile, cfg.AWSProfile, testDefaultProfile)
 	}
 }
 
-func TestLoad_AWSProfileFallback_DoesNotOverridePlatformProfile(t *testing.T) {
+func TestLoadAWSProfileFallbackDoesNotOverridePlatformProfile(t *testing.T) {
 	t.Setenv(EnvOrgName, testOrgName)
 	t.Setenv(EnvRegion, DefaultRegion)
-	t.Setenv(EnvAWSProfile, "platform-profile")
-	t.Setenv(AWSProfileEnv, "sso-profile")
-	t.Setenv(AWSDefaultProfileEnv, "default-profile")
+	t.Setenv(EnvAWSProfile, testPlatformProfile)
+	t.Setenv(AWSProfileEnv, testSSOProfile)
+	t.Setenv(AWSDefaultProfileEnv, testDefaultProfile)
 
 	cfg, err := Load(nil)
 	if err != nil {
-		t.Fatalf("Load: %v", err)
+		t.Fatalf(errLoadConfig, err)
 	}
-	if cfg.AWSProfile != "platform-profile" {
-		t.Fatalf("AWSProfile: got %q, want %q", cfg.AWSProfile, "platform-profile")
+	if cfg.AWSProfile != testPlatformProfile {
+		t.Fatalf(errUnexpectedProfile, cfg.AWSProfile, testPlatformProfile)
 	}
 }

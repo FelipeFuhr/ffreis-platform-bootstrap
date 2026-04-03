@@ -62,21 +62,8 @@ func emptyBucket(ctx context.Context, client S3API, name string) error {
 			return fmt.Errorf("listing versions: %w", err)
 		}
 
-		toDelete := collectObjectIDs(out.Versions, out.DeleteMarkers)
-
-		if len(toDelete) > 0 {
-			delOut, err := client.DeleteObjects(ctx, &s3.DeleteObjectsInput{
-				Bucket: sdkaws.String(name),
-				Delete: &s3types.Delete{Objects: toDelete, Quiet: sdkaws.Bool(true)},
-			})
-			if err != nil {
-				return fmt.Errorf("batch deleting objects: %w", err)
-			}
-			if len(delOut.Errors) > 0 {
-				return fmt.Errorf("deleting objects: %s: %s",
-					sdkaws.ToString(delOut.Errors[0].Key),
-					sdkaws.ToString(delOut.Errors[0].Message))
-			}
+		if err := deleteObjectPage(ctx, client, name, collectObjectIDs(out.Versions, out.DeleteMarkers)); err != nil {
+			return err
 		}
 
 		if !sdkaws.ToBool(out.IsTruncated) {
@@ -87,6 +74,27 @@ func emptyBucket(ctx context.Context, client S3API, name string) error {
 	}
 
 	return nil
+}
+
+func deleteObjectPage(ctx context.Context, client S3API, name string, objects []s3types.ObjectIdentifier) error {
+	if len(objects) == 0 {
+		return nil
+	}
+
+	delOut, err := client.DeleteObjects(ctx, &s3.DeleteObjectsInput{
+		Bucket: sdkaws.String(name),
+		Delete: &s3types.Delete{Objects: objects, Quiet: sdkaws.Bool(true)},
+	})
+	if err != nil {
+		return fmt.Errorf("batch deleting objects: %w", err)
+	}
+	if len(delOut.Errors) == 0 {
+		return nil
+	}
+
+	return fmt.Errorf("deleting objects: %s: %s",
+		sdkaws.ToString(delOut.Errors[0].Key),
+		sdkaws.ToString(delOut.Errors[0].Message))
 }
 
 // collectObjectIDs builds a flat list of ObjectIdentifiers from ListObjectVersions output.

@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -11,6 +10,7 @@ var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Print build information",
 	Run: func(cmd *cobra.Command, _ []string) {
+		out := newCommandOutput(cmd, deps.ui)
 		v := strings.TrimSpace(version)
 		if v == "" {
 			v = "dev"
@@ -24,7 +24,7 @@ var versionCmd = &cobra.Command{
 			t = "unknown"
 		}
 
-		fmt.Fprintf(cmd.OutOrStdout(), "%s (commit=%s built=%s)\n", v, c, t)
+		out.Line(v + " (commit=" + c + " built=" + t + ")")
 	},
 }
 

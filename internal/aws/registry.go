@@ -200,6 +200,11 @@ func FetchConfig(ctx context.Context, client DynamoDBAPI, tableName, configType 
 
 // ScanRegistry returns all RegistryRecord entries from the registry table.
 // This is used by the audit command to list all managed resources.
+//
+// If the registry table does not exist (e.g. after a nuke or before the first
+// init), ScanRegistry returns an empty slice and no error. The audit command
+// will then surface all expected resources as "unmanaged" based purely on what
+// exists in AWS, allowing a useful audit even in a fully cleaned-up state.
 func ScanRegistry(ctx context.Context, client DynamoDBAPI, tableName string) ([]RegistryRecord, error) {
 	var records []RegistryRecord
 	var lastKey map[string]dbtypes.AttributeValue
@@ -214,6 +219,10 @@ func ScanRegistry(ctx context.Context, client DynamoDBAPI, tableName string) ([]
 
 		out, err := client.Scan(ctx, input)
 		if err != nil {
+			var notFound *dbtypes.ResourceNotFoundException
+			if errors.As(err, &notFound) {
+				return nil, nil // table gone — treat as empty registry
+			}
 			return nil, fmt.Errorf("scanning registry table %s: %w", tableName, err)
 		}
 

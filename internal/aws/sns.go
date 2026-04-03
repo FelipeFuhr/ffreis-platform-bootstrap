@@ -67,8 +67,15 @@ func buildTopicPolicy(topicARN, accountID string) (string, error) {
 				Sid:       "AllowAccountManagement",
 				Effect:    "Allow",
 				Principal: map[string]string{"AWS": fmt.Sprintf(IAMRootPrincipalARNFormat, accountID)},
-				Action:    "SNS:*",
-				Resource:  topicARN,
+				Action: []string{
+					"SNS:Publish",
+					"SNS:Subscribe",
+					"SNS:GetTopicAttributes",
+					"SNS:SetTopicAttributes",
+					"SNS:ListSubscriptionsByTopic",
+					"SNS:DeleteTopic",
+				},
+				Resource: topicARN,
 			},
 			{
 				Sid:       "AllowBudgetsToPublish",

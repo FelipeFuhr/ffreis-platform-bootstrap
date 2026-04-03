@@ -15,7 +15,7 @@ import (
 	snstypes "github.com/aws/aws-sdk-go-v2/service/sns/types"
 )
 
-func TestDeleteStateBucket_NotFoundIsNil(t *testing.T) {
+func TestDeleteStateBucketNotFoundIsNil(t *testing.T) {
 	m := &mockS3{bucketExists: false}
 
 	if err := DeleteStateBucket(context.Background(), m, "missing"); err != nil {
@@ -26,7 +26,7 @@ func TestDeleteStateBucket_NotFoundIsNil(t *testing.T) {
 	}
 }
 
-func TestDeleteStateBucket_HeadBucketUnexpectedError(t *testing.T) {
+func TestDeleteStateBucketHeadBucketUnexpectedError(t *testing.T) {
 	m := &mockS3{headErr: errors.New("boom")}
 
 	err := DeleteStateBucket(context.Background(), m, "state")
@@ -38,7 +38,7 @@ func TestDeleteStateBucket_HeadBucketUnexpectedError(t *testing.T) {
 	}
 }
 
-func TestDeleteStateBucket_DeletesAfterEmptying(t *testing.T) {
+func TestDeleteStateBucketDeletesAfterEmptying(t *testing.T) {
 	m := &mockS3{
 		bucketExists:          true,
 		listObjectVersionsSeq: []*s3.ListObjectVersionsOutput{{}},
@@ -52,7 +52,7 @@ func TestDeleteStateBucket_DeletesAfterEmptying(t *testing.T) {
 	}
 }
 
-func TestDeleteStateBucket_DeleteObjectsAPIErr(t *testing.T) {
+func TestDeleteStateBucketDeleteObjectsAPIErr(t *testing.T) {
 	m := &mockS3{
 		bucketExists: true,
 		listObjectVersionsSeq: []*s3.ListObjectVersionsOutput{{
@@ -70,7 +70,7 @@ func TestDeleteStateBucket_DeleteObjectsAPIErr(t *testing.T) {
 	}
 }
 
-func TestDeleteStateBucket_DeleteObjectsOutputErrors(t *testing.T) {
+func TestDeleteStateBucketDeleteObjectsOutputErrors(t *testing.T) {
 	m := &mockS3{
 		bucketExists: true,
 		listObjectVersionsSeq: []*s3.ListObjectVersionsOutput{{
@@ -93,7 +93,7 @@ func TestDeleteStateBucket_DeleteObjectsOutputErrors(t *testing.T) {
 	}
 }
 
-func TestDeleteStateBucket_PaginatesUntilNotTruncated(t *testing.T) {
+func TestDeleteStateBucketPaginatesUntilNotTruncated(t *testing.T) {
 	m := &mockS3{
 		bucketExists: true,
 		listObjectVersionsSeq: []*s3.ListObjectVersionsOutput{
@@ -121,7 +121,7 @@ func TestDeleteStateBucket_PaginatesUntilNotTruncated(t *testing.T) {
 	}
 }
 
-func TestDeleteDynamoDBTable_NotFoundIsNil(t *testing.T) {
+func TestDeleteDynamoDBTableNotFoundIsNil(t *testing.T) {
 	m := &mockDynamoDB{deleteErr: &dbtypes.ResourceNotFoundException{}}
 
 	if err := DeleteDynamoDBTable(context.Background(), m, "missing"); err != nil {
@@ -129,7 +129,7 @@ func TestDeleteDynamoDBTable_NotFoundIsNil(t *testing.T) {
 	}
 }
 
-func TestDeleteDynamoDBTable_UnexpectedError(t *testing.T) {
+func TestDeleteDynamoDBTableUnexpectedError(t *testing.T) {
 	m := &mockDynamoDB{deleteErr: errors.New("boom")}
 
 	err := DeleteDynamoDBTable(context.Background(), m, "tbl")
@@ -141,7 +141,7 @@ func TestDeleteDynamoDBTable_UnexpectedError(t *testing.T) {
 	}
 }
 
-func TestDeleteIAMRole_NotFoundIsNil(t *testing.T) {
+func TestDeleteIAMRoleNotFoundIsNil(t *testing.T) {
 	m := &mockIAM{roleExists: false}
 
 	if err := DeleteIAMRole(context.Background(), m, "missing-role"); err != nil {
@@ -149,7 +149,7 @@ func TestDeleteIAMRole_NotFoundIsNil(t *testing.T) {
 	}
 }
 
-func TestDeleteIAMRole_CheckRoleError(t *testing.T) {
+func TestDeleteIAMRoleCheckRoleError(t *testing.T) {
 	m := &mockIAM{getRoleErr: errors.New("boom")}
 
 	err := DeleteIAMRole(context.Background(), m, "role")
@@ -161,7 +161,7 @@ func TestDeleteIAMRole_CheckRoleError(t *testing.T) {
 	}
 }
 
-func TestDeleteIAMRole_ListPoliciesError(t *testing.T) {
+func TestDeleteIAMRoleListPoliciesError(t *testing.T) {
 	m := &mockIAM{roleExists: true, listPoliciesErr: errors.New("boom")}
 
 	err := DeleteIAMRole(context.Background(), m, "role")
@@ -173,7 +173,7 @@ func TestDeleteIAMRole_ListPoliciesError(t *testing.T) {
 	}
 }
 
-func TestDeleteIAMRole_DeletePolicyError(t *testing.T) {
+func TestDeleteIAMRoleDeletePolicyError(t *testing.T) {
 	m := &mockIAM{
 		roleExists:      true,
 		policyNames:     []string{"p1"},
@@ -189,7 +189,7 @@ func TestDeleteIAMRole_DeletePolicyError(t *testing.T) {
 	}
 }
 
-func TestDeleteIAMRole_DeleteRoleError(t *testing.T) {
+func TestDeleteIAMRoleDeleteRoleError(t *testing.T) {
 	m := &mockIAM{
 		roleExists:    true,
 		deleteRoleErr: errors.New("boom"),
@@ -204,7 +204,7 @@ func TestDeleteIAMRole_DeleteRoleError(t *testing.T) {
 	}
 }
 
-func TestDeleteIAMRole_SuccessDeletesInlinePoliciesThenRole(t *testing.T) {
+func TestDeleteIAMRoleSuccessDeletesInlinePoliciesThenRole(t *testing.T) {
 	m := &mockIAM{
 		roleExists:  true,
 		policyNames: []string{"p1", "p2"},
@@ -218,7 +218,7 @@ func TestDeleteIAMRole_SuccessDeletesInlinePoliciesThenRole(t *testing.T) {
 	}
 }
 
-func TestDeleteSNSTopic_NotFoundIsNil(t *testing.T) {
+func TestDeleteSNSTopicNotFoundIsNil(t *testing.T) {
 	m := &mockSNS{deleteErr: &snstypes.NotFoundException{}}
 
 	if err := DeleteSNSTopic(context.Background(), m, "us-east-1", testAccountID, "missing-topic"); err != nil {
@@ -226,7 +226,7 @@ func TestDeleteSNSTopic_NotFoundIsNil(t *testing.T) {
 	}
 }
 
-func TestDeleteSNSTopic_UnexpectedError(t *testing.T) {
+func TestDeleteSNSTopicUnexpectedError(t *testing.T) {
 	m := &mockSNS{deleteErr: errors.New("boom")}
 
 	err := DeleteSNSTopic(context.Background(), m, "us-east-1", testAccountID, "topic")
@@ -238,7 +238,7 @@ func TestDeleteSNSTopic_UnexpectedError(t *testing.T) {
 	}
 }
 
-func TestDeleteBudget_NotFoundIsNil(t *testing.T) {
+func TestDeleteBudgetNotFoundIsNil(t *testing.T) {
 	m := &mockBudgets{deleteErr: &budgetstypes.NotFoundException{}}
 
 	if err := DeleteBudget(context.Background(), m, testAccountID, testBudgetName); err != nil {
@@ -246,7 +246,7 @@ func TestDeleteBudget_NotFoundIsNil(t *testing.T) {
 	}
 }
 
-func TestDeleteBudget_UnexpectedError(t *testing.T) {
+func TestDeleteBudgetUnexpectedError(t *testing.T) {
 	m := &mockBudgets{deleteErr: errors.New("boom")}
 
 	err := DeleteBudget(context.Background(), m, testAccountID, testBudgetName)
@@ -258,7 +258,7 @@ func TestDeleteBudget_UnexpectedError(t *testing.T) {
 	}
 }
 
-func TestDeleteStateBucket_NotFoundErrorTypeMatch(t *testing.T) {
+func TestDeleteStateBucketNotFoundErrorTypeMatch(t *testing.T) {
 	// This is a regression guard: DeleteStateBucket relies on errors.As
 	// matching *s3types.NotFound.
 	m := &mockS3{headErr: &s3types.NotFound{}}
@@ -268,7 +268,7 @@ func TestDeleteStateBucket_NotFoundErrorTypeMatch(t *testing.T) {
 	}
 }
 
-func TestDeleteIAMRole_NotFoundErrorTypeMatch(t *testing.T) {
+func TestDeleteIAMRoleNotFoundErrorTypeMatch(t *testing.T) {
 	// This is a regression guard: DeleteIAMRole treats NoSuchEntity as "already gone".
 	m := &mockIAM{getRoleErr: &iamtypes.NoSuchEntityException{}}
 

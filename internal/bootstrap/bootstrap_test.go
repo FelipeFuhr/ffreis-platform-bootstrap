@@ -22,14 +22,14 @@ func minimalConfig() *config.Config {
 
 // ── ExpectedResources ─────────────────────────────────────────────────────────
 
-func TestExpectedResources_Count(t *testing.T) {
+func TestExpectedResourcesCount(t *testing.T) {
 	resources := ExpectedResources(minimalConfig())
 	if len(resources) != 6 {
 		t.Errorf("want 6 expected resources, got %d", len(resources))
 	}
 }
 
-func TestExpectedResources_ContainsAllTypes(t *testing.T) {
+func TestExpectedResourcesContainsAllTypes(t *testing.T) {
 	resources := ExpectedResources(minimalConfig())
 
 	typeCounts := map[string]int{}
@@ -54,11 +54,14 @@ func TestExpectedResources_ContainsAllTypes(t *testing.T) {
 	}
 }
 
-func TestExpectedResources_RegistryTableFirst(t *testing.T) {
+func TestExpectedResourcesRegistryTableFirst(t *testing.T) {
 	cfg := minimalConfig()
 	resources := ExpectedResources(cfg)
 
-	// The registry table must be first because bootstrap.Run uses it immediately.
+	// registry-table is the first resource-typed step that appears in
+	// ExpectedResources. platform-admin-role is created before it but has no
+	// resourceType on its step def (the back-fill happens via register-admin-role
+	// which comes after registry-table).
 	first := resources[0]
 	if first.ResourceType != "DynamoDBTable" || first.ResourceName != cfg.RegistryTableName() {
 		t.Errorf("first resource: want (DynamoDBTable, %s), got (%s, %s)",
@@ -66,7 +69,23 @@ func TestExpectedResources_RegistryTableFirst(t *testing.T) {
 	}
 }
 
-func TestExpectedResources_BudgetLast(t *testing.T) {
+func TestExpectedResourcesAdminRolePresent(t *testing.T) {
+	cfg := minimalConfig()
+	resources := ExpectedResources(cfg)
+
+	found := false
+	for _, r := range resources {
+		if r.ResourceType == "IAMRole" && r.ResourceName == "platform-admin" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("expected IAMRole/platform-admin in ExpectedResources")
+	}
+}
+
+func TestExpectedResourcesBudgetLast(t *testing.T) {
 	cfg := minimalConfig()
 	resources := ExpectedResources(cfg)
 
@@ -77,7 +96,7 @@ func TestExpectedResources_BudgetLast(t *testing.T) {
 	}
 }
 
-func TestExpectedResources_NamesMatchConfig(t *testing.T) {
+func TestExpectedResourcesNamesMatchConfig(t *testing.T) {
 	cfg := minimalConfig()
 	resources := ExpectedResources(cfg)
 
@@ -101,7 +120,7 @@ func TestExpectedResources_NamesMatchConfig(t *testing.T) {
 
 // TestRun_DryRun verifies that when DryRun is true, Run returns nil and makes
 // no AWS calls (the nil Clients field pointers are never dereferenced).
-func TestRun_DryRun(t *testing.T) {
+func TestRunDryRun(t *testing.T) {
 	cfg := minimalConfig()
 	cfg.DryRun = true
 
@@ -113,7 +132,7 @@ func TestRun_DryRun(t *testing.T) {
 	}
 }
 
-func TestRun_NilClientsWhenNotDryRun(t *testing.T) {
+func TestRunNilClientsWhenNotDryRun(t *testing.T) {
 	cfg := minimalConfig()
 	cfg.DryRun = false
 

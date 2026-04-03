@@ -5,21 +5,25 @@ import (
 	"testing"
 )
 
-func TestBootstrapRunner_StepOrderAndNames(t *testing.T) {
+func TestBootstrapRunnerStepOrderAndNames(t *testing.T) {
 	cfg := minimalConfig()
 
 	r := newBootstrapRunner(context.Background(), cfg, nil)
 	steps := r.steps()
 
 	want := []string{
+		"platform-admin-role",
+		"create-temp-user",
+		"assume-admin-role",
 		"registry-table",
+		"register-admin-role",
 		"account-config",
 		"state-bucket",
 		"lock-table",
-		"platform-admin-role",
 		"platform-events-topic",
 		"platform-events-policy",
 		"platform-budget",
+		"delete-temp-user",
 	}
 
 	if len(steps) != len(want) {

@@ -31,9 +31,9 @@ func makeFlagSet(t *testing.T, args []string) *pflag.FlagSet {
 
 // TestLoad_ValidConfig verifies that a fully populated config loads without
 // error and all fields are resolved correctly.
-func TestLoad_ValidConfig(t *testing.T) {
+func TestLoadValidConfig(t *testing.T) {
 	t.Setenv(EnvOrgName, "acme")
-	t.Setenv(EnvRegion, "us-west-2")
+	t.Setenv(EnvRegion, testRegionUSWest2)
 	t.Setenv(EnvLogLevel, "debug")
 
 	cfg, err := Load(nil)
@@ -44,20 +44,20 @@ func TestLoad_ValidConfig(t *testing.T) {
 	if cfg.OrgName != "acme" {
 		t.Errorf("OrgName: want acme, got %s", cfg.OrgName)
 	}
-	if cfg.Region != "us-west-2" {
-		t.Errorf("Region: want us-west-2, got %s", cfg.Region)
+	if cfg.Region != testRegionUSWest2 {
+		t.Errorf("Region: want %s, got %s", testRegionUSWest2, cfg.Region)
 	}
 	if cfg.LogLevel != "debug" {
 		t.Errorf("LogLevel: want debug, got %s", cfg.LogLevel)
 	}
 	// StateRegion should default to primary region when not set.
-	if cfg.StateRegion != "us-west-2" {
-		t.Errorf("StateRegion: want us-west-2 (default to region), got %s", cfg.StateRegion)
+	if cfg.StateRegion != testRegionUSWest2 {
+		t.Errorf("StateRegion: want %s (default to region), got %s", testRegionUSWest2, cfg.StateRegion)
 	}
 }
 
 // TestLoad_MissingOrg verifies that an empty org name causes a validation error.
-func TestLoad_MissingOrg(t *testing.T) {
+func TestLoadMissingOrg(t *testing.T) {
 	t.Setenv(EnvOrgName, "")
 	t.Setenv(EnvRegion, DefaultRegion)
 
@@ -71,7 +71,7 @@ func TestLoad_MissingOrg(t *testing.T) {
 }
 
 // TestLoad_InvalidOrgName verifies that a non-conformant org name is rejected.
-func TestLoad_InvalidOrgName(t *testing.T) {
+func TestLoadInvalidOrgName(t *testing.T) {
 	for _, bad := range []string{"AB", "ab", "toolongname", "1abc", "ab-cd"} {
 		t.Run(bad, func(t *testing.T) {
 			t.Setenv(EnvOrgName, bad)
@@ -86,7 +86,7 @@ func TestLoad_InvalidOrgName(t *testing.T) {
 }
 
 // TestLoad_ValidOrgNames verifies boundary-valid org names are accepted.
-func TestLoad_ValidOrgNames(t *testing.T) {
+func TestLoadValidOrgNames(t *testing.T) {
 	for _, good := range []string{"abc", "a1b2c3", "abcdef"} {
 		t.Run(good, func(t *testing.T) {
 			t.Setenv(EnvOrgName, good)
@@ -101,7 +101,7 @@ func TestLoad_ValidOrgNames(t *testing.T) {
 }
 
 // TestLoad_InvalidLogLevel verifies that an unknown log level is rejected.
-func TestLoad_InvalidLogLevel(t *testing.T) {
+func TestLoadInvalidLogLevel(t *testing.T) {
 	t.Setenv(EnvOrgName, testOrgName)
 	t.Setenv(EnvRegion, DefaultRegion)
 	t.Setenv(EnvLogLevel, "verbose")
@@ -117,7 +117,7 @@ func TestLoad_InvalidLogLevel(t *testing.T) {
 
 // TestLoad_DefaultsApplied verifies that defaults are used when no env vars
 // or flags override them.
-func TestLoad_DefaultsApplied(t *testing.T) {
+func TestLoadDefaultsApplied(t *testing.T) {
 	t.Setenv(EnvOrgName, testOrgName)
 	// Clear any env vars that might leak from the test environment.
 	t.Setenv(EnvRegion, "")
@@ -140,7 +140,7 @@ func TestLoad_DefaultsApplied(t *testing.T) {
 }
 
 // TestLoad_RegionDefault verifies the built-in region default when env is empty.
-func TestLoad_RegionDefault(t *testing.T) {
+func TestLoadRegionDefault(t *testing.T) {
 	t.Setenv(EnvOrgName, testOrgName)
 	t.Setenv(EnvRegion, "")
 	t.Setenv(EnvLogLevel, DefaultLogLevel)
@@ -156,24 +156,24 @@ func TestLoad_RegionDefault(t *testing.T) {
 }
 
 // TestLoad_StateRegionDefault verifies that state_region falls back to region.
-func TestLoad_StateRegionDefault(t *testing.T) {
+func TestLoadStateRegionDefault(t *testing.T) {
 	t.Setenv(EnvOrgName, testOrgName)
-	t.Setenv(EnvRegion, "eu-west-1")
+	t.Setenv(EnvRegion, testRegionEUWest1)
 	t.Setenv(EnvStateRegion, "")
 
 	cfg, err := Load(nil)
 	if err != nil {
 		t.Fatalf(testUnexpectedErrorFmt, err)
 	}
-	if cfg.StateRegion != "eu-west-1" {
-		t.Errorf("StateRegion: want eu-west-1 (same as region), got %s", cfg.StateRegion)
+	if cfg.StateRegion != testRegionEUWest1 {
+		t.Errorf("StateRegion: want %s (same as region), got %s", testRegionEUWest1, cfg.StateRegion)
 	}
 }
 
 // TestLoad_ExplicitStateRegion verifies that state_region can differ from region.
-func TestLoad_ExplicitStateRegion(t *testing.T) {
+func TestLoadExplicitStateRegion(t *testing.T) {
 	t.Setenv(EnvOrgName, testOrgName)
-	t.Setenv(EnvRegion, "eu-west-1")
+	t.Setenv(EnvRegion, testRegionEUWest1)
 	t.Setenv(EnvStateRegion, DefaultRegion)
 
 	cfg, err := Load(nil)
@@ -187,7 +187,7 @@ func TestLoad_ExplicitStateRegion(t *testing.T) {
 
 // TestLoad_FlagOverridesEnv verifies that an explicitly set flag overrides
 // the corresponding environment variable.
-func TestLoad_FlagOverridesEnv(t *testing.T) {
+func TestLoadFlagOverridesEnv(t *testing.T) {
 	t.Setenv(EnvOrgName, "env01")
 	t.Setenv(EnvRegion, DefaultRegion)
 
@@ -203,7 +203,7 @@ func TestLoad_FlagOverridesEnv(t *testing.T) {
 
 // TestLoad_UnchangedFlagDoesNotOverrideEnv verifies that a flag that was not
 // explicitly set on the command-line does not clobber the environment value.
-func TestLoad_UnchangedFlagDoesNotOverrideEnv(t *testing.T) {
+func TestLoadUnchangedFlagDoesNotOverrideEnv(t *testing.T) {
 	t.Setenv(EnvOrgName, "env01")
 	t.Setenv(EnvRegion, DefaultRegion)
 
@@ -219,7 +219,7 @@ func TestLoad_UnchangedFlagDoesNotOverrideEnv(t *testing.T) {
 }
 
 // TestLoad_DryRunFlag verifies that --dry-run flag is applied.
-func TestLoad_DryRunFlag(t *testing.T) {
+func TestLoadDryRunFlag(t *testing.T) {
 	t.Setenv(EnvOrgName, testOrgName)
 	t.Setenv(EnvRegion, DefaultRegion)
 	t.Setenv(EnvDryRun, "")
@@ -235,7 +235,7 @@ func TestLoad_DryRunFlag(t *testing.T) {
 }
 
 // TestLoad_DryRunEnv verifies that PLATFORM_DRY_RUN env var is applied.
-func TestLoad_DryRunEnv(t *testing.T) {
+func TestLoadDryRunEnv(t *testing.T) {
 	t.Setenv(EnvOrgName, testOrgName)
 	t.Setenv(EnvRegion, DefaultRegion)
 	t.Setenv(EnvDryRun, "true")
@@ -251,7 +251,7 @@ func TestLoad_DryRunEnv(t *testing.T) {
 
 // TestLoad_BudgetUSDEnv verifies that PLATFORM_BUDGET_USD overrides the
 // default budget amount.
-func TestLoad_BudgetUSDEnv(t *testing.T) {
+func TestLoadBudgetUSDEnv(t *testing.T) {
 	t.Setenv(EnvOrgName, testOrgName)
 	t.Setenv(EnvRegion, DefaultRegion)
 	t.Setenv(EnvBudgetUSD, "150.50")
@@ -266,17 +266,17 @@ func TestLoad_BudgetUSDEnv(t *testing.T) {
 }
 
 // TestLoad_AccountsFromEnv verifies that PLATFORM_ACCOUNTS parses correctly.
-func TestLoad_AccountsFromEnv(t *testing.T) {
+func TestLoadAccountsFromEnv(t *testing.T) {
 	t.Setenv(EnvOrgName, testOrgName)
 	t.Setenv(EnvRegion, DefaultRegion)
-	t.Setenv(EnvAccounts, "dev:dev@example.com,prod:prod@example.com")
+	t.Setenv(EnvAccounts, "dev:"+testDevEmail+",prod:prod@example.com")
 
 	cfg, err := Load(nil)
 	if err != nil {
 		t.Fatalf(testUnexpectedErrorFmt, err)
 	}
-	if cfg.Accounts["dev"] != "dev@example.com" {
-		t.Errorf("Accounts[dev]: want dev@example.com, got %s", cfg.Accounts["dev"])
+	if cfg.Accounts["dev"] != testDevEmail {
+		t.Errorf("Accounts[dev]: want %s, got %s", testDevEmail, cfg.Accounts["dev"])
 	}
 	if cfg.Accounts["prod"] != "prod@example.com" {
 		t.Errorf("Accounts[prod]: want prod@example.com, got %s", cfg.Accounts["prod"])
@@ -284,26 +284,26 @@ func TestLoad_AccountsFromEnv(t *testing.T) {
 }
 
 // TestLoad_AccountsFromFlag verifies that --account flags parse correctly.
-func TestLoad_AccountsFromFlag(t *testing.T) {
+func TestLoadAccountsFromFlag(t *testing.T) {
 	t.Setenv(EnvOrgName, testOrgName)
 	t.Setenv(EnvRegion, DefaultRegion)
 	t.Setenv(EnvAccounts, "")
 
-	flags := makeFlagSet(t, []string{"--account=dev:dev@example.com", "--account=prod:prod@example.com"})
+	flags := makeFlagSet(t, []string{"--account=dev:" + testDevEmail, "--account=prod:prod@example.com"})
 	cfg, err := Load(flags)
 	if err != nil {
 		t.Fatalf(testUnexpectedErrorFmt, err)
 	}
-	if cfg.Accounts["dev"] != "dev@example.com" {
-		t.Errorf("Accounts[dev]: want dev@example.com, got %s", cfg.Accounts["dev"])
+	if cfg.Accounts["dev"] != testDevEmail {
+		t.Errorf("Accounts[dev]: want %s, got %s", testDevEmail, cfg.Accounts["dev"])
 	}
 }
 
 // TestLoad_AllowedRegionsEnv verifies comma-separated PLATFORM_ALLOWED_REGIONS.
-func TestLoad_AllowedRegionsEnv(t *testing.T) {
+func TestLoadAllowedRegionsEnv(t *testing.T) {
 	t.Setenv(EnvOrgName, testOrgName)
 	t.Setenv(EnvRegion, DefaultRegion)
-	t.Setenv(EnvAllowedRegions, "us-east-1, eu-west-1")
+	t.Setenv(EnvAllowedRegions, DefaultRegion+", "+testRegionEUWest1)
 
 	cfg, err := Load(nil)
 	if err != nil {
@@ -316,7 +316,7 @@ func TestLoad_AllowedRegionsEnv(t *testing.T) {
 
 // TestValidate_MultipleErrors verifies that Validate collects all errors
 // rather than stopping at the first one.
-func TestValidate_MultipleErrors(t *testing.T) {
+func TestValidateMultipleErrors(t *testing.T) {
 	cfg := &Config{
 		OrgName:          "", // missing
 		Region:           "", // missing
@@ -330,7 +330,7 @@ func TestValidate_MultipleErrors(t *testing.T) {
 }
 
 // TestValidate_AllLogLevels verifies each valid log level is accepted.
-func TestValidate_AllLogLevels(t *testing.T) {
+func TestValidateAllLogLevels(t *testing.T) {
 	for _, level := range []string{"debug", "info", "warn", "error", "DEBUG", "INFO"} {
 		cfg := &Config{OrgName: testOrgName, Region: DefaultRegion, LogLevel: level, BudgetMonthlyUSD: DefaultBudgetUSD}
 		if errs := cfg.Validate(); len(errs) != 0 {
@@ -367,14 +367,14 @@ func TestResourceNameHelpers(t *testing.T) {
 }
 
 // TestParseAccounts_Valid verifies well-formed name:email pairs parse cleanly.
-func TestParseAccounts_Valid(t *testing.T) {
-	pairs := []string{"dev:dev@example.com", "prod:prod@example.com"}
+func TestParseAccountsValid(t *testing.T) {
+	pairs := []string{"dev:" + testDevEmail, "prod:prod@example.com"}
 	out, err := parseAccounts(pairs)
 	if err != nil {
 		t.Fatalf(testUnexpectedErrorFmt, err)
 	}
-	if out["dev"] != "dev@example.com" {
-		t.Errorf("dev: want dev@example.com, got %s", out["dev"])
+	if out["dev"] != testDevEmail {
+		t.Errorf("dev: want %s, got %s", testDevEmail, out["dev"])
 	}
 	if out["prod"] != "prod@example.com" {
 		t.Errorf("prod: want prod@example.com, got %s", out["prod"])
@@ -382,7 +382,7 @@ func TestParseAccounts_Valid(t *testing.T) {
 }
 
 // TestParseAccounts_NoColon verifies that a pair without a colon is rejected.
-func TestParseAccounts_NoColon(t *testing.T) {
+func TestParseAccountsNoColon(t *testing.T) {
 	_, err := parseAccounts([]string{"badformat"})
 	if err == nil {
 		t.Fatal("expected error for pair without colon, got nil")
@@ -390,7 +390,7 @@ func TestParseAccounts_NoColon(t *testing.T) {
 }
 
 // TestParseAccounts_EmptyName verifies that an empty name portion is rejected.
-func TestParseAccounts_EmptyName(t *testing.T) {
+func TestParseAccountsEmptyName(t *testing.T) {
 	_, err := parseAccounts([]string{":email@example.com"})
 	if err == nil {
 		t.Fatal("expected error for empty name, got nil")
@@ -398,7 +398,7 @@ func TestParseAccounts_EmptyName(t *testing.T) {
 }
 
 // TestParseAccounts_EmptyEmail verifies that an empty email portion is rejected.
-func TestParseAccounts_EmptyEmail(t *testing.T) {
+func TestParseAccountsEmptyEmail(t *testing.T) {
 	_, err := parseAccounts([]string{"name:"})
 	if err == nil {
 		t.Fatal("expected error for empty email, got nil")
@@ -406,7 +406,7 @@ func TestParseAccounts_EmptyEmail(t *testing.T) {
 }
 
 // TestParseAccounts_EmptySlice verifies that an empty slice returns an empty map.
-func TestParseAccounts_EmptySlice(t *testing.T) {
+func TestParseAccountsEmptySlice(t *testing.T) {
 	out, err := parseAccounts(nil)
 	if err != nil {
 		t.Fatalf(testUnexpectedErrorFmt, err)
@@ -417,7 +417,7 @@ func TestParseAccounts_EmptySlice(t *testing.T) {
 }
 
 // TestSplitTrimmed_Basic verifies normal comma splitting.
-func TestSplitTrimmed_Basic(t *testing.T) {
+func TestSplitTrimmedBasic(t *testing.T) {
 	got := splitTrimmed("a,b,c", ",")
 	if len(got) != 3 || got[0] != "a" || got[1] != "b" || got[2] != "c" {
 		t.Errorf("splitTrimmed: want [a b c], got %v", got)
@@ -425,7 +425,7 @@ func TestSplitTrimmed_Basic(t *testing.T) {
 }
 
 // TestSplitTrimmed_TrimsWhitespace verifies leading/trailing whitespace is removed.
-func TestSplitTrimmed_TrimsWhitespace(t *testing.T) {
+func TestSplitTrimmedTrimsWhitespace(t *testing.T) {
 	got := splitTrimmed(" a , b , c ", ",")
 	if len(got) != 3 || got[0] != "a" {
 		t.Errorf("splitTrimmed: want [a b c], got %v", got)
@@ -433,7 +433,7 @@ func TestSplitTrimmed_TrimsWhitespace(t *testing.T) {
 }
 
 // TestSplitTrimmed_SkipsEmpty verifies empty elements after trimming are dropped.
-func TestSplitTrimmed_SkipsEmpty(t *testing.T) {
+func TestSplitTrimmedSkipsEmpty(t *testing.T) {
 	got := splitTrimmed("a,,b", ",")
 	if len(got) != 2 {
 		t.Errorf("splitTrimmed: want 2 elements, got %d: %v", len(got), got)
@@ -441,7 +441,7 @@ func TestSplitTrimmed_SkipsEmpty(t *testing.T) {
 }
 
 // TestSplitTrimmed_EmptyInput verifies an empty string returns an empty slice.
-func TestSplitTrimmed_EmptyInput(t *testing.T) {
+func TestSplitTrimmedEmptyInput(t *testing.T) {
 	got := splitTrimmed("", ",")
 	if len(got) != 0 {
 		t.Errorf("splitTrimmed: want empty slice, got %v", got)

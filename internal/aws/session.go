@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
 	sdkcfg "github.com/aws/aws-sdk-go-v2/config"
@@ -32,12 +33,13 @@ var ErrNoCredentials = errors.New(
 // All service fields are interface types so tests can substitute mocks without
 // needing a live AWS endpoint.
 type Clients struct {
-	STS      CallerIdentityGetter
-	S3       S3API
-	DynamoDB DynamoDBAPI
-	IAM      IAMAPI
-	SNS      SNSAPI
-	Budgets  BudgetsAPI
+	STS            CallerIdentityProvider
+	STSRoleAssumer AssumeRoler
+	S3             S3API
+	DynamoDB       DynamoDBAPI
+	IAM            IAMAPI
+	SNS            SNSAPI
+	Budgets        BudgetsAPI
 
 	AccountID string
 	CallerARN string
@@ -62,15 +64,17 @@ func New(ctx context.Context, cfg *platformcfg.Config) (*Clients, error) {
 		return nil, err
 	}
 
+	stsClient := sts.NewFromConfig(awsCfg)
 	c := &Clients{
-		STS:      sts.NewFromConfig(awsCfg),
-		S3:       s3.NewFromConfig(awsCfg),
-		DynamoDB: dynamodb.NewFromConfig(awsCfg),
-		IAM:      iam.NewFromConfig(awsCfg),
-		SNS:      sns.NewFromConfig(awsCfg),
-		Budgets:  budgets.NewFromConfig(awsCfg),
-		Region:   cfg.Region,
-		Profile:  cfg.AWSProfile,
+		STS:            stsClient,
+		STSRoleAssumer: stsClient,
+		S3:             s3.NewFromConfig(awsCfg),
+		DynamoDB:       dynamodb.NewFromConfig(awsCfg),
+		IAM:            iam.NewFromConfig(awsCfg),
+		SNS:            sns.NewFromConfig(awsCfg),
+		Budgets:        budgets.NewFromConfig(awsCfg),
+		Region:         cfg.Region,
+		Profile:        cfg.AWSProfile,
 	}
 
 	if err := c.verifyIdentity(ctx); err != nil {
@@ -105,6 +109,70 @@ func loadConfig(ctx context.Context, cfg *platformcfg.Config) (sdkaws.Config, er
 	}
 
 	return awsCfg, nil
+}
+
+// IsRootARN reports whether callerARN is an AWS account root principal.
+// Root ARNs take the form arn:aws:iam::<account>:root.
+// The AWS root account cannot call sts:AssumeRole.
+func IsRootARN(callerARN string) bool {
+	return strings.HasSuffix(callerARN, ":root")
+}
+
+// AssumeAdminRole assumes the given IAM role using c.STSRoleAssumer, builds a
+// new Clients bundle from the temporary credentials, verifies the new identity,
+// and returns it. The original c is not modified.
+//
+// After this call, the returned Clients will have CallerARN set to the assumed
+// role session ARN (e.g. arn:aws:sts::ACCOUNT:assumed-role/platform-admin/...).
+// AccountID is preserved from the original Clients since role assumption stays
+// within the same account.
+func AssumeAdminRole(ctx context.Context, c *Clients, roleARN string) (*Clients, error) {
+	out, err := c.STSRoleAssumer.AssumeRole(ctx, &sts.AssumeRoleInput{
+		RoleArn:         sdkaws.String(roleARN),
+		RoleSessionName: sdkaws.String("platform-bootstrap-init"),
+		DurationSeconds: sdkaws.Int32(3600),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("assuming role %s: %w", roleARN, err)
+	}
+
+	creds := out.Credentials
+	provider := sdkaws.CredentialsProviderFunc(func(context.Context) (sdkaws.Credentials, error) {
+		return sdkaws.Credentials{
+			AccessKeyID:     sdkaws.ToString(creds.AccessKeyId),
+			SecretAccessKey: sdkaws.ToString(creds.SecretAccessKey),
+			SessionToken:    sdkaws.ToString(creds.SessionToken),
+			Source:          "AssumedRole:" + roleARN,
+		}, nil
+	})
+
+	awsCfg, err := sdkcfg.LoadDefaultConfig(ctx,
+		sdkcfg.WithRegion(c.Region),
+		sdkcfg.WithCredentialsProvider(provider),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("building config for assumed role: %w", err)
+	}
+
+	stsClient := sts.NewFromConfig(awsCfg)
+	assumed := &Clients{
+		STS:            stsClient,
+		STSRoleAssumer: stsClient,
+		S3:             s3.NewFromConfig(awsCfg),
+		DynamoDB:       dynamodb.NewFromConfig(awsCfg),
+		IAM:            iam.NewFromConfig(awsCfg),
+		SNS:            sns.NewFromConfig(awsCfg),
+		Budgets:        budgets.NewFromConfig(awsCfg),
+		Region:         c.Region,
+		Profile:        c.Profile,
+		AccountID:      c.AccountID,
+	}
+
+	if err := assumed.verifyIdentity(ctx); err != nil {
+		return nil, fmt.Errorf("verifying assumed role identity: %w", err)
+	}
+
+	return assumed, nil
 }
 
 // verifyIdentity calls sts:GetCallerIdentity and populates c.AccountID and

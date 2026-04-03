@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"sort"
-	"text/tabwriter"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -142,7 +141,7 @@ Exit codes:
 				return &ExitError{Code: exitUserError, Err: err}
 			}
 		} else {
-			printAuditReport(report)
+			printAuditReport(cmd, report)
 		}
 
 		if summary.Missing > 0 || summary.Unmanaged > 0 {
@@ -158,14 +157,17 @@ Exit codes:
 }
 
 // printAuditReport writes a human-readable audit table to stdout.
-func printAuditReport(r AuditReport) {
-	fmt.Printf("Audit report — org: %s  account: %s  region: %s\n\n",
-		r.OrgName, r.AccountID, r.Region)
+func printAuditReport(cmd *cobra.Command, r AuditReport) {
+	out := newCommandOutput(cmd, deps.ui)
+	if deps.ui != nil {
+		out.Header("Platform Bootstrap Audit", auditSummary(r.OrgName, r.AccountID, r.Region))
+		out.Blank()
+	} else {
+		out.Line("Audit report — org: " + r.OrgName + "  account: " + r.AccountID + "  region: " + r.Region)
+		out.Blank()
+	}
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "STATUS\tTYPE\tNAME\tCREATED AT\tCREATED BY")
-	fmt.Fprintln(w, "------\t----\t----\t----------\t----------")
-
+	rows := make([][]string, 0, len(r.Resources))
 	for _, res := range r.Resources {
 		createdAt := ""
 		if !res.CreatedAt.IsZero() {
@@ -175,22 +177,47 @@ func printAuditReport(r AuditReport) {
 		if createdBy == "" {
 			createdBy = "-"
 		}
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
-			statusIcon(res.Status), res.ResourceType, res.ResourceName, createdAt, createdBy)
+		rows = append(rows, []string{
+			statusIcon(res.Status),
+			res.ResourceType,
+			res.ResourceName,
+			createdAt,
+			createdBy,
+		})
 	}
-	w.Flush()
+	_ = out.Table([]string{"STATUS", "TYPE", "NAME", "CREATED AT", "CREATED BY"}, rows)
 
-	fmt.Printf("\nSummary: %d total, %d ok, %d missing, %d unmanaged\n",
-		r.Summary.Total, r.Summary.OK, r.Summary.Missing, r.Summary.Unmanaged)
+	if deps.ui != nil {
+		out.Blank()
+		out.Summary("Summary",
+			countPart("total", r.Summary.Total),
+			countPart("ok", r.Summary.OK),
+			countPart("missing", r.Summary.Missing),
+			countPart("unmanaged", r.Summary.Unmanaged),
+		)
+		return
+	}
+	out.Blank()
+	out.Line(fmt.Sprintf("Summary: %d total, %d ok, %d missing, %d unmanaged",
+		r.Summary.Total, r.Summary.OK, r.Summary.Missing, r.Summary.Unmanaged))
 }
 
 func statusIcon(s string) string {
 	switch s {
 	case "ok":
+		if deps.ui != nil {
+			return deps.ui.Badge("ok", "ok")
+		}
 		return "OK      "
 	case "missing":
+		if deps.ui != nil {
+			return deps.ui.Badge("error", "missing")
+		}
 		return "MISSING "
 	case "unmanaged":
+		if deps.ui != nil {
+			return deps.ui.Badge("warn", "unmanaged")
+		}
 		return "UNMANAGED"
 	}
 	return s

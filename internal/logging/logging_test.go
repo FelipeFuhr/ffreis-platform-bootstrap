@@ -13,7 +13,7 @@ import (
 
 // TestParseLevel_KnownLevels verifies all valid level strings map to the
 // correct slog.Level value.
-func TestParseLevel_KnownLevels(t *testing.T) {
+func TestParseLevelKnownLevels(t *testing.T) {
 	cases := []struct {
 		input string
 		want  slog.Level
@@ -40,7 +40,7 @@ func TestParseLevel_KnownLevels(t *testing.T) {
 
 // TestParseLevel_UnknownFallsBackToInfo verifies that unrecognised strings
 // fall back to slog.LevelInfo so the logger always works.
-func TestParseLevel_UnknownFallsBackToInfo(t *testing.T) {
+func TestParseLevelUnknownFallsBackToInfo(t *testing.T) {
 	for _, unknown := range []string{"", "verbose", "trace", "critical"} {
 		got := parseLevel(unknown)
 		if got != slog.LevelInfo {
@@ -51,7 +51,7 @@ func TestParseLevel_UnknownFallsBackToInfo(t *testing.T) {
 
 // TestNew_JSONFormatWhenRequested verifies that New(json=true) produces a
 // valid JSON log line.
-func TestNew_JSONFormatWhenRequested(t *testing.T) {
+func TestNewJSONFormatWhenRequested(t *testing.T) {
 	var buf bytes.Buffer
 	// We can't redirect the logger's stderr output easily, but we can
 	// construct a JSON handler directly via New and verify it accepts a log.
@@ -73,7 +73,7 @@ func TestNew_JSONFormatWhenRequested(t *testing.T) {
 
 // TestNew_ReturnsUsableLogger verifies that New returns a non-nil logger that
 // can emit log records without panicking, regardless of TTY state.
-func TestNew_ReturnsUsableLogger(t *testing.T) {
+func TestNewReturnsUsableLogger(t *testing.T) {
 	for _, level := range []string{"debug", "info", "warn", "error"} {
 		logger := New(level, true) // json=true to avoid TTY detection in CI
 		if logger == nil {
@@ -87,10 +87,10 @@ func TestNew_ReturnsUsableLogger(t *testing.T) {
 	}
 }
 
-// TestNew_TextFormat verifies that New(json=false) also returns a usable logger.
+// TestNewTextFormat verifies that New(json=false) also returns a usable logger.
 // The handler type (text vs JSON) depends on whether stderr is a TTY; we only
 // verify the logger is non-nil and doesn't panic.
-func TestNew_TextFormat(t *testing.T) {
+func TestNewTextFormat(t *testing.T) {
 	logger := New("info", false)
 	if logger == nil {
 		t.Fatal("New(info, false): returned nil")
@@ -98,10 +98,10 @@ func TestNew_TextFormat(t *testing.T) {
 	logger.Info("text format test")
 }
 
-// TestNew_DebugAddsSouce verifies that the debug level activates source
+// TestNewDebugAddsSouce verifies that the debug level activates source
 // annotation on the handler options (the handler is constructed with
 // AddSource=true when level == "debug").
-func TestNew_DebugAddsSource(t *testing.T) {
+func TestNewDebugAddsSource(t *testing.T) {
 	// Construct the JSON handler the same way New does for debug level.
 	opts := &slog.HandlerOptions{Level: slog.LevelDebug, AddSource: true}
 	var buf bytes.Buffer
@@ -114,16 +114,16 @@ func TestNew_DebugAddsSource(t *testing.T) {
 	}
 }
 
-// TestIsTTY_DoesNotPanic verifies that IsTTY runs without panicking and
+// TestIsTTYDoesNotPanic verifies that IsTTY runs without panicking and
 // returns a boolean. In CI stderr is not a TTY, so we just check the type.
-func TestIsTTY_DoesNotPanic(t *testing.T) {
+func TestIsTTYDoesNotPanic(t *testing.T) {
 	// IsTTY should always return a valid bool without panicking.
 	result := IsTTY()
 	_ = result // just ensure it compiles and runs
 }
 
-// TestIsTTY_StatError verifies IsTTY handles Stat errors by returning false.
-func TestIsTTY_StatError(t *testing.T) {
+// TestIsTTYStatError verifies IsTTY handles Stat errors by returning false.
+func TestIsTTYStatError(t *testing.T) {
 	old := os.Stderr
 	defer func() { os.Stderr = old }()
 
@@ -141,9 +141,9 @@ func TestIsTTY_StatError(t *testing.T) {
 	}
 }
 
-// TestNew_TextBranchWithCharDevice forces stderr to a char device so IsTTY()
+// TestNewTextBranchWithCharDevice forces stderr to a char device so IsTTY()
 // returns true and New(json=false) executes the text handler branch.
-func TestNew_TextBranchWithCharDevice(t *testing.T) {
+func TestNewTextBranchWithCharDevice(t *testing.T) {
 	old := os.Stderr
 	defer func() { os.Stderr = old }()
 
@@ -161,9 +161,9 @@ func TestNew_TextBranchWithCharDevice(t *testing.T) {
 	logger.Info("text branch hit")
 }
 
-// TestWithLogger_RoundTrip verifies that WithLogger stores a logger and
+// TestWithLoggerRoundTrip verifies that WithLogger stores a logger and
 // FromContext retrieves the same instance.
-func TestWithLogger_RoundTrip(t *testing.T) {
+func TestWithLoggerRoundTrip(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	ctx := WithLogger(context.Background(), logger)
 
@@ -173,18 +173,18 @@ func TestWithLogger_RoundTrip(t *testing.T) {
 	}
 }
 
-// TestFromContext_NoLoggerReturnsDefault verifies that FromContext returns
+// TestFromContextNoLoggerReturnsDefault verifies that FromContext returns
 // slog.Default() when no logger has been stored in the context.
-func TestFromContext_NoLoggerReturnsDefault(t *testing.T) {
+func TestFromContextNoLoggerReturnsDefault(t *testing.T) {
 	got := FromContext(context.Background())
 	if got != slog.Default() {
 		t.Errorf("FromContext(empty ctx): want slog.Default(), got %v", got)
 	}
 }
 
-// TestFromContext_NilLoggerReturnsDefault verifies that a nil logger value
+// TestFromContextNilLoggerReturnsDefault verifies that a nil logger value
 // stored in the context still falls back to slog.Default().
-func TestFromContext_NilLoggerReturnsDefault(t *testing.T) {
+func TestFromContextNilLoggerReturnsDefault(t *testing.T) {
 	ctx := context.WithValue(context.Background(), contextKey{}, (*slog.Logger)(nil))
 	got := FromContext(ctx)
 	if got != slog.Default() {

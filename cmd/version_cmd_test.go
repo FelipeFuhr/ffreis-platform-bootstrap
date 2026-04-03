@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestVersionCmd_DefaultsToDevUnknown(t *testing.T) {
+func TestVersionCmdDefaultsToDevUnknown(t *testing.T) {
 	// Do not run in parallel: this test mutates package-scoped variables.
 	oldVersion, oldCommit, oldBuildTime := version, commit, buildTime
 	t.Cleanup(func() {
@@ -30,7 +30,7 @@ func TestVersionCmd_DefaultsToDevUnknown(t *testing.T) {
 	}
 }
 
-func TestVersionCmd_TrimsWhitespace(t *testing.T) {
+func TestVersionCmdTrimsWhitespace(t *testing.T) {
 	// Do not run in parallel: this test mutates package-scoped variables.
 	oldVersion, oldCommit, oldBuildTime := version, commit, buildTime
 	t.Cleanup(func() {

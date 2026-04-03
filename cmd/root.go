@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"errors"
-	"fmt"
+	"io"
 	"log/slog"
 	"os"
 
@@ -11,6 +11,7 @@ import (
 	platformaws "github.com/ffreis/platform-bootstrap/internal/aws"
 	"github.com/ffreis/platform-bootstrap/internal/config"
 	"github.com/ffreis/platform-bootstrap/internal/logging"
+	platformui "github.com/ffreis/platform-bootstrap/internal/ui"
 )
 
 // deps is populated by root's PersistentPreRunE and is available to all
@@ -20,6 +21,7 @@ var deps struct {
 	cfg     *config.Config
 	logger  *slog.Logger
 	clients *platformaws.Clients
+	ui      *platformui.Presenter
 }
 
 // ExitError carries a specific exit code alongside an error message.
@@ -68,6 +70,13 @@ Flags take precedence over environment variables.`,
 		if err != nil {
 			return &ExitError{Code: exitUserError, Err: err}
 		}
+		cfg.ToolVersion = version
+
+		requestedUI, _ := cmd.Flags().GetString("ui")
+		presenter, err := platformui.New(requestedUI)
+		if err != nil {
+			return &ExitError{Code: exitUserError, Err: err}
+		}
 
 		logger := logging.New(cfg.LogLevel, !logging.IsTTY())
 		logger.Debug("configuration resolved",
@@ -80,11 +89,13 @@ Flags take precedence over environment variables.`,
 
 		deps.cfg = cfg
 		deps.logger = logger
+		deps.ui = presenter
 
 		// Propagate the logger through context so subcommands and internal
 		// packages can retrieve it via logging.FromContext(ctx) without
 		// importing deps directly.
 		ctx := logging.WithLogger(cmd.Context(), logger)
+		ctx = platformui.WithPresenter(ctx, presenter)
 		cmd.SetContext(ctx)
 
 		// Validate credentials immediately. Any bootstrap step that calls AWS
@@ -119,7 +130,7 @@ Flags take precedence over environment variables.`,
 // It maps error types to exit codes and writes errors to stderr.
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, "error:", err)
+		_, _ = io.WriteString(os.Stderr, "error: "+err.Error()+"\n")
 
 		var exitErr *ExitError
 		if errors.As(err, &exitErr) {
@@ -144,4 +155,6 @@ func init() {
 		"log verbosity: debug, info, warn, error (env: "+config.EnvLogLevel+", default: "+config.DefaultLogLevel+")")
 	f.Bool("dry-run", false,
 		"describe actions without executing any AWS calls (env: "+config.EnvDryRun+")")
+	f.String("ui", "auto",
+		"UI mode: auto, plain, rich")
 }

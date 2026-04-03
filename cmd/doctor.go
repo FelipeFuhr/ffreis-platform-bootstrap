@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -37,18 +36,23 @@ credentials can execute the platform-bootstrap workflow.
 This command does not create or modify any AWS resources.`,
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		ctx := cmd.Context()
+		out := newCommandOutput(cmd, deps.ui)
 
-		fmt.Fprintln(os.Stdout, "platform-bootstrap doctor")
-		fmt.Fprintf(os.Stdout, "- org: %s\n", deps.cfg.OrgName)
-		fmt.Fprintf(os.Stdout, "- region: %s\n", deps.cfg.Region)
-		fmt.Fprintf(os.Stdout, "- state_region: %s\n", deps.cfg.StateRegion)
-		if deps.cfg.AWSProfile != "" {
-			fmt.Fprintf(os.Stdout, "- profile: %s\n", deps.cfg.AWSProfile)
+		if deps.ui != nil {
+			out.Header("Platform Bootstrap Doctor", "read-only credential and permission checks")
 		} else {
-			fmt.Fprintln(os.Stdout, "- profile: (none; using environment credentials)")
+			out.Line("platform-bootstrap doctor")
 		}
-		fmt.Fprintf(os.Stdout, "- account_id: %s\n", deps.clients.AccountID)
-		fmt.Fprintf(os.Stdout, "- caller_arn: %s\n", deps.clients.CallerARN)
+		out.Bullet("org", deps.cfg.OrgName)
+		out.Bullet("region", deps.cfg.Region)
+		out.Bullet("state_region", deps.cfg.StateRegion)
+		if deps.cfg.AWSProfile != "" {
+			out.Bullet("profile", deps.cfg.AWSProfile)
+		} else {
+			out.Bullet("profile", "(none; using environment credentials)")
+		}
+		out.Bullet("account_id", deps.clients.AccountID)
+		out.Bullet("caller_arn", deps.clients.CallerARN)
 
 		checks := []doctorCheck{
 			{
@@ -96,30 +100,46 @@ This command does not create or modify any AWS resources.`,
 			},
 		}
 
-		fmt.Fprintln(os.Stdout, "\nChecks:")
+		out.Blank()
+		out.Line("Checks:")
 		failCount := 0
 		for _, c := range checks {
 			if err := c.run(); err != nil {
 				failCount++
-				fmt.Fprintf(os.Stdout, "  FAIL   %s\n", c.name)
-				fmt.Fprintf(os.Stdout, "         %s\n", c.desc)
-				fmt.Fprintf(os.Stdout, "         error: %s\n", formatErr(err))
+				if deps.ui != nil {
+					out.Line("  " + deps.ui.Badge("error", "fail") + " " + c.name)
+				} else {
+					out.Line("  fail " + c.name)
+				}
+				out.Line("         " + c.desc)
+				out.Line("         error: " + formatErr(err))
 				continue
 			}
-			fmt.Fprintf(os.Stdout, "  ok     %s\n", c.name)
+			if deps.ui != nil {
+				out.Line("  " + deps.ui.Badge("ok", "ok") + " " + c.name)
+			} else {
+				out.Line("  ok   " + c.name)
+			}
 		}
 
 		if failCount > 0 {
-			fmt.Fprintln(os.Stdout, "\nHints:")
+			out.Blank()
+			out.Line("Hints:")
 			if deps.cfg.AWSProfile != "" {
-				fmt.Fprintf(os.Stdout, "- If this profile uses AWS SSO / IAM Identity Center, run: aws sso login --profile %s\n", deps.cfg.AWSProfile)
+				out.Line("- If this profile uses AWS SSO / IAM Identity Center, run: aws sso login --profile " + deps.cfg.AWSProfile)
 			}
-			fmt.Fprintln(os.Stdout, "- Ensure you're using an administrator principal in the AWS management account (not a member account).")
-			fmt.Fprintln(os.Stdout, "- Required services for init: IAM, S3, DynamoDB, SNS, Budgets.")
+			out.Line("- Ensure you're using an administrator principal in the AWS management account (not a member account).")
+			out.Line("- Required services for init: IAM, S3, DynamoDB, SNS, Budgets.")
 			return &ExitError{Code: exitAWSError, Err: fmt.Errorf("doctor failed: %d check(s) failed", failCount)}
 		}
 
-		fmt.Fprintln(os.Stdout, "\nAll checks passed.")
+		if deps.ui != nil {
+			out.Blank()
+			out.Status("ok", "ok", "all checks passed")
+		} else {
+			out.Blank()
+			out.Line("All checks passed.")
+		}
 		return nil
 	},
 }

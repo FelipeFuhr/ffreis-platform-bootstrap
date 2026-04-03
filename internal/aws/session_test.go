@@ -14,7 +14,7 @@ import (
 	platformcfg "github.com/ffreis/platform-bootstrap/internal/config"
 )
 
-// mockSTS implements CallerIdentityGetter for verifyIdentity tests.
+// mockSTS implements CallerIdentityProvider for verifyIdentity tests.
 type mockSTS struct {
 	out *sts.GetCallerIdentityOutput
 	err error
@@ -27,7 +27,7 @@ func (m *mockSTS) GetCallerIdentity(_ context.Context, _ *sts.GetCallerIdentityI
 	return m.out, nil
 }
 
-func TestNew_NoCredentials(t *testing.T) {
+func TestNewNoCredentials(t *testing.T) {
 	cfg := &platformcfg.Config{Region: testRegion}
 	t.Setenv("AWS_ACCESS_KEY_ID", "")
 	t.Setenv("AWS_SECRET_ACCESS_KEY", "")
@@ -39,7 +39,7 @@ func TestNew_NoCredentials(t *testing.T) {
 	}
 }
 
-func TestLoadConfig_EnvCredentials(t *testing.T) {
+func TestLoadConfigEnvCredentials(t *testing.T) {
 	cfg := &platformcfg.Config{Region: testRegion}
 	t.Setenv("AWS_ACCESS_KEY_ID", "test-key")
 	t.Setenv("AWS_SECRET_ACCESS_KEY", "test-secret")
@@ -54,7 +54,7 @@ func TestLoadConfig_EnvCredentials(t *testing.T) {
 	}
 }
 
-func TestLoadConfig_ProfileNotFound(t *testing.T) {
+func TestLoadConfigProfileNotFound(t *testing.T) {
 	cfg := &platformcfg.Config{Region: testRegion, AWSProfile: "profile-that-should-not-exist"}
 	t.Setenv("AWS_ACCESS_KEY_ID", "")
 	t.Setenv("AWS_SECRET_ACCESS_KEY", "")
@@ -69,7 +69,7 @@ func TestLoadConfig_ProfileNotFound(t *testing.T) {
 	}
 }
 
-func TestVerifyIdentity_Success(t *testing.T) {
+func TestVerifyIdentitySuccess(t *testing.T) {
 	c := &Clients{STS: &mockSTS{out: &sts.GetCallerIdentityOutput{
 		Account: sdkaws.String("123456789012"),
 		Arn:     sdkaws.String(testBootstrapARN),
@@ -87,7 +87,7 @@ func TestVerifyIdentity_Success(t *testing.T) {
 	}
 }
 
-func TestVerifyIdentity_Error(t *testing.T) {
+func TestVerifyIdentityError(t *testing.T) {
 	c := &Clients{STS: &mockSTS{err: errors.New("sts failure")}}
 
 	err := c.verifyIdentity(context.Background())
@@ -99,7 +99,7 @@ func TestVerifyIdentity_Error(t *testing.T) {
 	}
 }
 
-func TestNew_SuccessWithLocalSTS(t *testing.T) {
+func TestNewSuccessWithLocalSTS(t *testing.T) {
 	stsServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/xml")
 		_, _ = w.Write([]byte(`<?xml version="1.0" encoding="UTF-8"?>

@@ -81,9 +81,35 @@ func (m *mockIAM) DeleteRole(_ context.Context, _ *iam.DeleteRoleInput, _ ...fun
 	return &iam.DeleteRoleOutput{}, nil
 }
 
+// Temp-user stubs — not exercised by iam_test.go but required by IAMAPI.
+func (m *mockIAM) GetUser(_ context.Context, _ *iam.GetUserInput, _ ...func(*iam.Options)) (*iam.GetUserOutput, error) {
+	return nil, &iamtypes.NoSuchEntityException{}
+}
+func (m *mockIAM) CreateUser(_ context.Context, _ *iam.CreateUserInput, _ ...func(*iam.Options)) (*iam.CreateUserOutput, error) {
+	return &iam.CreateUserOutput{User: &iamtypes.User{}}, nil
+}
+func (m *mockIAM) PutUserPolicy(_ context.Context, _ *iam.PutUserPolicyInput, _ ...func(*iam.Options)) (*iam.PutUserPolicyOutput, error) {
+	return &iam.PutUserPolicyOutput{}, nil
+}
+func (m *mockIAM) CreateAccessKey(_ context.Context, _ *iam.CreateAccessKeyInput, _ ...func(*iam.Options)) (*iam.CreateAccessKeyOutput, error) {
+	return &iam.CreateAccessKeyOutput{AccessKey: &iamtypes.AccessKey{}}, nil
+}
+func (m *mockIAM) ListAccessKeys(_ context.Context, _ *iam.ListAccessKeysInput, _ ...func(*iam.Options)) (*iam.ListAccessKeysOutput, error) {
+	return &iam.ListAccessKeysOutput{}, nil
+}
+func (m *mockIAM) DeleteAccessKey(_ context.Context, _ *iam.DeleteAccessKeyInput, _ ...func(*iam.Options)) (*iam.DeleteAccessKeyOutput, error) {
+	return &iam.DeleteAccessKeyOutput{}, nil
+}
+func (m *mockIAM) DeleteUserPolicy(_ context.Context, _ *iam.DeleteUserPolicyInput, _ ...func(*iam.Options)) (*iam.DeleteUserPolicyOutput, error) {
+	return &iam.DeleteUserPolicyOutput{}, nil
+}
+func (m *mockIAM) DeleteUser(_ context.Context, _ *iam.DeleteUserInput, _ ...func(*iam.Options)) (*iam.DeleteUserOutput, error) {
+	return &iam.DeleteUserOutput{}, nil
+}
+
 // TestEnsurePlatformAdminRole_Create verifies that when the role does not
 // exist, CreateRole and PutRolePolicy are both called.
-func TestEnsurePlatformAdminRole_Create(t *testing.T) {
+func TestEnsurePlatformAdminRoleCreate(t *testing.T) {
 	m := &mockIAM{}
 
 	if err := EnsurePlatformAdminRole(context.Background(), m, testRoleName, "123456789012", nil); err != nil {
@@ -104,7 +130,7 @@ func TestEnsurePlatformAdminRole_Create(t *testing.T) {
 // TestEnsurePlatformAdminRole_AlreadyExists verifies that when the role
 // already exists, CreateRole is skipped but PutRolePolicy is always called
 // (so policy changes on re-run take effect).
-func TestEnsurePlatformAdminRole_AlreadyExists(t *testing.T) {
+func TestEnsurePlatformAdminRoleAlreadyExists(t *testing.T) {
 	m := &mockIAM{roleExists: true}
 
 	if err := EnsurePlatformAdminRole(context.Background(), m, testRoleName, "123456789012", nil); err != nil {
@@ -121,7 +147,7 @@ func TestEnsurePlatformAdminRole_AlreadyExists(t *testing.T) {
 
 // TestEnsurePlatformAdminRole_EntityAlreadyExists verifies that a concurrent
 // CreateRole (EntityAlreadyExistsException) is treated as success.
-func TestEnsurePlatformAdminRole_EntityAlreadyExists(t *testing.T) {
+func TestEnsurePlatformAdminRoleEntityAlreadyExists(t *testing.T) {
 	m := &mockIAM{
 		createRoleErr: &iamtypes.EntityAlreadyExistsException{},
 	}
@@ -137,7 +163,7 @@ func TestEnsurePlatformAdminRole_EntityAlreadyExists(t *testing.T) {
 
 // TestEnsurePlatformAdminRole_Idempotent is the core idempotency test:
 // calling EnsurePlatformAdminRole twice must result in exactly one CreateRole.
-func TestEnsurePlatformAdminRole_Idempotent(t *testing.T) {
+func TestEnsurePlatformAdminRoleIdempotent(t *testing.T) {
 	m := &mockIAM{}
 
 	// First call — role does not exist.
@@ -163,7 +189,7 @@ func TestEnsurePlatformAdminRole_Idempotent(t *testing.T) {
 
 // TestEnsurePlatformAdminRole_TrustPolicy verifies the trust document encodes
 // the account root ARN and sts:AssumeRole correctly.
-func TestEnsurePlatformAdminRole_TrustPolicy(t *testing.T) {
+func TestEnsurePlatformAdminRoleTrustPolicy(t *testing.T) {
 	capture := &trustCapturingIAM{}
 
 	accountID := "123456789012"
@@ -199,7 +225,7 @@ func TestEnsurePlatformAdminRole_TrustPolicy(t *testing.T) {
 
 // TestEnsurePlatformAdminRole_DenyList verifies the permissions policy
 // includes the deny statement and covers at least the critical root actions.
-func TestEnsurePlatformAdminRole_DenyList(t *testing.T) {
+func TestEnsurePlatformAdminRoleDenyList(t *testing.T) {
 	capture := &policyCapturingIAM{}
 
 	if err := EnsurePlatformAdminRole(context.Background(), capture, testRoleName, "123456789012", nil); err != nil {
@@ -229,7 +255,7 @@ func TestEnsurePlatformAdminRole_DenyList(t *testing.T) {
 
 // TestEnsurePlatformAdminRole_TagsApplied verifies that when tags are
 // provided, TagRole is called.
-func TestEnsurePlatformAdminRole_TagsApplied(t *testing.T) {
+func TestEnsurePlatformAdminRoleTagsApplied(t *testing.T) {
 	m := &mockIAM{}
 	tags := map[string]string{"Project": "platform", "Owner": "ffreis"}
 

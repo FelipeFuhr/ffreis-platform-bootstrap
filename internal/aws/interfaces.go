@@ -11,10 +11,16 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 )
 
-// CallerIdentityGetter is the subset of STS operations used to verify caller identity.
+// CallerIdentityProvider is the subset of STS operations used to verify caller identity.
 // *sts.Client satisfies this interface.
-type CallerIdentityGetter interface {
+type CallerIdentityProvider interface {
 	GetCallerIdentity(ctx context.Context, params *sts.GetCallerIdentityInput, optFns ...func(*sts.Options)) (*sts.GetCallerIdentityOutput, error)
+}
+
+// AssumeRoler is the subset of STS operations used to assume an IAM role.
+// *sts.Client satisfies this interface.
+type AssumeRoler interface {
+	AssumeRole(ctx context.Context, params *sts.AssumeRoleInput, optFns ...func(*sts.Options)) (*sts.AssumeRoleOutput, error)
 }
 
 // S3API is the subset of S3 operations used by EnsureStateBucket, DeleteStateBucket, and doctor.
@@ -44,8 +50,8 @@ type DynamoDBAPI interface {
 	DeleteTable(ctx context.Context, params *dynamodb.DeleteTableInput, optFns ...func(*dynamodb.Options)) (*dynamodb.DeleteTableOutput, error)
 }
 
-// IAMAPI is the subset of IAM operations used by EnsurePlatformAdminRole, DeleteIAMRole, and doctor.
-// *iam.Client satisfies this interface.
+// IAMAPI is the subset of IAM operations used by EnsurePlatformAdminRole, DeleteIAMRole,
+// temp-user bootstrap, and doctor. *iam.Client satisfies this interface.
 type IAMAPI interface {
 	GetRole(ctx context.Context, params *iam.GetRoleInput, optFns ...func(*iam.Options)) (*iam.GetRoleOutput, error)
 	GetAccountSummary(ctx context.Context, params *iam.GetAccountSummaryInput, optFns ...func(*iam.Options)) (*iam.GetAccountSummaryOutput, error)
@@ -55,6 +61,15 @@ type IAMAPI interface {
 	ListRolePolicies(ctx context.Context, params *iam.ListRolePoliciesInput, optFns ...func(*iam.Options)) (*iam.ListRolePoliciesOutput, error)
 	DeleteRolePolicy(ctx context.Context, params *iam.DeleteRolePolicyInput, optFns ...func(*iam.Options)) (*iam.DeleteRolePolicyOutput, error)
 	DeleteRole(ctx context.Context, params *iam.DeleteRoleInput, optFns ...func(*iam.Options)) (*iam.DeleteRoleOutput, error)
+	// Temp-user operations — used to bridge the root→platform-admin assumption gap.
+	CreateUser(ctx context.Context, params *iam.CreateUserInput, optFns ...func(*iam.Options)) (*iam.CreateUserOutput, error)
+	PutUserPolicy(ctx context.Context, params *iam.PutUserPolicyInput, optFns ...func(*iam.Options)) (*iam.PutUserPolicyOutput, error)
+	CreateAccessKey(ctx context.Context, params *iam.CreateAccessKeyInput, optFns ...func(*iam.Options)) (*iam.CreateAccessKeyOutput, error)
+	ListAccessKeys(ctx context.Context, params *iam.ListAccessKeysInput, optFns ...func(*iam.Options)) (*iam.ListAccessKeysOutput, error)
+	DeleteAccessKey(ctx context.Context, params *iam.DeleteAccessKeyInput, optFns ...func(*iam.Options)) (*iam.DeleteAccessKeyOutput, error)
+	DeleteUserPolicy(ctx context.Context, params *iam.DeleteUserPolicyInput, optFns ...func(*iam.Options)) (*iam.DeleteUserPolicyOutput, error)
+	DeleteUser(ctx context.Context, params *iam.DeleteUserInput, optFns ...func(*iam.Options)) (*iam.DeleteUserOutput, error)
+	GetUser(ctx context.Context, params *iam.GetUserInput, optFns ...func(*iam.Options)) (*iam.GetUserOutput, error)
 }
 
 // SNSAPI is the subset of SNS operations used by EnsureEventsTopic, PublishEvent, DeleteSNSTopic, and doctor.

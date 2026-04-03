@@ -56,7 +56,7 @@ func (m *s3ErrorMock) DeleteBucket(_ context.Context, _ *s3.DeleteBucketInput, _
 	return &s3.DeleteBucketOutput{}, nil
 }
 
-func TestEnsureStateBucket_HeadBucketUnexpectedError(t *testing.T) {
+func TestEnsureStateBucketHeadBucketUnexpectedError(t *testing.T) {
 	errSentinel := errors.New("forbidden")
 	err := EnsureStateBucket(context.Background(), &s3ErrorMock{headErr: errSentinel}, "bucket", testRegion, nil)
 	if err == nil || !strings.Contains(err.Error(), "checking bucket") {
@@ -64,7 +64,7 @@ func TestEnsureStateBucket_HeadBucketUnexpectedError(t *testing.T) {
 	}
 }
 
-func TestEnsureStateBucket_CreateBucketError(t *testing.T) {
+func TestEnsureStateBucketCreateBucketError(t *testing.T) {
 	errSentinel := errors.New("create failed")
 	err := EnsureStateBucket(context.Background(), &s3ErrorMock{createErr: errSentinel}, "bucket", testRegion, nil)
 	if err == nil || !strings.Contains(err.Error(), "creating bucket") {
@@ -72,7 +72,7 @@ func TestEnsureStateBucket_CreateBucketError(t *testing.T) {
 	}
 }
 
-func TestEnsureStateBucket_PublicBlockError(t *testing.T) {
+func TestEnsureStateBucketPublicBlockError(t *testing.T) {
 	errSentinel := errors.New("public block failed")
 	err := EnsureStateBucket(context.Background(), &s3ErrorMock{publicErr: errSentinel}, "bucket", testRegion, nil)
 	if err == nil || !strings.Contains(err.Error(), "blocking public access") {
@@ -116,18 +116,42 @@ func (m *iamErrorMock) DeleteRolePolicy(_ context.Context, _ *iam.DeleteRolePoli
 func (m *iamErrorMock) DeleteRole(_ context.Context, _ *iam.DeleteRoleInput, _ ...func(*iam.Options)) (*iam.DeleteRoleOutput, error) {
 	return &iam.DeleteRoleOutput{}, nil
 }
+func (m *iamErrorMock) GetUser(_ context.Context, _ *iam.GetUserInput, _ ...func(*iam.Options)) (*iam.GetUserOutput, error) {
+	return nil, errors.New("no such user")
+}
+func (m *iamErrorMock) CreateUser(_ context.Context, _ *iam.CreateUserInput, _ ...func(*iam.Options)) (*iam.CreateUserOutput, error) {
+	return &iam.CreateUserOutput{}, nil
+}
+func (m *iamErrorMock) PutUserPolicy(_ context.Context, _ *iam.PutUserPolicyInput, _ ...func(*iam.Options)) (*iam.PutUserPolicyOutput, error) {
+	return &iam.PutUserPolicyOutput{}, nil
+}
+func (m *iamErrorMock) CreateAccessKey(_ context.Context, _ *iam.CreateAccessKeyInput, _ ...func(*iam.Options)) (*iam.CreateAccessKeyOutput, error) {
+	return &iam.CreateAccessKeyOutput{}, nil
+}
+func (m *iamErrorMock) ListAccessKeys(_ context.Context, _ *iam.ListAccessKeysInput, _ ...func(*iam.Options)) (*iam.ListAccessKeysOutput, error) {
+	return &iam.ListAccessKeysOutput{}, nil
+}
+func (m *iamErrorMock) DeleteAccessKey(_ context.Context, _ *iam.DeleteAccessKeyInput, _ ...func(*iam.Options)) (*iam.DeleteAccessKeyOutput, error) {
+	return &iam.DeleteAccessKeyOutput{}, nil
+}
+func (m *iamErrorMock) DeleteUserPolicy(_ context.Context, _ *iam.DeleteUserPolicyInput, _ ...func(*iam.Options)) (*iam.DeleteUserPolicyOutput, error) {
+	return &iam.DeleteUserPolicyOutput{}, nil
+}
+func (m *iamErrorMock) DeleteUser(_ context.Context, _ *iam.DeleteUserInput, _ ...func(*iam.Options)) (*iam.DeleteUserOutput, error) {
+	return &iam.DeleteUserOutput{}, nil
+}
 
-func TestEnsurePlatformAdminRole_PutPolicyError(t *testing.T) {
+func TestEnsurePlatformAdminRolePutPolicyError(t *testing.T) {
 	errSentinel := errors.New("put role policy failed")
-	err := EnsurePlatformAdminRole(context.Background(), &iamErrorMock{putPolicyErr: errSentinel}, "platform-admin", "123456789012", nil)
+	err := EnsurePlatformAdminRole(context.Background(), &iamErrorMock{putPolicyErr: errSentinel}, testRoleName, testAccountID, nil)
 	if err == nil || !strings.Contains(err.Error(), "putting inline policy") {
 		t.Fatalf("expected wrapped put policy error, got: %v", err)
 	}
 }
 
-func TestEnsurePlatformAdminRole_TagError(t *testing.T) {
+func TestEnsurePlatformAdminRoleTagError(t *testing.T) {
 	errSentinel := errors.New("tag role failed")
-	err := EnsurePlatformAdminRole(context.Background(), &iamErrorMock{tagErr: errSentinel}, "platform-admin", "123456789012", map[string]string{"Owner": "acme"})
+	err := EnsurePlatformAdminRole(context.Background(), &iamErrorMock{tagErr: errSentinel}, testRoleName, testAccountID, map[string]string{"Owner": "acme"})
 	if err == nil || !strings.Contains(err.Error(), "tagging IAM role") {
 		t.Fatalf("expected wrapped tag error, got: %v", err)
 	}
@@ -166,7 +190,7 @@ func (m *snsErrorMock) DeleteTopic(_ context.Context, _ *sns.DeleteTopicInput, _
 	return &sns.DeleteTopicOutput{}, nil
 }
 
-func TestEnsureEventsTopic_CreateError(t *testing.T) {
+func TestEnsureEventsTopicCreateError(t *testing.T) {
 	errSentinel := errors.New("create topic failed")
 	_, err := EnsureEventsTopic(context.Background(), &snsErrorMock{createErr: errSentinel}, "topic", nil)
 	if err == nil || !strings.Contains(err.Error(), "ensuring SNS topic") {
@@ -174,15 +198,15 @@ func TestEnsureEventsTopic_CreateError(t *testing.T) {
 	}
 }
 
-func TestEnsureTopicBudgetPolicy_SetAttributeError(t *testing.T) {
+func TestEnsureTopicBudgetPolicySetAttributeError(t *testing.T) {
 	errSentinel := errors.New("set attrs failed")
-	err := EnsureTopicBudgetPolicy(context.Background(), &snsErrorMock{setErr: errSentinel}, "arn:aws:sns:us-east-1:123456789012:t", "123456789012")
+	err := EnsureTopicBudgetPolicy(context.Background(), &snsErrorMock{setErr: errSentinel}, "arn:aws:sns:us-east-1:123456789012:t", testAccountID)
 	if err == nil || !strings.Contains(err.Error(), "setting SNS topic policy") {
 		t.Fatalf("expected wrapped set topic attrs error, got: %v", err)
 	}
 }
 
-func TestPublishEvent_PublishError(t *testing.T) {
+func TestPublishEventPublishError(t *testing.T) {
 	errSentinel := errors.New("publish failed")
 	err := PublishEvent(context.Background(), &snsErrorMock{publishErr: errSentinel}, "arn:aws:sns:us-east-1:123456789012:t", NewEvent(EventTypeResourceCreated, "S3Bucket", "bucket", "actor"))
 	if err == nil || !strings.Contains(err.Error(), "publishing event") {
@@ -222,14 +246,14 @@ func (m *dynamoPollErrorMock) DeleteTable(_ context.Context, _ *dynamodb.DeleteT
 	return &dynamodb.DeleteTableOutput{}, nil
 }
 
-func TestWaitForActiveARN_DescribeError(t *testing.T) {
+func TestWaitForActiveARNDescribeError(t *testing.T) {
 	_, err := waitForActiveARN(context.Background(), &dynamoPollErrorMock{err: errors.New("describe failed")}, "table")
 	if err == nil || !strings.Contains(err.Error(), "polling table") {
 		t.Fatalf("expected wrapped polling error, got: %v", err)
 	}
 }
 
-func TestWaitForActiveARN_ContextTimeout(t *testing.T) {
+func TestWaitForActiveARNContextTimeout(t *testing.T) {
 	old := tableActivePollInterval
 	tableActivePollInterval = 0
 	defer func() { tableActivePollInterval = old }()
@@ -243,14 +267,14 @@ func TestWaitForActiveARN_ContextTimeout(t *testing.T) {
 	}
 }
 
-func TestEnsureTableActiveARN_DescribeUnexpectedError(t *testing.T) {
+func TestEnsureTableActiveARNDescribeUnexpectedError(t *testing.T) {
 	_, err := ensureTableActiveARN(context.Background(), &dynamoPollErrorMock{err: errors.New("access denied")}, "table", &dynamodb.CreateTableInput{TableName: sdkaws.String("table")})
 	if err == nil || !strings.Contains(err.Error(), "checking table") {
 		t.Fatalf("expected wrapped describe error, got: %v", err)
 	}
 }
 
-func TestEnsureTableActiveARN_ActiveImmediately(t *testing.T) {
+func TestEnsureTableActiveARNActiveImmediately(t *testing.T) {
 	arn := "arn:aws:dynamodb:us-east-1:123456789012:table/t"
 	m := &dynamoPollErrorMock{status: dbtypes.TableStatusActive}
 	out, err := m.DescribeTable(context.Background(), &dynamodb.DescribeTableInput{})

@@ -7,7 +7,7 @@ import (
 	"github.com/ffreis/platform-bootstrap/internal/config"
 )
 
-func TestNuke_DryRunAllowsNilClients(t *testing.T) {
+func TestNukeDryRunAllowsNilClients(t *testing.T) {
 	cfg := &config.Config{
 		OrgName:          "acme",
 		Region:           testRegion,
@@ -23,7 +23,7 @@ func TestNuke_DryRunAllowsNilClients(t *testing.T) {
 	}
 }
 
-func TestNuke_NilClientsWhenNotDryRun(t *testing.T) {
+func TestNukeNilClientsWhenNotDryRun(t *testing.T) {
 	cfg := &config.Config{
 		OrgName:          "acme",
 		Region:           testRegion,

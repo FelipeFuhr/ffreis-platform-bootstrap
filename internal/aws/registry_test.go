@@ -2,6 +2,8 @@ package aws
 
 import (
 	"context"
+	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -71,13 +73,25 @@ func (m *registryMockDynamoDB) Scan(_ context.Context, in *dynamodb.ScanInput, _
 	return &dynamodb.ScanOutput{Items: items}, nil
 }
 
+type scanRegistryMock struct {
+	registryMockDynamoDB
+	scanErr error
+}
+
+func (m *scanRegistryMock) Scan(ctx context.Context, in *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
+	if m.scanErr != nil {
+		return nil, m.scanErr
+	}
+	return m.registryMockDynamoDB.Scan(ctx, in, optFns...)
+}
+
 // TestEnsureRegistryTable_Schema verifies the registry table is created with
 // the correct composite key schema (PK HASH, SK RANGE).
-func TestEnsureRegistryTable_Schema(t *testing.T) {
+func TestEnsureRegistryTableSchema(t *testing.T) {
 	capture := &schemaCapturingDynamoDB{}
 
 	if err := EnsureRegistryTable(context.Background(), capture, testRegistryTable, nil); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpectedFmt, err)
 	}
 
 	in := capture.lastCreateInput
@@ -107,7 +121,7 @@ func TestEnsureRegistryTable_Schema(t *testing.T) {
 
 // TestRegisterResource_WritesRecord verifies that RegisterResource writes
 // a record to the table and sets the expected fields.
-func TestRegisterResource_WritesRecord(t *testing.T) {
+func TestRegisterResourceWritesRecord(t *testing.T) {
 	m := newRegistryMock()
 
 	rec, err := NewRegistryRecord("S3Bucket", testStateBucket, "arn:aws:iam::123:root", map[string]string{"Project": "platform"})
@@ -127,7 +141,7 @@ func TestRegisterResource_WritesRecord(t *testing.T) {
 // TestRegisterResource_Idempotent verifies that a second RegisterResource call
 // with the same PK+SK is treated as success (ConditionalCheckFailedException
 // is swallowed).
-func TestRegisterResource_Idempotent(t *testing.T) {
+func TestRegisterResourceIdempotent(t *testing.T) {
 	m := newRegistryMock()
 	m.condFailOnDup = true
 
@@ -150,10 +164,10 @@ func TestRegisterResource_Idempotent(t *testing.T) {
 }
 
 // TestNewRegistryRecord_Fields verifies all fields are populated correctly.
-func TestNewRegistryRecord_Fields(t *testing.T) {
+func TestNewRegistryRecordFields(t *testing.T) {
 	before := time.Now().UTC()
 	tags := map[string]string{"Project": "platform"}
-	rec, err := NewRegistryRecord("IAMRole", "platform-admin", testCallerRoleARN, tags)
+	rec, err := NewRegistryRecord("IAMRole", testRoleName, testCallerRoleARN, tags)
 	after := time.Now().UTC()
 
 	if err != nil {
@@ -163,8 +177,8 @@ func TestNewRegistryRecord_Fields(t *testing.T) {
 	if rec.PK != "RESOURCE#IAMRole" {
 		t.Errorf("PK: want RESOURCE#IAMRole, got %s", rec.PK)
 	}
-	if rec.SK != "platform-admin" {
-		t.Errorf("SK: want platform-admin, got %s", rec.SK)
+	if rec.SK != testRoleName {
+		t.Errorf("SK: want %s, got %s", testRoleName, rec.SK)
 	}
 	if rec.ResourceType != "IAMRole" {
 		t.Errorf("ResourceType: want IAMRole, got %s", rec.ResourceType)
@@ -182,7 +196,7 @@ func TestNewRegistryRecord_Fields(t *testing.T) {
 
 // TestWriteConfig_WritesRecord verifies that WriteConfig stores a ConfigRecord
 // and that it can be retrieved via FetchConfig.
-func TestWriteConfig_WritesRecord(t *testing.T) {
+func TestWriteConfigWritesRecord(t *testing.T) {
 	m := newRegistryMock()
 	ctx := context.Background()
 
@@ -214,7 +228,7 @@ func TestWriteConfig_WritesRecord(t *testing.T) {
 
 // TestWriteConfig_Overwrites verifies that WriteConfig is mutable —
 // a second write with the same key replaces the first.
-func TestWriteConfig_Overwrites(t *testing.T) {
+func TestWriteConfigOverwrites(t *testing.T) {
 	m := newRegistryMock()
 	ctx := context.Background()
 
@@ -232,7 +246,7 @@ func TestWriteConfig_Overwrites(t *testing.T) {
 
 // TestFetchConfig_FiltersType verifies that FetchConfig only returns records
 // matching the requested configType, not other config or resource records.
-func TestFetchConfig_FiltersType(t *testing.T) {
+func TestFetchConfigFiltersType(t *testing.T) {
 	m := newRegistryMock()
 	ctx := context.Background()
 
@@ -259,7 +273,7 @@ func TestFetchConfig_FiltersType(t *testing.T) {
 
 // TestScanRegistry_ReturnsList verifies that ScanRegistry returns all
 // records written to the table.
-func TestScanRegistry_ReturnsList(t *testing.T) {
+func TestScanRegistryReturnsList(t *testing.T) {
 	m := newRegistryMock()
 
 	rec1, _ := NewRegistryRecord("S3Bucket", "bucket-1", "actor", nil)
@@ -279,5 +293,56 @@ func TestScanRegistry_ReturnsList(t *testing.T) {
 
 	if len(records) != 2 {
 		t.Errorf("records: want 2, got %d", len(records))
+	}
+}
+
+func TestScanRegistryMissingTableReturnsEmpty(t *testing.T) {
+	t.Parallel()
+
+	m := &scanRegistryMock{scanErr: &dbtypes.ResourceNotFoundException{}}
+
+	records, err := ScanRegistry(context.Background(), m, testRegistryTable)
+	if err != nil {
+		t.Fatalf("ScanRegistry: %v", err)
+	}
+	if len(records) != 0 {
+		t.Fatalf("records: want 0 for missing table, got %d", len(records))
+	}
+}
+
+func TestScanRegistryUnexpectedError(t *testing.T) {
+	t.Parallel()
+
+	m := &scanRegistryMock{scanErr: errors.New("boom")}
+
+	_, err := ScanRegistry(context.Background(), m, testRegistryTable)
+	if err == nil {
+		t.Fatal("expected ScanRegistry to fail")
+	}
+	if err.Error() != "scanning registry table "+testRegistryTable+": boom" {
+		t.Fatalf(errUnexpectedFmt, err)
+	}
+}
+
+func TestScanRegistryUnmarshalError(t *testing.T) {
+	t.Parallel()
+
+	m := newRegistryMock()
+	m.items["RESOURCE#S3Bucket/bad"] = map[string]dbtypes.AttributeValue{
+		"PK":            &dbtypes.AttributeValueMemberS{Value: "RESOURCE#S3Bucket"},
+		"SK":            &dbtypes.AttributeValueMemberS{Value: "bad"},
+		"resource_type": &dbtypes.AttributeValueMemberS{Value: "S3Bucket"},
+		"resource_name": &dbtypes.AttributeValueMemberS{Value: "bad"},
+		"created_at":    &dbtypes.AttributeValueMemberS{Value: "not-a-timestamp"},
+		"created_by":    &dbtypes.AttributeValueMemberS{Value: "actor"},
+		"tags":          &dbtypes.AttributeValueMemberS{Value: "{}"},
+	}
+
+	_, err := ScanRegistry(context.Background(), m, testRegistryTable)
+	if err == nil {
+		t.Fatal("expected ScanRegistry to fail on invalid item")
+	}
+	if !strings.Contains(err.Error(), "unmarshalling registry record") {
+		t.Fatalf(errUnexpectedFmt, err)
 	}
 }

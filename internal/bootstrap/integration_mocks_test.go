@@ -153,6 +153,10 @@ type integrationMockIAM struct {
 	createRoleCalls int
 	putPolicyCalls  int
 	tagCalls        int
+
+	// temp-user fields
+	tempUserExists bool
+	tempUserKeys   map[string]string // accessKeyID → secretAccessKey
 }
 
 func (m *integrationMockIAM) GetAccountSummary(_ context.Context, _ *iam.GetAccountSummaryInput, _ ...func(*iam.Options)) (*iam.GetAccountSummaryOutput, error) {
@@ -186,6 +190,55 @@ func (m *integrationMockIAM) DeleteRolePolicy(_ context.Context, _ *iam.DeleteRo
 func (m *integrationMockIAM) DeleteRole(_ context.Context, _ *iam.DeleteRoleInput, _ ...func(*iam.Options)) (*iam.DeleteRoleOutput, error) {
 	m.roleExists = false
 	return &iam.DeleteRoleOutput{}, nil
+}
+func (m *integrationMockIAM) GetUser(_ context.Context, _ *iam.GetUserInput, _ ...func(*iam.Options)) (*iam.GetUserOutput, error) {
+	if m.tempUserExists {
+		return &iam.GetUserOutput{User: &iamtypes.User{UserName: sdkaws.String(platformaws.TempBootstrapUserName)}}, nil
+	}
+	return nil, &iamtypes.NoSuchEntityException{}
+}
+func (m *integrationMockIAM) CreateUser(_ context.Context, _ *iam.CreateUserInput, _ ...func(*iam.Options)) (*iam.CreateUserOutput, error) {
+	m.tempUserExists = true
+	return &iam.CreateUserOutput{User: &iamtypes.User{UserName: sdkaws.String(platformaws.TempBootstrapUserName)}}, nil
+}
+func (m *integrationMockIAM) PutUserPolicy(_ context.Context, _ *iam.PutUserPolicyInput, _ ...func(*iam.Options)) (*iam.PutUserPolicyOutput, error) {
+	return &iam.PutUserPolicyOutput{}, nil
+}
+func (m *integrationMockIAM) CreateAccessKey(_ context.Context, _ *iam.CreateAccessKeyInput, _ ...func(*iam.Options)) (*iam.CreateAccessKeyOutput, error) {
+	if m.tempUserKeys == nil {
+		m.tempUserKeys = map[string]string{}
+	}
+	keyID := "AKIAIOSFODNN7EXAMPLE"
+	accessKeySecret := "integration-temp-access-key-secret"
+	m.tempUserKeys[keyID] = accessKeySecret
+	return &iam.CreateAccessKeyOutput{
+		AccessKey: &iamtypes.AccessKey{
+			AccessKeyId:     sdkaws.String(keyID),
+			SecretAccessKey: sdkaws.String(accessKeySecret),
+			UserName:        sdkaws.String(platformaws.TempBootstrapUserName),
+		},
+	}, nil
+}
+func (m *integrationMockIAM) ListAccessKeys(_ context.Context, _ *iam.ListAccessKeysInput, _ ...func(*iam.Options)) (*iam.ListAccessKeysOutput, error) {
+	var meta []iamtypes.AccessKeyMetadata
+	for keyID := range m.tempUserKeys {
+		id := keyID
+		meta = append(meta, iamtypes.AccessKeyMetadata{AccessKeyId: sdkaws.String(id)})
+	}
+	return &iam.ListAccessKeysOutput{AccessKeyMetadata: meta}, nil
+}
+func (m *integrationMockIAM) DeleteAccessKey(_ context.Context, in *iam.DeleteAccessKeyInput, _ ...func(*iam.Options)) (*iam.DeleteAccessKeyOutput, error) {
+	if m.tempUserKeys != nil {
+		delete(m.tempUserKeys, sdkaws.ToString(in.AccessKeyId))
+	}
+	return &iam.DeleteAccessKeyOutput{}, nil
+}
+func (m *integrationMockIAM) DeleteUserPolicy(_ context.Context, _ *iam.DeleteUserPolicyInput, _ ...func(*iam.Options)) (*iam.DeleteUserPolicyOutput, error) {
+	return &iam.DeleteUserPolicyOutput{}, nil
+}
+func (m *integrationMockIAM) DeleteUser(_ context.Context, _ *iam.DeleteUserInput, _ ...func(*iam.Options)) (*iam.DeleteUserOutput, error) {
+	m.tempUserExists = false
+	return &iam.DeleteUserOutput{}, nil
 }
 
 // integrationMockSNS implements platformaws.SNSAPI.
