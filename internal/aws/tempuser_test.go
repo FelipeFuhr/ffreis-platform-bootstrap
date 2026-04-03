@@ -291,7 +291,7 @@ func TestCreateTempBootstrapUserDeletesOrphanedKeysBeforeCreating(t *testing.T) 
 
 	got, err := CreateTempBootstrapUser(context.Background(), m, testPlatformAdminRoleARN, nil)
 	if err != nil {
-		t.Fatalf("CreateTempBootstrapUser() unexpected error: %v", err)
+		t.Fatalf(errCreateTempUserUnexpected, err)
 	}
 	if got.UserName != TempBootstrapUserName {
 		t.Fatalf("CreateTempBootstrapUser() returned unexpected user: %+v", got)
@@ -314,7 +314,7 @@ func TestCreateTempBootstrapUserListAccessKeysError(t *testing.T) {
 
 	_, err := CreateTempBootstrapUser(context.Background(), m, testPlatformAdminRoleARN, nil)
 	if err == nil {
-		t.Fatal("CreateTempBootstrapUser() expected error, got nil")
+		t.Fatal(errCreateTempUserExpected)
 	}
 	if !strings.Contains(err.Error(), "listing temp user access keys") {
 		t.Fatalf("CreateTempBootstrapUser() should wrap list keys error, got: %v", err)
@@ -336,7 +336,7 @@ func TestCreateTempBootstrapUserDeleteOrphanedKeyError(t *testing.T) {
 
 	_, err := CreateTempBootstrapUser(context.Background(), m, testPlatformAdminRoleARN, nil)
 	if err == nil {
-		t.Fatal("CreateTempBootstrapUser() expected error, got nil")
+		t.Fatal(errCreateTempUserExpected)
 	}
 	if !strings.Contains(err.Error(), "deleting orphaned temp user access key") {
 		t.Fatalf("CreateTempBootstrapUser() should wrap delete key error, got: %v", err)
