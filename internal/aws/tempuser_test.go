@@ -303,8 +303,8 @@ func TestCreateTempBootstrapUserListAccessKeysError(t *testing.T) {
 	t.Parallel()
 
 	m := &tempUserIAMMock{
-		getUserErr:         &iamtypes.NoSuchEntityException{},
-		listAccessKeysErr:  errors.New("iam list keys boom"),
+		getUserErr:        &iamtypes.NoSuchEntityException{},
+		listAccessKeysErr: errors.New("iam list keys boom"),
 	}
 
 	_, err := CreateTempBootstrapUser(context.Background(), m, testPlatformAdminRoleARN, nil)
