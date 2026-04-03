@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"io"
 	"testing"
 
 	"github.com/ffreis/platform-bootstrap/internal/config"
@@ -126,7 +127,7 @@ func TestRunDryRun(t *testing.T) {
 
 	// All Clients fields are nil — any AWS call would panic immediately,
 	// giving us proof that dry-run is fully honoured.
-	err := Run(context.Background(), cfg, nil)
+	err := Run(context.Background(), cfg, nil, io.Discard)
 	if err != nil {
 		t.Fatalf("Run dry-run: unexpected error: %v", err)
 	}
@@ -136,7 +137,7 @@ func TestRunNilClientsWhenNotDryRun(t *testing.T) {
 	cfg := minimalConfig()
 	cfg.DryRun = false
 
-	err := Run(context.Background(), cfg, nil)
+	err := Run(context.Background(), cfg, nil, io.Discard)
 	if err == nil {
 		t.Fatal("expected error for nil clients when dry-run is false")
 	}

@@ -5,6 +5,7 @@ package bootstrap
 import (
 	"context"
 	"errors"
+	"io"
 	"strings"
 	"testing"
 
@@ -27,7 +28,7 @@ func integrationConfig() *config.Config {
 
 func TestRunHappyPathIntegration(t *testing.T) {
 	h := newIntegrationHarness(integrationConfig())
-	err := Run(context.Background(), h.cfg, h.clients)
+	err := Run(context.Background(), h.cfg, h.clients, io.Discard)
 	if err != nil {
 		t.Fatalf("Run() unexpected error: %v", err)
 	}
@@ -71,7 +72,7 @@ func TestRunIdempotentIntegration(t *testing.T) {
 	h.sns.topicARN = "arn:aws:sns:us-east-1:123456789012:acme-platform-events"
 	h.budgets.budgetExists = true
 
-	err := Run(context.Background(), h.cfg, h.clients)
+	err := Run(context.Background(), h.cfg, h.clients, io.Discard)
 	if err != nil {
 		t.Fatalf("Run() unexpected error: %v", err)
 	}
@@ -105,7 +106,7 @@ func TestRunStepFailureIntegration(t *testing.T) {
 	h.cfg.Accounts = map[string]string{}
 	h.s3.versioningErr = errors.New("versioning failed")
 
-	err := Run(context.Background(), h.cfg, h.clients)
+	err := Run(context.Background(), h.cfg, h.clients, io.Discard)
 	if err == nil {
 		t.Fatal("Run() expected error, got nil")
 	}
@@ -122,7 +123,7 @@ func TestRunTopicARNGuardIntegration(t *testing.T) {
 	h.cfg.Accounts = map[string]string{}
 	h.sns.returnNilTopic = true
 
-	err := Run(context.Background(), h.cfg, h.clients)
+	err := Run(context.Background(), h.cfg, h.clients, io.Discard)
 	if err == nil {
 		t.Fatal("Run() expected guard error, got nil")
 	}

@@ -1,10 +1,15 @@
 package bootstrap
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"io"
 	"strings"
 	"testing"
+	"time"
+
+	platformui "github.com/ffreis/platform-bootstrap/internal/ui"
 )
 
 func TestRunStepsDryRunSkipsAllSteps(t *testing.T) {
@@ -16,7 +21,7 @@ func TestRunStepsDryRunSkipsAllSteps(t *testing.T) {
 		{name: "two", desc: "two", run: func(context.Context) error { calls++; return nil }},
 	}
 
-	if err := runSteps(ctx, true, stepRunStopOnError, "bootstrap", steps); err != nil {
+	if err := runSteps(ctx, true, stepRunStopOnError, "bootstrap", io.Discard, steps); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if calls != 0 {
@@ -34,7 +39,7 @@ func TestRunStepsStopOnErrorAborts(t *testing.T) {
 		{name: "three", desc: "three", run: func(context.Context) error { calls++; return nil }},
 	}
 
-	err := runSteps(ctx, false, stepRunStopOnError, "bootstrap", steps)
+	err := runSteps(ctx, false, stepRunStopOnError, "bootstrap", io.Discard, steps)
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -56,7 +61,7 @@ func TestRunStepsContinueOnErrorRunsAllStepsAndJoinsErrors(t *testing.T) {
 		{name: "three", desc: "three", run: func(context.Context) error { calls++; return errors.New("e3") }},
 	}
 
-	err := runSteps(ctx, false, stepRunContinueOnError, "nuke", steps)
+	err := runSteps(ctx, false, stepRunContinueOnError, "nuke", io.Discard, steps)
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -96,5 +101,47 @@ func TestJoinStepErrors(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "bootstrap completed with 2 error(s)") {
 		t.Fatalf("joinStepErrors() unexpected error: %v", err)
+	}
+}
+
+func TestNewStepReporterNoopForNonInteractivePresenter(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+	reporter := newStepReporter(&platformui.Presenter{}, &buf)
+	s := step{name: "one", desc: "first"}
+
+	reporter.Start(s)
+	reporter.Skipped(s)
+	reporter.Failure(s, time.Second, errors.New("boom"))
+	reporter.Success(s, time.Second)
+
+	if buf.Len() != 0 {
+		t.Fatalf("expected no reporter output, got %q", buf.String())
+	}
+}
+
+func TestNewStepReporterTerminalOutput(t *testing.T) {
+	t.Parallel()
+
+	presenter, err := platformui.New("plain")
+	if err != nil {
+		t.Fatalf("ui.New() error: %v", err)
+	}
+
+	var buf bytes.Buffer
+	reporter := newStepReporter(presenter, &buf)
+	s := step{name: "one", desc: "first"}
+
+	reporter.Start(s)
+	reporter.Skipped(s)
+	reporter.Failure(s, time.Second, errors.New("boom"))
+	reporter.Success(s, time.Second)
+
+	got := buf.String()
+	for _, want := range []string{"one: first", "one skipped", "one after 1s: boom", "one in 1s"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("reporter output missing %q in:\n%s", want, got)
+		}
 	}
 }
