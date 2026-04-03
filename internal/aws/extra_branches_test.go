@@ -116,6 +116,30 @@ func (m *iamErrorMock) DeleteRolePolicy(_ context.Context, _ *iam.DeleteRolePoli
 func (m *iamErrorMock) DeleteRole(_ context.Context, _ *iam.DeleteRoleInput, _ ...func(*iam.Options)) (*iam.DeleteRoleOutput, error) {
 	return &iam.DeleteRoleOutput{}, nil
 }
+func (m *iamErrorMock) GetUser(_ context.Context, _ *iam.GetUserInput, _ ...func(*iam.Options)) (*iam.GetUserOutput, error) {
+	return nil, errors.New("no such user")
+}
+func (m *iamErrorMock) CreateUser(_ context.Context, _ *iam.CreateUserInput, _ ...func(*iam.Options)) (*iam.CreateUserOutput, error) {
+	return &iam.CreateUserOutput{}, nil
+}
+func (m *iamErrorMock) PutUserPolicy(_ context.Context, _ *iam.PutUserPolicyInput, _ ...func(*iam.Options)) (*iam.PutUserPolicyOutput, error) {
+	return &iam.PutUserPolicyOutput{}, nil
+}
+func (m *iamErrorMock) CreateAccessKey(_ context.Context, _ *iam.CreateAccessKeyInput, _ ...func(*iam.Options)) (*iam.CreateAccessKeyOutput, error) {
+	return &iam.CreateAccessKeyOutput{}, nil
+}
+func (m *iamErrorMock) ListAccessKeys(_ context.Context, _ *iam.ListAccessKeysInput, _ ...func(*iam.Options)) (*iam.ListAccessKeysOutput, error) {
+	return &iam.ListAccessKeysOutput{}, nil
+}
+func (m *iamErrorMock) DeleteAccessKey(_ context.Context, _ *iam.DeleteAccessKeyInput, _ ...func(*iam.Options)) (*iam.DeleteAccessKeyOutput, error) {
+	return &iam.DeleteAccessKeyOutput{}, nil
+}
+func (m *iamErrorMock) DeleteUserPolicy(_ context.Context, _ *iam.DeleteUserPolicyInput, _ ...func(*iam.Options)) (*iam.DeleteUserPolicyOutput, error) {
+	return &iam.DeleteUserPolicyOutput{}, nil
+}
+func (m *iamErrorMock) DeleteUser(_ context.Context, _ *iam.DeleteUserInput, _ ...func(*iam.Options)) (*iam.DeleteUserOutput, error) {
+	return &iam.DeleteUserOutput{}, nil
+}
 
 func TestEnsurePlatformAdminRole_PutPolicyError(t *testing.T) {
 	errSentinel := errors.New("put role policy failed")

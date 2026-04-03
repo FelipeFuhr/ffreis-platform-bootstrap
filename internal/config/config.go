@@ -36,6 +36,10 @@ type Config struct {
 	// Optional: if empty, no admin config record is written and the
 	// budget_alert_email Terraform variable must be supplied another way.
 	AdminEmail string
+
+	// ToolVersion is the build-time version string injected via linker flags.
+	// Set by the cmd layer from the version variable; not user-configurable.
+	ToolVersion string
 }
 
 // orgNameRe enforces the naming constraint: 3-6 lowercase alphanumeric chars,

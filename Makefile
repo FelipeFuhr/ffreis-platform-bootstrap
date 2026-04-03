@@ -4,6 +4,7 @@ SHELL := $(BASH_SHELL)
 BINARY     := platform-bootstrap
 BUILD_DIR  := ./bin
 MODULE     := github.com/ffreis/platform-bootstrap
+CMD_PKG    := ./cmd/$(BINARY)
 
 GOFMT         ?= gofmt
 GOLANGCI_LINT ?= golangci-lint
@@ -37,7 +38,7 @@ all: tidy build
 ## build: compile the binary into ./bin/
 build:
 	@mkdir -p $(BUILD_DIR)
-	go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY) .
+	go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY) $(CMD_PKG)
 	@echo "built $(BUILD_DIR)/$(BINARY)"
 
 ## clean: remove build artefacts
@@ -83,7 +84,7 @@ lint:
 ## validate: static analysis and compilation check (go vet + build)
 validate:
 	go vet ./...
-	go build -o /dev/null ./...
+	go build -o /dev/null $(CMD_PKG)
 
 ## plan: not applicable — use 'make validate' or 'make quality-gates' for Go repos
 plan:
@@ -108,7 +109,7 @@ smoke-check:
 	@set -euo pipefail; \
 	tmp_bin="$$(mktemp)"; \
 	trap 'rm -f "$$tmp_bin"' EXIT; \
-	go build $(LDFLAGS) -o "$$tmp_bin" . && "$$tmp_bin" --help >/dev/null
+	go build $(LDFLAGS) -o "$$tmp_bin" $(CMD_PKG) && "$$tmp_bin" --help >/dev/null
 
 ## secrets-scan-staged: scan staged diff for secrets
 secrets-scan-staged:
@@ -156,7 +157,7 @@ endif
 ifndef ROOT_EMAIL
 	$(error ROOT_EMAIL is required)
 endif
-	go run . init \
+	go run $(CMD_PKG) init \
 		--org=$(ORG) \
 		--profile=$(PROFILE) \
 		--root-email=$(ROOT_EMAIL)
@@ -172,7 +173,7 @@ endif
 ifndef ROOT_EMAIL
 	$(error ROOT_EMAIL is required)
 endif
-	go run . init \
+	go run $(CMD_PKG) init \
 		--org=$(ORG) \
 		--profile=$(PROFILE) \
 		--root-email=$(ROOT_EMAIL) \
@@ -186,7 +187,7 @@ endif
 ifndef PROFILE
 	$(error PROFILE is required)
 endif
-	go run . audit \
+	go run $(CMD_PKG) audit \
 		--org=$(ORG) \
 		--profile=$(PROFILE)
 
@@ -198,7 +199,7 @@ endif
 ifndef PROFILE
 	$(error PROFILE is required)
 endif
-	go run . nuke \
+	go run $(CMD_PKG) nuke \
 		--org=$(ORG) \
 		--profile=$(PROFILE)
 
@@ -210,7 +211,7 @@ endif
 ifndef PROFILE
 	$(error PROFILE is required)
 endif
-	go run . nuke \
+	go run $(CMD_PKG) nuke \
 		--org=$(ORG) \
 		--profile=$(PROFILE) \
 		--dry-run
@@ -270,7 +271,7 @@ endif
 ifndef PROFILE
 	$(error PROFILE is required)
 endif
-	go run . audit \
+	go run $(CMD_PKG) audit \
 		--org=$(ORG) \
 		--profile=$(PROFILE) \
 		--json

@@ -12,14 +12,18 @@ func TestBootstrapRunner_StepOrderAndNames(t *testing.T) {
 	steps := r.steps()
 
 	want := []string{
+		"platform-admin-role",
+		"create-temp-user",
+		"assume-admin-role",
 		"registry-table",
+		"register-admin-role",
 		"account-config",
 		"state-bucket",
 		"lock-table",
-		"platform-admin-role",
 		"platform-events-topic",
 		"platform-events-policy",
 		"platform-budget",
+		"delete-temp-user",
 	}
 
 	if len(steps) != len(want) {

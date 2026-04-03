@@ -81,6 +81,32 @@ func (m *mockIAM) DeleteRole(_ context.Context, _ *iam.DeleteRoleInput, _ ...fun
 	return &iam.DeleteRoleOutput{}, nil
 }
 
+// Temp-user stubs — not exercised by iam_test.go but required by IAMAPI.
+func (m *mockIAM) GetUser(_ context.Context, _ *iam.GetUserInput, _ ...func(*iam.Options)) (*iam.GetUserOutput, error) {
+	return nil, &iamtypes.NoSuchEntityException{}
+}
+func (m *mockIAM) CreateUser(_ context.Context, _ *iam.CreateUserInput, _ ...func(*iam.Options)) (*iam.CreateUserOutput, error) {
+	return &iam.CreateUserOutput{User: &iamtypes.User{}}, nil
+}
+func (m *mockIAM) PutUserPolicy(_ context.Context, _ *iam.PutUserPolicyInput, _ ...func(*iam.Options)) (*iam.PutUserPolicyOutput, error) {
+	return &iam.PutUserPolicyOutput{}, nil
+}
+func (m *mockIAM) CreateAccessKey(_ context.Context, _ *iam.CreateAccessKeyInput, _ ...func(*iam.Options)) (*iam.CreateAccessKeyOutput, error) {
+	return &iam.CreateAccessKeyOutput{AccessKey: &iamtypes.AccessKey{}}, nil
+}
+func (m *mockIAM) ListAccessKeys(_ context.Context, _ *iam.ListAccessKeysInput, _ ...func(*iam.Options)) (*iam.ListAccessKeysOutput, error) {
+	return &iam.ListAccessKeysOutput{}, nil
+}
+func (m *mockIAM) DeleteAccessKey(_ context.Context, _ *iam.DeleteAccessKeyInput, _ ...func(*iam.Options)) (*iam.DeleteAccessKeyOutput, error) {
+	return &iam.DeleteAccessKeyOutput{}, nil
+}
+func (m *mockIAM) DeleteUserPolicy(_ context.Context, _ *iam.DeleteUserPolicyInput, _ ...func(*iam.Options)) (*iam.DeleteUserPolicyOutput, error) {
+	return &iam.DeleteUserPolicyOutput{}, nil
+}
+func (m *mockIAM) DeleteUser(_ context.Context, _ *iam.DeleteUserInput, _ ...func(*iam.Options)) (*iam.DeleteUserOutput, error) {
+	return &iam.DeleteUserOutput{}, nil
+}
+
 // TestEnsurePlatformAdminRole_Create verifies that when the role does not
 // exist, CreateRole and PutRolePolicy are both called.
 func TestEnsurePlatformAdminRole_Create(t *testing.T) {

@@ -108,8 +108,9 @@ export PLATFORM_ROOT_EMAIL=root@acme.example.com
 
 ```
 platform-bootstrap/
-├── main.go                          entry point
 ├── cmd/
+│   ├── platform-bootstrap/
+│   │   └── main.go                  entry point
 │   ├── root.go                      root command, global flags, PersistentPreRunE
 │   └── init.go                      `init` subcommand
 ├── internal/

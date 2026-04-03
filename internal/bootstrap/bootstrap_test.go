@@ -58,11 +58,30 @@ func TestExpectedResources_RegistryTableFirst(t *testing.T) {
 	cfg := minimalConfig()
 	resources := ExpectedResources(cfg)
 
-	// The registry table must be first because bootstrap.Run uses it immediately.
+	// registry-table is the first resource-typed step that appears in
+	// ExpectedResources. platform-admin-role is created before it but has no
+	// resourceType on its step def (the back-fill happens via register-admin-role
+	// which comes after registry-table).
 	first := resources[0]
 	if first.ResourceType != "DynamoDBTable" || first.ResourceName != cfg.RegistryTableName() {
 		t.Errorf("first resource: want (DynamoDBTable, %s), got (%s, %s)",
 			cfg.RegistryTableName(), first.ResourceType, first.ResourceName)
+	}
+}
+
+func TestExpectedResources_AdminRolePresent(t *testing.T) {
+	cfg := minimalConfig()
+	resources := ExpectedResources(cfg)
+
+	found := false
+	for _, r := range resources {
+		if r.ResourceType == "IAMRole" && r.ResourceName == "platform-admin" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("expected IAMRole/platform-admin in ExpectedResources")
 	}
 }
 

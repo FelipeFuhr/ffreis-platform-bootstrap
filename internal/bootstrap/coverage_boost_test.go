@@ -126,6 +126,30 @@ func (o *okIAM) DeleteRole(_ context.Context, _ *iam.DeleteRoleInput, _ ...func(
 	o.roleExists = false
 	return &iam.DeleteRoleOutput{}, nil
 }
+func (o *okIAM) GetUser(_ context.Context, _ *iam.GetUserInput, _ ...func(*iam.Options)) (*iam.GetUserOutput, error) {
+	return nil, errors.New("no such user")
+}
+func (o *okIAM) CreateUser(_ context.Context, _ *iam.CreateUserInput, _ ...func(*iam.Options)) (*iam.CreateUserOutput, error) {
+	return &iam.CreateUserOutput{}, nil
+}
+func (o *okIAM) PutUserPolicy(_ context.Context, _ *iam.PutUserPolicyInput, _ ...func(*iam.Options)) (*iam.PutUserPolicyOutput, error) {
+	return &iam.PutUserPolicyOutput{}, nil
+}
+func (o *okIAM) CreateAccessKey(_ context.Context, _ *iam.CreateAccessKeyInput, _ ...func(*iam.Options)) (*iam.CreateAccessKeyOutput, error) {
+	return &iam.CreateAccessKeyOutput{}, nil
+}
+func (o *okIAM) ListAccessKeys(_ context.Context, _ *iam.ListAccessKeysInput, _ ...func(*iam.Options)) (*iam.ListAccessKeysOutput, error) {
+	return &iam.ListAccessKeysOutput{}, nil
+}
+func (o *okIAM) DeleteAccessKey(_ context.Context, _ *iam.DeleteAccessKeyInput, _ ...func(*iam.Options)) (*iam.DeleteAccessKeyOutput, error) {
+	return &iam.DeleteAccessKeyOutput{}, nil
+}
+func (o *okIAM) DeleteUserPolicy(_ context.Context, _ *iam.DeleteUserPolicyInput, _ ...func(*iam.Options)) (*iam.DeleteUserPolicyOutput, error) {
+	return &iam.DeleteUserPolicyOutput{}, nil
+}
+func (o *okIAM) DeleteUser(_ context.Context, _ *iam.DeleteUserInput, _ ...func(*iam.Options)) (*iam.DeleteUserOutput, error) {
+	return &iam.DeleteUserOutput{}, nil
+}
 
 type okSNS struct {
 	publishCalls int
@@ -267,7 +291,7 @@ func TestBootstrapRunner_TryRegister_RegisterErrorStillContinues(t *testing.T) {
 			CallerARN: testCallerARN,
 		},
 		log:           slog.Default(),
-		tags:          platformaws.RequiredTags("acme"),
+		tags:          platformaws.RequiredTags("acme", "dev"),
 		registryTable: "registry",
 	}
 
