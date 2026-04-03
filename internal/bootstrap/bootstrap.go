@@ -172,201 +172,250 @@ type bootstrapStepDef struct {
 
 func bootstrapStepDefs(cfg *config.Config) []bootstrapStepDef {
 	return []bootstrapStepDef{
-		{
-			// platform-admin-role has no resourceType/resourceName here because the
-			// registry table does not yet exist at this point in the sequence.
-			// Registration is handled by the dedicated register-admin-role step
-			// that runs after registry-table is created.
-			name: "platform-admin-role",
-			desc: fmt.Sprintf("ensure IAM role %s (allow *, deny root-account changes, trusted by account root)", config.RoleNamePlatformAdmin),
-			run: func(ctx context.Context, r *bootstrapRunner) error {
-				name := config.RoleNamePlatformAdmin
-				return platformaws.EnsurePlatformAdminRole(ctx, r.c.IAM, name, r.c.AccountID, r.tags)
-			},
-		},
-		{
-			// create-temp-user only runs when the caller is the AWS root account.
-			// Root cannot call sts:AssumeRole directly; a short-lived IAM user
-			// with a narrow assume-role policy is used as a bridge.
-			// When not running as root this step is a no-op.
-			name: "create-temp-user",
-			desc: fmt.Sprintf("create ephemeral IAM user %s to bridge root→platform-admin assumption (root-only)", platformaws.TempBootstrapUserName),
-			run: func(ctx context.Context, r *bootstrapRunner) error {
-				if !platformaws.IsRootARN(r.c.CallerARN) {
-					r.log.Debug("not running as root; skipping temp-user creation")
-					return nil
-				}
-				roleARN := fmt.Sprintf("arn:aws:iam::%s:role/%s", r.c.AccountID, config.RoleNamePlatformAdmin)
-				u, err := platformaws.CreateTempBootstrapUser(ctx, r.c.IAM, roleARN, r.tags)
-				if err != nil {
-					return fmt.Errorf("creating temp bootstrap user: %w", err)
-				}
-				r.tempUser = &u
-				r.rootIAM = r.c.IAM
-				r.log.Info("temp bootstrap user created", "step", "create-temp-user", "user", u.UserName)
-				return nil
-			},
-		},
-		{
-			name: "assume-admin-role",
-			desc: fmt.Sprintf("assume IAM role %s — all subsequent steps run as platform-admin, not root", config.RoleNamePlatformAdmin),
-			run: func(ctx context.Context, r *bootstrapRunner) error {
-				if r.c.STSRoleAssumer == nil && r.tempUser == nil {
-					r.log.Debug("STSRoleAssumer not set and no temp user; skipping role assumption")
-					return nil
-				}
-				roleARN := fmt.Sprintf("arn:aws:iam::%s:role/%s", r.c.AccountID, config.RoleNamePlatformAdmin)
-				var (
-					adminClients *platformaws.Clients
-					err          error
-				)
-				if r.tempUser != nil {
-					// Running as root: use the temp user's credentials to assume the role.
-					adminClients, err = platformaws.AssumeRoleWithTempUser(ctx, r.c, *r.tempUser, roleARN)
-					if err != nil {
-						return fmt.Errorf("assuming platform-admin role via temp user: %w", err)
-					}
-				} else {
-					adminClients, err = platformaws.AssumeAdminRole(ctx, r.c, roleARN)
-					if err != nil {
-						return fmt.Errorf("assuming platform-admin role: %w", err)
-					}
-				}
-				r.c = adminClients
-				r.log.Info("assumed platform-admin role; subsequent steps run as platform-admin",
-					"caller_arn", r.c.CallerARN,
-				)
-				return nil
-			},
-		},
-		{
-			name:         "registry-table",
-			desc:         fmt.Sprintf("ensure DynamoDB registry table %s (PAY_PER_REQUEST, PK=PK, SK=SK)", cfg.RegistryTableName()),
-			resourceType: ResourceTypeDynamoDBTable,
-			resourceName: cfg.RegistryTableName(),
-			run: func(ctx context.Context, r *bootstrapRunner) error {
-				name := cfg.RegistryTableName()
-				existed := r.existedOrUnknown(ctx, ResourceTypeDynamoDBTable, name, r.c.TableExistsChecked)
-				return r.ensureResource(ctx, ResourceTypeDynamoDBTable, name, existed, func(ctx context.Context) error {
-					return platformaws.EnsureRegistryTable(ctx, r.c.DynamoDB, name, r.tags)
-				})
-			},
-		},
-		{
-			// register-admin-role back-fills the registry record for platform-admin-role,
-			// which was created before the registry table existed.
-			name:         "register-admin-role",
-			desc:         fmt.Sprintf("register IAM role %s in registry table (back-fill after registry-table creation)", config.RoleNamePlatformAdmin),
-			resourceType: ResourceTypeIAMRole,
-			resourceName: config.RoleNamePlatformAdmin,
-			run: func(ctx context.Context, r *bootstrapRunner) error {
-				r.tryRegister(ctx, ResourceTypeIAMRole, config.RoleNamePlatformAdmin)
-				return nil
-			},
-		},
-		{
-			name: stepAccountConfig,
-			desc: fmt.Sprintf("write account and admin configuration to registry table %s", cfg.RegistryTableName()),
-			run: func(ctx context.Context, r *bootstrapRunner) error {
-				return runAccountConfig(ctx, r, cfg)
-			},
-		},
-		{
-			name:         "state-bucket",
-			desc:         fmt.Sprintf("ensure S3 state bucket %s (versioning on, public access blocked)", cfg.StateBucketName()),
-			resourceType: ResourceTypeS3Bucket,
-			resourceName: cfg.StateBucketName(),
-			run: func(ctx context.Context, r *bootstrapRunner) error {
-				name := cfg.StateBucketName()
-				existed := r.existedOrUnknown(ctx, ResourceTypeS3Bucket, name, r.c.BucketExistsChecked)
-				return r.ensureResource(ctx, ResourceTypeS3Bucket, name, existed, func(ctx context.Context) error {
-					return platformaws.EnsureStateBucket(ctx, r.c.S3, name, cfg.StateRegion, r.tags)
-				})
-			},
-		},
-		{
-			name:         "lock-table",
-			desc:         fmt.Sprintf("ensure DynamoDB lock table %s (PAY_PER_REQUEST, PK=LockID)", cfg.LockTableName()),
-			resourceType: ResourceTypeDynamoDBTable,
-			resourceName: cfg.LockTableName(),
-			run: func(ctx context.Context, r *bootstrapRunner) error {
-				name := cfg.LockTableName()
-				existed := r.existedOrUnknown(ctx, ResourceTypeDynamoDBTable, name, r.c.TableExistsChecked)
-				return r.ensureResource(ctx, ResourceTypeDynamoDBTable, name, existed, func(ctx context.Context) error {
-					return platformaws.EnsureLockTable(ctx, r.c.DynamoDB, name, r.tags)
-				})
-			},
-		},
-		{
-			name:         "platform-events-topic",
-			desc:         fmt.Sprintf("ensure SNS topic %s", cfg.EventsTopicName()),
-			resourceType: ResourceTypeSNSTopic,
-			resourceName: cfg.EventsTopicName(),
-			run: func(ctx context.Context, r *bootstrapRunner) error {
-				name := cfg.EventsTopicName()
-				existed := r.existedOrUnknown(ctx, ResourceTypeSNSTopic, name, r.c.TopicExistsChecked)
-				arn, err := platformaws.EnsureEventsTopic(ctx, r.c.SNS, name, r.tags)
-				if err != nil {
-					return err
-				}
-				r.topic = arn
-				r.log.Info("SNS topic ready", "step", "platform-events-topic", "arn", arn)
-				r.postEnsure(ctx, ResourceTypeSNSTopic, name, existed)
-				return nil
-			},
-		},
-		{
-			name: "platform-events-policy",
-			desc: fmt.Sprintf("ensure SNS topic %s allows budgets.amazonaws.com to publish", cfg.EventsTopicName()),
-			run: func(ctx context.Context, r *bootstrapRunner) error {
-				if err := r.requireTopic("platform-events-policy"); err != nil {
-					return err
-				}
-				return platformaws.EnsureTopicBudgetPolicy(ctx, r.c.SNS, r.topic, r.c.AccountID)
-			},
-		},
-		{
-			name:         "platform-budget",
-			desc:         fmt.Sprintf("ensure monthly cost budget %s (%.2f USD, alerts at 50%%/80%%/100%%)", cfg.BudgetName(), cfg.BudgetMonthlyUSD),
-			resourceType: ResourceTypeAWSBudget,
-			resourceName: cfg.BudgetName(),
-			run: func(ctx context.Context, r *bootstrapRunner) error {
-				if err := r.requireTopic("platform-budget"); err != nil {
-					return err
-				}
-				name := cfg.BudgetName()
-				existed := r.existedOrUnknown(ctx, ResourceTypeAWSBudget, name, r.c.BudgetExistsChecked)
-				return r.ensureResource(ctx, ResourceTypeAWSBudget, name, existed, func(ctx context.Context) error {
-					return platformaws.EnsureBudget(ctx, r.c.Budgets, r.c.AccountID, r.topic, name, cfg.BudgetMonthlyUSD)
-				})
-			},
-		},
-		{
-			// delete-temp-user is a no-op when tempUser is nil (i.e. we were not
-			// running as root, so no temp user was created).
-			name: "delete-temp-user",
-			desc: fmt.Sprintf("delete ephemeral IAM user %s (root-only cleanup)", platformaws.TempBootstrapUserName),
-			run: func(ctx context.Context, r *bootstrapRunner) error {
-				if r.tempUser == nil {
-					r.log.Debug("no temp user to delete; skipping")
-					return nil
-				}
-				// Use rootIAM: r.c.IAM is now the platform-admin client, but
-				// platform-admin also has Allow * so either works. rootIAM is the
-				// explicit root client saved before assumption.
-				iamClient := r.rootIAM
-				if iamClient == nil {
-					iamClient = r.c.IAM
-				}
-				if err := platformaws.DeleteTempBootstrapUser(ctx, iamClient, *r.tempUser); err != nil {
-					return fmt.Errorf("deleting temp bootstrap user: %w", err)
-				}
-				r.log.Info("temp bootstrap user deleted", "step", "delete-temp-user", "user", r.tempUser.UserName)
-				r.tempUser = nil
-				return nil
-			},
+		platformAdminRoleStepDef(),
+		createTempUserStepDef(),
+		assumeAdminRoleStepDef(),
+		registryTableStepDef(cfg),
+		registerAdminRoleStepDef(),
+		accountConfigStepDef(cfg),
+		stateBucketStepDef(cfg),
+		lockTableStepDef(cfg),
+		platformEventsTopicStepDef(cfg),
+		platformEventsPolicyStepDef(cfg),
+		platformBudgetStepDef(cfg),
+		deleteTempUserStepDef(),
+	}
+}
+
+func platformAdminRoleStepDef() bootstrapStepDef {
+	return bootstrapStepDef{
+		// platform-admin-role has no resourceType/resourceName here because the
+		// registry table does not yet exist at this point in the sequence.
+		// Registration is handled by the dedicated register-admin-role step
+		// that runs after registry-table is created.
+		name: "platform-admin-role",
+		desc: fmt.Sprintf("ensure IAM role %s (allow *, deny root-account changes, trusted by account root)", config.RoleNamePlatformAdmin),
+		run: func(ctx context.Context, r *bootstrapRunner) error {
+			return platformaws.EnsurePlatformAdminRole(ctx, r.c.IAM, config.RoleNamePlatformAdmin, r.c.AccountID, r.tags)
 		},
 	}
+}
+
+func createTempUserStepDef() bootstrapStepDef {
+	return bootstrapStepDef{
+		// create-temp-user only runs when the caller is the AWS root account.
+		// Root cannot call sts:AssumeRole directly; a short-lived IAM user
+		// with a narrow assume-role policy is used as a bridge.
+		// When not running as root this step is a no-op.
+		name: "create-temp-user",
+		desc: fmt.Sprintf("create ephemeral IAM user %s to bridge root→platform-admin assumption (root-only)", platformaws.TempBootstrapUserName),
+		run:  runCreateTempUserStep,
+	}
+}
+
+func runCreateTempUserStep(ctx context.Context, r *bootstrapRunner) error {
+	if !platformaws.IsRootARN(r.c.CallerARN) {
+		r.log.Debug("not running as root; skipping temp-user creation")
+		return nil
+	}
+	roleARN := fmt.Sprintf("arn:aws:iam::%s:role/%s", r.c.AccountID, config.RoleNamePlatformAdmin)
+	u, err := platformaws.CreateTempBootstrapUser(ctx, r.c.IAM, roleARN, r.tags)
+	if err != nil {
+		return fmt.Errorf("creating temp bootstrap user: %w", err)
+	}
+	r.tempUser = &u
+	r.rootIAM = r.c.IAM
+	r.log.Info("temp bootstrap user created", "step", "create-temp-user", "user", u.UserName)
+	return nil
+}
+
+func assumeAdminRoleStepDef() bootstrapStepDef {
+	return bootstrapStepDef{
+		name: "assume-admin-role",
+		desc: fmt.Sprintf("assume IAM role %s — all subsequent steps run as platform-admin, not root", config.RoleNamePlatformAdmin),
+		run:  runAssumeAdminRoleStep,
+	}
+}
+
+func runAssumeAdminRoleStep(ctx context.Context, r *bootstrapRunner) error {
+	if r.c.STSRoleAssumer == nil && r.tempUser == nil {
+		r.log.Debug("STSRoleAssumer not set and no temp user; skipping role assumption")
+		return nil
+	}
+	roleARN := fmt.Sprintf("arn:aws:iam::%s:role/%s", r.c.AccountID, config.RoleNamePlatformAdmin)
+	var (
+		adminClients *platformaws.Clients
+		err          error
+	)
+	if r.tempUser != nil {
+		adminClients, err = platformaws.AssumeRoleWithTempUser(ctx, r.c, *r.tempUser, roleARN)
+		if err != nil {
+			return fmt.Errorf("assuming platform-admin role via temp user: %w", err)
+		}
+	} else {
+		adminClients, err = platformaws.AssumeAdminRole(ctx, r.c, roleARN)
+		if err != nil {
+			return fmt.Errorf("assuming platform-admin role: %w", err)
+		}
+	}
+	r.c = adminClients
+	r.log.Info("assumed platform-admin role; subsequent steps run as platform-admin",
+		"caller_arn", r.c.CallerARN,
+	)
+	return nil
+}
+
+func registryTableStepDef(cfg *config.Config) bootstrapStepDef {
+	return bootstrapStepDef{
+		name:         "registry-table",
+		desc:         fmt.Sprintf("ensure DynamoDB registry table %s (PAY_PER_REQUEST, PK=PK, SK=SK)", cfg.RegistryTableName()),
+		resourceType: ResourceTypeDynamoDBTable,
+		resourceName: cfg.RegistryTableName(),
+		run: func(ctx context.Context, r *bootstrapRunner) error {
+			name := cfg.RegistryTableName()
+			existed := r.existedOrUnknown(ctx, ResourceTypeDynamoDBTable, name, r.c.TableExistsChecked)
+			return r.ensureResource(ctx, ResourceTypeDynamoDBTable, name, existed, func(ctx context.Context) error {
+				return platformaws.EnsureRegistryTable(ctx, r.c.DynamoDB, name, r.tags)
+			})
+		},
+	}
+}
+
+func registerAdminRoleStepDef() bootstrapStepDef {
+	return bootstrapStepDef{
+		// register-admin-role back-fills the registry record for platform-admin-role,
+		// which was created before the registry table existed.
+		name:         "register-admin-role",
+		desc:         fmt.Sprintf("register IAM role %s in registry table (back-fill after registry-table creation)", config.RoleNamePlatformAdmin),
+		resourceType: ResourceTypeIAMRole,
+		resourceName: config.RoleNamePlatformAdmin,
+		run: func(ctx context.Context, r *bootstrapRunner) error {
+			r.tryRegister(ctx, ResourceTypeIAMRole, config.RoleNamePlatformAdmin)
+			return nil
+		},
+	}
+}
+
+func accountConfigStepDef(cfg *config.Config) bootstrapStepDef {
+	return bootstrapStepDef{
+		name: stepAccountConfig,
+		desc: fmt.Sprintf("write account and admin configuration to registry table %s", cfg.RegistryTableName()),
+		run: func(ctx context.Context, r *bootstrapRunner) error {
+			return runAccountConfig(ctx, r, cfg)
+		},
+	}
+}
+
+func stateBucketStepDef(cfg *config.Config) bootstrapStepDef {
+	return bootstrapStepDef{
+		name:         "state-bucket",
+		desc:         fmt.Sprintf("ensure S3 state bucket %s (versioning on, public access blocked)", cfg.StateBucketName()),
+		resourceType: ResourceTypeS3Bucket,
+		resourceName: cfg.StateBucketName(),
+		run: func(ctx context.Context, r *bootstrapRunner) error {
+			name := cfg.StateBucketName()
+			existed := r.existedOrUnknown(ctx, ResourceTypeS3Bucket, name, r.c.BucketExistsChecked)
+			return r.ensureResource(ctx, ResourceTypeS3Bucket, name, existed, func(ctx context.Context) error {
+				return platformaws.EnsureStateBucket(ctx, r.c.S3, name, cfg.StateRegion, r.tags)
+			})
+		},
+	}
+}
+
+func lockTableStepDef(cfg *config.Config) bootstrapStepDef {
+	return bootstrapStepDef{
+		name:         "lock-table",
+		desc:         fmt.Sprintf("ensure DynamoDB lock table %s (PAY_PER_REQUEST, PK=LockID)", cfg.LockTableName()),
+		resourceType: ResourceTypeDynamoDBTable,
+		resourceName: cfg.LockTableName(),
+		run: func(ctx context.Context, r *bootstrapRunner) error {
+			name := cfg.LockTableName()
+			existed := r.existedOrUnknown(ctx, ResourceTypeDynamoDBTable, name, r.c.TableExistsChecked)
+			return r.ensureResource(ctx, ResourceTypeDynamoDBTable, name, existed, func(ctx context.Context) error {
+				return platformaws.EnsureLockTable(ctx, r.c.DynamoDB, name, r.tags)
+			})
+		},
+	}
+}
+
+func platformEventsTopicStepDef(cfg *config.Config) bootstrapStepDef {
+	return bootstrapStepDef{
+		name:         "platform-events-topic",
+		desc:         fmt.Sprintf("ensure SNS topic %s", cfg.EventsTopicName()),
+		resourceType: ResourceTypeSNSTopic,
+		resourceName: cfg.EventsTopicName(),
+		run: func(ctx context.Context, r *bootstrapRunner) error {
+			name := cfg.EventsTopicName()
+			existed := r.existedOrUnknown(ctx, ResourceTypeSNSTopic, name, r.c.TopicExistsChecked)
+			arn, err := platformaws.EnsureEventsTopic(ctx, r.c.SNS, name, r.tags)
+			if err != nil {
+				return err
+			}
+			r.topic = arn
+			r.log.Info("SNS topic ready", "step", "platform-events-topic", "arn", arn)
+			r.postEnsure(ctx, ResourceTypeSNSTopic, name, existed)
+			return nil
+		},
+	}
+}
+
+func platformEventsPolicyStepDef(cfg *config.Config) bootstrapStepDef {
+	return bootstrapStepDef{
+		name: "platform-events-policy",
+		desc: fmt.Sprintf("ensure SNS topic %s allows budgets.amazonaws.com to publish", cfg.EventsTopicName()),
+		run: func(ctx context.Context, r *bootstrapRunner) error {
+			if err := r.requireTopic("platform-events-policy"); err != nil {
+				return err
+			}
+			return platformaws.EnsureTopicBudgetPolicy(ctx, r.c.SNS, r.topic, r.c.AccountID)
+		},
+	}
+}
+
+func platformBudgetStepDef(cfg *config.Config) bootstrapStepDef {
+	return bootstrapStepDef{
+		name:         "platform-budget",
+		desc:         fmt.Sprintf("ensure monthly cost budget %s (%.2f USD, alerts at 50%%/80%%/100%%)", cfg.BudgetName(), cfg.BudgetMonthlyUSD),
+		resourceType: ResourceTypeAWSBudget,
+		resourceName: cfg.BudgetName(),
+		run: func(ctx context.Context, r *bootstrapRunner) error {
+			if err := r.requireTopic("platform-budget"); err != nil {
+				return err
+			}
+			name := cfg.BudgetName()
+			existed := r.existedOrUnknown(ctx, ResourceTypeAWSBudget, name, r.c.BudgetExistsChecked)
+			return r.ensureResource(ctx, ResourceTypeAWSBudget, name, existed, func(ctx context.Context) error {
+				return platformaws.EnsureBudget(ctx, r.c.Budgets, r.c.AccountID, r.topic, name, cfg.BudgetMonthlyUSD)
+			})
+		},
+	}
+}
+
+func deleteTempUserStepDef() bootstrapStepDef {
+	return bootstrapStepDef{
+		// delete-temp-user is a no-op when tempUser is nil (i.e. we were not
+		// running as root, so no temp user was created).
+		name: "delete-temp-user",
+		desc: fmt.Sprintf("delete ephemeral IAM user %s (root-only cleanup)", platformaws.TempBootstrapUserName),
+		run:  runDeleteTempUserStep,
+	}
+}
+
+func runDeleteTempUserStep(ctx context.Context, r *bootstrapRunner) error {
+	if r.tempUser == nil {
+		r.log.Debug("no temp user to delete; skipping")
+		return nil
+	}
+	iamClient := r.rootIAM
+	if iamClient == nil {
+		iamClient = r.c.IAM
+	}
+	if err := platformaws.DeleteTempBootstrapUser(ctx, iamClient, *r.tempUser); err != nil {
+		return fmt.Errorf("deleting temp bootstrap user: %w", err)
+	}
+	r.log.Info("temp bootstrap user deleted", "step", "delete-temp-user", "user", r.tempUser.UserName)
+	r.tempUser = nil
+	return nil
 }
 
 func (r *bootstrapRunner) steps() []step {

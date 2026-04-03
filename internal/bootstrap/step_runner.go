@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"time"
@@ -30,23 +31,70 @@ type stepOutcome struct {
 	err     error
 }
 
+type stepReporter interface {
+	Start(step)
+	Skipped(step)
+	Failure(step, time.Duration, error)
+	Success(step, time.Duration)
+}
+
+type noopStepReporter struct{}
+
+func (noopStepReporter) Start(step)                         {}
+func (noopStepReporter) Skipped(step)                       {}
+func (noopStepReporter) Failure(step, time.Duration, error) {}
+func (noopStepReporter) Success(step, time.Duration)        {}
+
+type terminalStepReporter struct {
+	presenter *platformui.Presenter
+	w         io.Writer
+}
+
+func newStepReporter(presenter *platformui.Presenter, w io.Writer) stepReporter {
+	if presenter == nil || !presenter.Interactive() || w == nil {
+		return noopStepReporter{}
+	}
+	return terminalStepReporter{presenter: presenter, w: w}
+}
+
+func (r terminalStepReporter) Start(s step) {
+	writeStepLine(r.w, r.presenter.Status("running", "...", fmt.Sprintf("%s: %s", s.name, s.desc)))
+}
+
+func (r terminalStepReporter) Skipped(s step) {
+	writeStepLine(r.w, r.presenter.Status("muted", "skip", fmt.Sprintf("%s skipped", s.name)))
+}
+
+func (r terminalStepReporter) Failure(s step, duration time.Duration, err error) {
+	writeStepLine(r.w, r.presenter.Status("error", "fail", fmt.Sprintf("%s after %s: %v", s.name, r.presenter.Duration(duration), err)))
+}
+
+func (r terminalStepReporter) Success(s step, duration time.Duration) {
+	writeStepLine(r.w, r.presenter.Status("ok", "ok", fmt.Sprintf("%s in %s", s.name, r.presenter.Duration(duration))))
+}
+
+func writeStepLine(w io.Writer, line string) {
+	_, _ = io.WriteString(w, line+"\n")
+}
+
 func runSteps(ctx context.Context, dryRun bool, mode stepRunMode, sequenceName string, steps []step) error {
 	logger := logging.FromContext(ctx)
 	presenter := platformui.FromContext(ctx)
+	reporter := newStepReporter(presenter, os.Stderr)
 
 	var errs []error
 	for _, s := range steps {
 		started := time.Now()
-		reportStepStart(logger, presenter, sequenceName, s)
+		reportStepStart(logger, reporter, sequenceName, s)
 
 		outcome := runStep(ctx, dryRun, s)
 		if outcome.skipped {
-			reportStepSkipped(logger, presenter, sequenceName, s)
+			reportStepSkipped(logger, reporter, sequenceName, s)
 			continue
 		}
 		if outcome.err != nil {
 			wrapped := fmt.Errorf("step %s: %w", s.name, outcome.err)
-			reportStepFailure(logger, presenter, sequenceName, s, time.Since(started), outcome.err, mode == stepRunStopOnError)
+			reportStepFailure(logger, reporter, sequenceName, s, time.Since(started), outcome.err, mode == stepRunStopOnError)
 			if mode == stepRunStopOnError {
 				return fmt.Errorf("%s: %w", sequenceName, wrapped)
 			}
@@ -54,7 +102,7 @@ func runSteps(ctx context.Context, dryRun bool, mode stepRunMode, sequenceName s
 			continue
 		}
 
-		reportStepSuccess(logger, presenter, sequenceName, s, time.Since(started))
+		reportStepSuccess(logger, reporter, sequenceName, s, time.Since(started))
 	}
 
 	return joinStepErrors(sequenceName, errs)
@@ -74,28 +122,24 @@ func joinStepErrors(sequenceName string, errs []error) error {
 	return fmt.Errorf("%s completed with %d error(s): %w", sequenceName, len(errs), errors.Join(errs...))
 }
 
-func reportStepStart(logger *slog.Logger, presenter *platformui.Presenter, sequenceName string, s step) {
+func reportStepStart(logger *slog.Logger, reporter stepReporter, sequenceName string, s step) {
 	logger.Info("step starting",
 		"sequence", sequenceName,
 		"step", s.name,
 		"desc", s.desc,
 	)
-	if presenter.Interactive() {
-		fmt.Fprintln(os.Stderr, presenter.Status("running", "...", fmt.Sprintf("%s: %s", s.name, s.desc)))
-	}
+	reporter.Start(s)
 }
 
-func reportStepSkipped(logger *slog.Logger, presenter *platformui.Presenter, sequenceName string, s step) {
+func reportStepSkipped(logger *slog.Logger, reporter stepReporter, sequenceName string, s step) {
 	logger.Info("dry-run: skipping",
 		"sequence", sequenceName,
 		"step", s.name,
 	)
-	if presenter.Interactive() {
-		fmt.Fprintln(os.Stderr, presenter.Status("muted", "skip", fmt.Sprintf("%s skipped", s.name)))
-	}
+	reporter.Skipped(s)
 }
 
-func reportStepFailure(logger *slog.Logger, presenter *platformui.Presenter, sequenceName string, s step, duration time.Duration, err error, aborting bool) {
+func reportStepFailure(logger *slog.Logger, reporter stepReporter, sequenceName string, s step, duration time.Duration, err error, aborting bool) {
 	message := "step failed, continuing"
 	if aborting {
 		message = "step failed, aborting"
@@ -105,17 +149,13 @@ func reportStepFailure(logger *slog.Logger, presenter *platformui.Presenter, seq
 		"step", s.name,
 		"error", err,
 	)
-	if presenter.Interactive() {
-		fmt.Fprintln(os.Stderr, presenter.Status("error", "fail", fmt.Sprintf("%s after %s: %v", s.name, presenter.Duration(duration), err)))
-	}
+	reporter.Failure(s, duration, err)
 }
 
-func reportStepSuccess(logger *slog.Logger, presenter *platformui.Presenter, sequenceName string, s step, duration time.Duration) {
+func reportStepSuccess(logger *slog.Logger, reporter stepReporter, sequenceName string, s step, duration time.Duration) {
 	logger.Info("step complete",
 		"sequence", sequenceName,
 		"step", s.name,
 	)
-	if presenter.Interactive() {
-		fmt.Fprintln(os.Stderr, presenter.Status("ok", "ok", fmt.Sprintf("%s in %s", s.name, presenter.Duration(duration))))
-	}
+	reporter.Success(s, duration)
 }

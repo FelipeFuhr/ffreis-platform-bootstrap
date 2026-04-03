@@ -127,18 +127,25 @@ Flags take precedence over environment variables.`,
 }
 
 // Execute is the single entry point called by main.
-// It maps error types to exit codes and writes errors to stderr.
-func Execute() {
-	if err := rootCmd.Execute(); err != nil {
-		_, _ = io.WriteString(os.Stderr, "error: "+err.Error()+"\n")
+// It maps command errors to exit codes and writes human-readable errors to stderr.
+func Execute() int {
+	return executeCommand(rootCmd, os.Stderr)
+}
 
-		var exitErr *ExitError
-		if errors.As(err, &exitErr) {
-			os.Exit(exitErr.Code)
-		}
-		os.Exit(exitUserError)
+func executeCommand(cmd *cobra.Command, stderr io.Writer) int {
+	if err := cmd.Execute(); err != nil {
+		_, _ = io.WriteString(stderr, "error: "+err.Error()+"\n")
+		return exitCodeForError(err)
 	}
-	os.Exit(exitOK)
+	return exitOK
+}
+
+func exitCodeForError(err error) int {
+	var exitErr *ExitError
+	if errors.As(err, &exitErr) {
+		return exitErr.Code
+	}
+	return exitUserError
 }
 
 func init() {
