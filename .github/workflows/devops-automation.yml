@@ -8,9 +8,6 @@ on:
   push:
     branches: [main]
 
-permissions:
-  contents: read
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -44,6 +41,8 @@ jobs:
 
   verify-release-please:
     if: vars.RELEASE_PLEASE_ENABLED != 'false' && github.event_name == 'push'
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     steps:
       - name: Verify Release Please credentials

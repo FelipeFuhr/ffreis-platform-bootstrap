@@ -26,6 +26,16 @@ import (
 	platformui "github.com/ffreis/platform-bootstrap/internal/ui"
 )
 
+const (
+	testBootstrapRoleARN = "arn:aws:iam::123456789012:role/bootstrap"
+	errUnexpected        = "unexpected error: %v"
+	errUnexpectedText    = "unexpected error text: %v"
+	errUnexpectedUI      = "ui.New() unexpected error: %v"
+	errUnexpectedRunE    = "RunE() unexpected error: %v"
+	errOutputMissing     = "output missing %q in:\n%s"
+	flagBackendOut       = "backend-out"
+)
+
 func TestInitPreRunERequiresRootEmail(t *testing.T) {
 	cfg := testConfig()
 	cfg.RootEmail = ""
@@ -39,17 +49,17 @@ func TestInitPreRunERequiresRootEmail(t *testing.T) {
 
 	var exitErr *ExitError
 	if !errors.As(err, &exitErr) || exitErr.Code != exitUserError {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpected, err)
 	}
 	if !strings.Contains(err.Error(), "root email is required") {
-		t.Fatalf("unexpected error text: %v", err)
+		t.Fatalf(errUnexpectedText, err)
 	}
 }
 
 func TestInitRunEDryRun(t *testing.T) {
 	presenter, err := platformui.New("plain")
 	if err != nil {
-		t.Fatalf("ui.New() unexpected error: %v", err)
+		t.Fatalf(errUnexpectedUI, err)
 	}
 
 	cfg := testConfig()
@@ -61,20 +71,20 @@ func TestInitRunEDryRun(t *testing.T) {
 	cmd.Flags().String("org-dir", "", "")
 
 	if err := initCmd.RunE(cmd, nil); err != nil {
-		t.Fatalf("RunE() unexpected error: %v", err)
+		t.Fatalf(errUnexpectedRunE, err)
 	}
 
 	got := stdout.String()
 	for _, want := range []string{"Platform Bootstrap Init", "Config:", "dry-run=true", "Outputs:"} {
 		if !strings.Contains(got, want) {
-			t.Fatalf("output missing %q in:\n%s", want, got)
+			t.Fatalf(errOutputMissing, want, got)
 		}
 	}
 }
 
 func TestAuditRunEJSONAndInconsistencies(t *testing.T) {
 	cfg := testConfig()
-	record, err := platformaws.NewRegistryRecord("S3Bucket", cfg.StateBucketName(), "arn:aws:iam::123456789012:role/bootstrap", map[string]string{"ManagedBy": "test"})
+	record, err := platformaws.NewRegistryRecord("S3Bucket", cfg.StateBucketName(), testBootstrapRoleARN, map[string]string{"ManagedBy": "test"})
 	if err != nil {
 		t.Fatalf("NewRegistryRecord() unexpected error: %v", err)
 	}
@@ -86,7 +96,7 @@ func TestAuditRunEJSONAndInconsistencies(t *testing.T) {
 
 	clients := &platformaws.Clients{
 		AccountID: "123456789012",
-		CallerARN: "arn:aws:iam::123456789012:role/bootstrap",
+		CallerARN: testBootstrapRoleARN,
 		Region:    cfg.Region,
 		DynamoDB: &cmdDynamoDBMock{
 			scanFn: func(in *dynamodb.ScanInput) (*dynamodb.ScanOutput, error) {
@@ -133,7 +143,7 @@ func TestAuditRunEJSONAndInconsistencies(t *testing.T) {
 	}
 	var exitErr *ExitError
 	if !errors.As(err, &exitErr) || exitErr.Code != exitPartialComplete {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpected, err)
 	}
 
 	var report AuditReport
@@ -165,10 +175,10 @@ func TestAuditRunEScanError(t *testing.T) {
 	}
 	var exitErr *ExitError
 	if !errors.As(err, &exitErr) || exitErr.Code != exitAWSError {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpected, err)
 	}
 	if !strings.Contains(err.Error(), "scanning registry") {
-		t.Fatalf("unexpected error text: %v", err)
+		t.Fatalf(errUnexpectedText, err)
 	}
 }
 
@@ -176,7 +186,7 @@ func TestPrintAuditReportAndStatusIcon(t *testing.T) {
 	cfg := testConfig()
 	presenter, err := platformui.New("plain")
 	if err != nil {
-		t.Fatalf("ui.New() unexpected error: %v", err)
+		t.Fatalf(errUnexpectedUI, err)
 	}
 	setTestDeps(t, cfg, &platformaws.Clients{}, presenter)
 
@@ -192,7 +202,7 @@ func TestPrintAuditReportAndStatusIcon(t *testing.T) {
 	got := stdout.String()
 	for _, want := range []string{"Platform Bootstrap Audit", "STATUS", "Summary:"} {
 		if !strings.Contains(got, want) {
-			t.Fatalf("output missing %q in:\n%s", want, got)
+			t.Fatalf(errOutputMissing, want, got)
 		}
 	}
 	if got := statusIcon("unknown"); got != "unknown" {
@@ -205,7 +215,7 @@ func TestDoctorRunESuccess(t *testing.T) {
 	cfg.AWSProfile = "bootstrap"
 	clients := &platformaws.Clients{
 		AccountID: "123456789012",
-		CallerARN: "arn:aws:iam::123456789012:role/bootstrap",
+		CallerARN: testBootstrapRoleARN,
 		Region:    cfg.Region,
 		IAM:       &cmdIAMMock{},
 		S3:        &cmdS3Mock{},
@@ -217,13 +227,13 @@ func TestDoctorRunESuccess(t *testing.T) {
 
 	cmd, stdout, _ := newTestCommand(context.Background())
 	if err := doctorCmd.RunE(cmd, nil); err != nil {
-		t.Fatalf("RunE() unexpected error: %v", err)
+		t.Fatalf(errUnexpectedRunE, err)
 	}
 
 	got := stdout.String()
 	for _, want := range []string{"platform-bootstrap doctor", "Checks:", "All checks passed."} {
 		if !strings.Contains(got, want) {
-			t.Fatalf("output missing %q in:\n%s", want, got)
+			t.Fatalf(errOutputMissing, want, got)
 		}
 	}
 }
@@ -233,7 +243,7 @@ func TestDoctorRunEFailureIncludesHints(t *testing.T) {
 	cfg.AWSProfile = "bootstrap"
 	clients := &platformaws.Clients{
 		AccountID: "123456789012",
-		CallerARN: "arn:aws:iam::123456789012:role/bootstrap",
+		CallerARN: testBootstrapRoleARN,
 		Region:    cfg.Region,
 		IAM:       &cmdIAMMock{getAccountSummaryErr: errors.New("denied\nline2")},
 		S3:        &cmdS3Mock{},
@@ -250,7 +260,7 @@ func TestDoctorRunEFailureIncludesHints(t *testing.T) {
 	}
 	var exitErr *ExitError
 	if !errors.As(err, &exitErr) || exitErr.Code != exitAWSError {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpected, err)
 	}
 	got := stdout.String()
 	for _, want := range []string{"doctor failed: 1 check(s) failed", "aws sso login --profile bootstrap", "error: denied line2"} {
@@ -274,7 +284,7 @@ func TestNukeRunECancelledByConfirmation(t *testing.T) {
 	cfg.DryRun = false
 	presenter, err := platformui.New("plain")
 	if err != nil {
-		t.Fatalf("ui.New() unexpected error: %v", err)
+		t.Fatalf(errUnexpectedUI, err)
 	}
 	setTestDeps(t, cfg, &platformaws.Clients{}, presenter)
 
@@ -294,7 +304,7 @@ func TestNukeRunECancelledByConfirmation(t *testing.T) {
 
 	cmd, _, stderr := newTestCommand(context.Background())
 	if err := nukeCmd.RunE(cmd, nil); err != nil {
-		t.Fatalf("RunE() unexpected error: %v", err)
+		t.Fatalf(errUnexpectedRunE, err)
 	}
 	got := stderr.String()
 	for _, want := range []string{"Platform Bootstrap Nuke", "Resources to be deleted:", "[skip] operator confirmation did not match"} {
@@ -307,7 +317,7 @@ func TestNukeRunECancelledByConfirmation(t *testing.T) {
 func TestNukeRunEDryRun(t *testing.T) {
 	presenter, err := platformui.New("plain")
 	if err != nil {
-		t.Fatalf("ui.New() unexpected error: %v", err)
+		t.Fatalf(errUnexpectedUI, err)
 	}
 	cfg := testConfig()
 	cfg.DryRun = true
@@ -316,7 +326,7 @@ func TestNukeRunEDryRun(t *testing.T) {
 
 	cmd, stdout, _ := newTestCommand(testCommandContext(presenter))
 	if err := nukeCmd.RunE(cmd, nil); err != nil {
-		t.Fatalf("RunE() unexpected error: %v", err)
+		t.Fatalf(errUnexpectedRunE, err)
 	}
 	if !strings.Contains(stdout.String(), "[ok] bootstrap resources removed") {
 		t.Fatalf("stdout missing success status in:\n%s", stdout.String())
@@ -367,15 +377,15 @@ func TestFetchRunESuccess(t *testing.T) {
 
 	cmd, _, _ := newTestCommand(context.Background())
 	cmd.Flags().String("output", "-", "")
-	cmd.Flags().String("backend-out", "", "")
+	cmd.Flags().String(flagBackendOut, "", "")
 	backendPath := filepath.Join(t.TempDir(), "stack", "backend.local.hcl")
-	if err := cmd.Flags().Set("backend-out", backendPath); err != nil {
+	if err := cmd.Flags().Set(flagBackendOut, backendPath); err != nil {
 		t.Fatalf("Flags().Set() unexpected error: %v", err)
 	}
 
 	stdout := captureStdout(t, func() {
 		if err := fetchCmd.RunE(cmd, nil); err != nil {
-			t.Fatalf("RunE() unexpected error: %v", err)
+			t.Fatalf(errUnexpectedRunE, err)
 		}
 	})
 	if !strings.Contains(stdout, `"budget_alert_email": "alerts@example.com"`) {
@@ -403,7 +413,7 @@ func TestFetchRunEError(t *testing.T) {
 
 	cmd, _, _ := newTestCommand(context.Background())
 	cmd.Flags().String("output", "-", "")
-	cmd.Flags().String("backend-out", "", "")
+	cmd.Flags().String(flagBackendOut, "", "")
 
 	err := fetchCmd.RunE(cmd, nil)
 	if err == nil {
@@ -411,10 +421,10 @@ func TestFetchRunEError(t *testing.T) {
 	}
 	var exitErr *ExitError
 	if !errors.As(err, &exitErr) || exitErr.Code != exitAWSError {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpected, err)
 	}
 	if !strings.Contains(err.Error(), "fetching account config") {
-		t.Fatalf("unexpected error text: %v", err)
+		t.Fatalf(errUnexpectedText, err)
 	}
 }
 
@@ -444,10 +454,10 @@ func TestRootPersistentPreRunEInvalidUI(t *testing.T) {
 	}
 	var exitErr *ExitError
 	if !errors.As(err, &exitErr) || exitErr.Code != exitUserError {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpected, err)
 	}
 	if !strings.Contains(err.Error(), "invalid ui mode") {
-		t.Fatalf("unexpected error text: %v", err)
+		t.Fatalf(errUnexpectedText, err)
 	}
 }
 
@@ -485,10 +495,10 @@ func TestRootPersistentPreRunENoCredentials(t *testing.T) {
 	}
 	var exitErr *ExitError
 	if !errors.As(err, &exitErr) || exitErr.Code != exitUserError {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpected, err)
 	}
 	if !strings.Contains(err.Error(), "no AWS credentials configured") {
-		t.Fatalf("unexpected error text: %v", err)
+		t.Fatalf(errUnexpectedText, err)
 	}
 }
 

@@ -9,6 +9,8 @@ import (
 	platformaws "github.com/ffreis/platform-bootstrap/internal/aws"
 )
 
+const testAdminEmail = "admin@example.com"
+
 func TestRenderBackendHCL(t *testing.T) {
 	t.Parallel()
 
@@ -87,10 +89,10 @@ func TestAdminAlertEmail(t *testing.T) {
 
 	records := []platformaws.ConfigRecord{
 		{ConfigName: "ignored", Data: map[string]string{"email": "ignored@example.com"}},
-		{ConfigName: "alert_email", Data: map[string]string{"email": "admin@example.com"}},
+		{ConfigName: "alert_email", Data: map[string]string{"email": testAdminEmail}},
 	}
-	if got := adminAlertEmail(records); got != "admin@example.com" {
-		t.Fatalf("adminAlertEmail() = %q, want %q", got, "admin@example.com")
+	if got := adminAlertEmail(records); got != testAdminEmail {
+		t.Fatalf("adminAlertEmail() = %q, want %q", got, testAdminEmail)
 	}
 	if got := adminAlertEmail(nil); got != "" {
 		t.Fatalf("adminAlertEmail(nil) = %q, want empty string", got)

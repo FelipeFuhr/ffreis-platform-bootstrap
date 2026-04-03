@@ -12,22 +12,28 @@ import (
 	platformaws "github.com/ffreis/platform-bootstrap/internal/aws"
 )
 
+const (
+	errRunnerNotImplemented = "not implemented"
+	testRunnerRootARN       = "arn:aws:iam::123:root"
+	testRunnerRegion        = "us-east-1"
+)
+
 type fakeDynamoDB struct {
 	putInputs []*dynamodb.PutItemInput
 	putErr    error
 }
 
 func (f *fakeDynamoDB) DescribeTable(context.Context, *dynamodb.DescribeTableInput, ...func(*dynamodb.Options)) (*dynamodb.DescribeTableOutput, error) {
-	return nil, errors.New("not implemented")
+	return nil, errors.New(errRunnerNotImplemented)
 }
 func (f *fakeDynamoDB) ListTables(context.Context, *dynamodb.ListTablesInput, ...func(*dynamodb.Options)) (*dynamodb.ListTablesOutput, error) {
-	return nil, errors.New("not implemented")
+	return nil, errors.New(errRunnerNotImplemented)
 }
 func (f *fakeDynamoDB) CreateTable(context.Context, *dynamodb.CreateTableInput, ...func(*dynamodb.Options)) (*dynamodb.CreateTableOutput, error) {
-	return nil, errors.New("not implemented")
+	return nil, errors.New(errRunnerNotImplemented)
 }
 func (f *fakeDynamoDB) TagResource(context.Context, *dynamodb.TagResourceInput, ...func(*dynamodb.Options)) (*dynamodb.TagResourceOutput, error) {
-	return nil, errors.New("not implemented")
+	return nil, errors.New(errRunnerNotImplemented)
 }
 func (f *fakeDynamoDB) PutItem(_ context.Context, params *dynamodb.PutItemInput, _ ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error) {
 	f.putInputs = append(f.putInputs, params)
@@ -37,10 +43,10 @@ func (f *fakeDynamoDB) PutItem(_ context.Context, params *dynamodb.PutItemInput,
 	return &dynamodb.PutItemOutput{}, nil
 }
 func (f *fakeDynamoDB) Scan(context.Context, *dynamodb.ScanInput, ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
-	return nil, errors.New("not implemented")
+	return nil, errors.New(errRunnerNotImplemented)
 }
 func (f *fakeDynamoDB) DeleteTable(context.Context, *dynamodb.DeleteTableInput, ...func(*dynamodb.Options)) (*dynamodb.DeleteTableOutput, error) {
-	return nil, errors.New("not implemented")
+	return nil, errors.New(errRunnerNotImplemented)
 }
 
 type fakeSNS struct {
@@ -48,10 +54,10 @@ type fakeSNS struct {
 }
 
 func (f *fakeSNS) CreateTopic(context.Context, *sns.CreateTopicInput, ...func(*sns.Options)) (*sns.CreateTopicOutput, error) {
-	return nil, errors.New("not implemented")
+	return nil, errors.New(errRunnerNotImplemented)
 }
 func (f *fakeSNS) ListTopics(context.Context, *sns.ListTopicsInput, ...func(*sns.Options)) (*sns.ListTopicsOutput, error) {
-	return nil, errors.New("not implemented")
+	return nil, errors.New(errRunnerNotImplemented)
 }
 func (f *fakeSNS) Publish(context.Context, *sns.PublishInput, ...func(*sns.Options)) (*sns.PublishOutput, error) {
 	return nil, f.publishErr
@@ -77,8 +83,8 @@ func TestBootstrapRunnerEnsureResourcePostEnsureRuns(t *testing.T) {
 	clients := &platformaws.Clients{
 		DynamoDB:  db,
 		AccountID: "123456789012",
-		CallerARN: "arn:aws:iam::123:root",
-		Region:    "us-east-1",
+		CallerARN: testRunnerRootARN,
+		Region:    testRunnerRegion,
 	}
 
 	r := newBootstrapRunner(context.Background(), cfg, clients)
@@ -110,8 +116,8 @@ func TestBootstrapRunnerEnsureResourceErrorDoesNotPostEnsure(t *testing.T) {
 	clients := &platformaws.Clients{
 		DynamoDB:  db,
 		AccountID: "123456789012",
-		CallerARN: "arn:aws:iam::123:root",
-		Region:    "us-east-1",
+		CallerARN: testRunnerRootARN,
+		Region:    testRunnerRegion,
 	}
 
 	r := newBootstrapRunner(context.Background(), cfg, clients)
@@ -145,7 +151,7 @@ func TestBootstrapRunnerExistedOrUnknown(t *testing.T) {
 
 	cfg := minimalConfig()
 	clients := &platformaws.Clients{
-		CallerARN: "arn:aws:iam::123:root",
+		CallerARN: testRunnerRootARN,
 	}
 	r := newBootstrapRunner(context.Background(), cfg, clients)
 
@@ -187,8 +193,8 @@ func TestBootstrapRunnerTryPublishAndRegisterErrorPathsDoNotFail(t *testing.T) {
 		DynamoDB:  db,
 		SNS:       sn,
 		AccountID: "123456789012",
-		CallerARN: "arn:aws:iam::123:root",
-		Region:    "us-east-1",
+		CallerARN: testRunnerRootARN,
+		Region:    testRunnerRegion,
 	}
 
 	r := newBootstrapRunner(context.Background(), cfg, clients)
@@ -212,7 +218,7 @@ func TestRunAccountConfigWritesAccountAndAdmin(t *testing.T) {
 	db := &fakeDynamoDB{}
 	clients := &platformaws.Clients{
 		DynamoDB:  db,
-		CallerARN: "arn:aws:iam::123:root",
+		CallerARN: testRunnerRootARN,
 	}
 	r := newBootstrapRunner(context.Background(), cfg, clients)
 
