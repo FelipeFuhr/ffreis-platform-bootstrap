@@ -37,10 +37,6 @@ func TestRenderBackendHCL(t *testing.T) {
 func TestWriteBackendHCL(t *testing.T) {
 	t.Parallel()
 
-	oldLogger := deps.logger
-	deps.logger = nil
-	t.Cleanup(func() { deps.logger = oldLogger })
-
 	path := filepath.Join(t.TempDir(), "stack", "backend.local.hcl")
 	cfg := backendConfig{
 		Bucket:        "state-bucket",
@@ -103,10 +99,6 @@ func TestAdminAlertEmail(t *testing.T) {
 
 func TestWriteFetchedJSONFile(t *testing.T) {
 	t.Parallel()
-
-	oldLogger := deps.logger
-	deps.logger = nil
-	t.Cleanup(func() { deps.logger = oldLogger })
 
 	path := filepath.Join(t.TempDir(), "envs", "prod", "fetched.auto.tfvars.json")
 	data := []byte("{\"org\":\"acme\"}\n")
