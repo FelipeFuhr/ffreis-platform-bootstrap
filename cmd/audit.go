@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strconv"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -198,8 +199,10 @@ func printAuditReport(cmd *cobra.Command, r AuditReport) {
 		return
 	}
 	out.Blank()
-	out.Line(fmt.Sprintf("Summary: %d total, %d ok, %d missing, %d unmanaged",
-		r.Summary.Total, r.Summary.OK, r.Summary.Missing, r.Summary.Unmanaged))
+	out.Line("Summary: " + strconv.Itoa(r.Summary.Total) + " total, " +
+		strconv.Itoa(r.Summary.OK) + " ok, " +
+		strconv.Itoa(r.Summary.Missing) + " missing, " +
+		strconv.Itoa(r.Summary.Unmanaged) + " unmanaged")
 }
 
 func statusIcon(s string) string {

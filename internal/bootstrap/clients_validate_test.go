@@ -12,6 +12,8 @@ import (
 	platformaws "github.com/ffreis/platform-bootstrap/internal/aws"
 )
 
+const errExpectedNil = "expected error, got nil"
+
 func TestValidateClientsForBootstrapSuccess(t *testing.T) {
 	var typedNilS3 *s3.Client
 	var typedNilDB *dynamodb.Client
@@ -38,7 +40,7 @@ func TestValidateClientsForBootstrapSuccess(t *testing.T) {
 func TestValidateClientsForBootstrapMissingFields(t *testing.T) {
 	err := validateClientsForBootstrap(&platformaws.Clients{})
 	if err == nil {
-		t.Fatal("expected error, got nil")
+		t.Fatal(errExpectedNil)
 	}
 }
 
@@ -67,19 +69,17 @@ func TestValidateClientsForNukeSuccess(t *testing.T) {
 func TestValidateClientsForNukeMissingFields(t *testing.T) {
 	err := validateClientsForNuke(&platformaws.Clients{})
 	if err == nil {
-		t.Fatal("expected error, got nil")
+		t.Fatal(errExpectedNil)
 	}
 }
 
 func TestValidateClientsSharedRequirements(t *testing.T) {
-	err := validateClients(&platformaws.Clients{}, []clientRequirement{
+	if err := validateClients(&platformaws.Clients{}, []clientRequirement{
 		{name: "AccountID", missing: func(clients *platformaws.Clients) bool { return clients.AccountID == "" }},
 		{name: "CallerARN", missing: func(clients *platformaws.Clients) bool { return clients.CallerARN == "" }},
-	})
-	if err == nil {
-		t.Fatal("expected error, got nil")
-	}
-	if got := err.Error(); got != "missing required AWS clients/identity: AccountID, CallerARN" {
+	}); err == nil {
+		t.Fatal(errExpectedNil)
+	} else if err.Error() != "missing required AWS clients/identity: AccountID, CallerARN" {
 		t.Fatalf("validateClients() unexpected error: %v", err)
 	}
 }

@@ -39,10 +39,21 @@ type stepReporter interface {
 
 type noopStepReporter struct{}
 
-func (noopStepReporter) Start(step)                         {}
-func (noopStepReporter) Skipped(step)                       {}
-func (noopStepReporter) Failure(step, time.Duration, error) {}
-func (noopStepReporter) Success(step, time.Duration)        {}
+func (noopStepReporter) Start(step) {
+	// Intentionally empty: non-interactive runs do not emit step progress lines.
+}
+
+func (noopStepReporter) Skipped(step) {
+	// Intentionally empty: non-interactive runs do not emit skipped-step lines.
+}
+
+func (noopStepReporter) Failure(step, time.Duration, error) {
+	// Intentionally empty: logs already capture failures for non-interactive runs.
+}
+
+func (noopStepReporter) Success(step, time.Duration) {
+	// Intentionally empty: logs already capture completion for non-interactive runs.
+}
 
 type terminalStepReporter struct {
 	presenter *platformui.Presenter

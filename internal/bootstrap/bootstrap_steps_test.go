@@ -67,21 +67,27 @@ func TestBootstrapStepDefHelpersMetadata(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if tc.def.name != tc.name {
-				t.Fatalf("step name: got %q, want %q", tc.def.name, tc.name)
-			}
-			if tc.def.resourceType != tc.resourceType {
-				t.Fatalf("resource type: got %q, want %q", tc.def.resourceType, tc.resourceType)
-			}
-			if tc.def.resourceName != tc.resourceName {
-				t.Fatalf("resource name: got %q, want %q", tc.def.resourceName, tc.resourceName)
-			}
-			if tc.def.run == nil {
-				t.Fatal("expected step run func")
-			}
-			if !strings.Contains(tc.def.desc, tc.descContains) {
-				t.Fatalf("desc %q does not contain %q", tc.def.desc, tc.descContains)
-			}
+			assertStepDefMetadata(t, tc.def, tc.name, tc.resourceType, tc.resourceName, tc.descContains)
 		})
+	}
+}
+
+func assertStepDefMetadata(t *testing.T, def bootstrapStepDef, wantName string, wantResourceType ResourceType, wantResourceName, descContains string) {
+	t.Helper()
+
+	if def.name != wantName {
+		t.Fatalf("step name: got %q, want %q", def.name, wantName)
+	}
+	if def.resourceType != wantResourceType {
+		t.Fatalf("resource type: got %q, want %q", def.resourceType, wantResourceType)
+	}
+	if def.resourceName != wantResourceName {
+		t.Fatalf("resource name: got %q, want %q", def.resourceName, wantResourceName)
+	}
+	if def.run == nil {
+		t.Fatal("expected step run func")
+	}
+	if !strings.Contains(def.desc, descContains) {
+		t.Fatalf("desc %q does not contain %q", def.desc, descContains)
 	}
 }
