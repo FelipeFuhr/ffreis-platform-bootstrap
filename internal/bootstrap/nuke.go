@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"context"
 	"fmt"
+	"io"
 
 	platformaws "github.com/ffreis/platform-bootstrap/internal/aws"
 	"github.com/ffreis/platform-bootstrap/internal/config"
@@ -25,7 +26,7 @@ import (
 //
 // Pass cfg.DryRun = true to log what would be deleted without making any
 // AWS API calls.
-func Nuke(ctx context.Context, cfg *config.Config, clients *platformaws.Clients) error {
+func Nuke(ctx context.Context, cfg *config.Config, clients *platformaws.Clients, progressOut io.Writer) error {
 	logger := logging.FromContext(ctx)
 
 	logger.Info("nuke sequence starting",
@@ -85,7 +86,7 @@ func Nuke(ctx context.Context, cfg *config.Config, clients *platformaws.Clients)
 		},
 	}
 
-	if err := runSteps(ctx, cfg.DryRun, stepRunContinueOnError, "nuke", steps); err != nil {
+	if err := runSteps(ctx, cfg.DryRun, stepRunContinueOnError, "nuke", progressOut, steps); err != nil {
 		return err
 	}
 

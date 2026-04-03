@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 
 	platformaws "github.com/ffreis/platform-bootstrap/internal/aws"
@@ -464,7 +465,7 @@ func (r *bootstrapRunner) steps() []step {
 // in the bootstrap registry table. Registry failures are also non-fatal:
 // the resource was already created and the record can be re-written on the
 // next run.
-func Run(ctx context.Context, cfg *config.Config, clients *platformaws.Clients) error {
+func Run(ctx context.Context, cfg *config.Config, clients *platformaws.Clients, progressOut io.Writer) error {
 	logger := logging.FromContext(ctx)
 	logger.Info("bootstrap sequence starting",
 		"org", cfg.OrgName,
@@ -475,7 +476,7 @@ func Run(ctx context.Context, cfg *config.Config, clients *platformaws.Clients) 
 	)
 	if cfg.DryRun {
 		// Keep the nil-client dry-run behavior: no dereferences, just step logs.
-		if err := runSteps(ctx, true, stepRunStopOnError, "bootstrap", newBootstrapRunner(ctx, cfg, clients).steps()); err != nil {
+		if err := runSteps(ctx, true, stepRunStopOnError, "bootstrap", progressOut, newBootstrapRunner(ctx, cfg, clients).steps()); err != nil {
 			return err
 		}
 		logger.Info("bootstrap sequence complete")
@@ -499,7 +500,7 @@ func Run(ctx context.Context, cfg *config.Config, clients *platformaws.Clients) 
 			logger.Error("failed to delete temp bootstrap user during cleanup", "error", err)
 		}
 	}()
-	if err := runSteps(ctx, cfg.DryRun, stepRunStopOnError, "bootstrap", r.steps()); err != nil {
+	if err := runSteps(ctx, cfg.DryRun, stepRunStopOnError, "bootstrap", progressOut, r.steps()); err != nil {
 		return err
 	}
 

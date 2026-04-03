@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"context"
 	"errors"
+	"io"
 	"log/slog"
 	"testing"
 
@@ -40,7 +41,7 @@ func TestNukeNonDryRunSuccessRunsAllSteps(t *testing.T) {
 		Region:    testRegion,
 	}
 
-	if err := Nuke(ctx, cfg, clients); err != nil {
+	if err := Nuke(ctx, cfg, clients, io.Discard); err != nil {
 		t.Fatalf(errUnexpectedFmt, err)
 	}
 
@@ -90,7 +91,7 @@ func TestNukeContinuesOnError(t *testing.T) {
 		Region:    testRegion,
 	}
 
-	if err := Nuke(ctx, cfg, clients); err == nil {
+	if err := Nuke(ctx, cfg, clients, io.Discard); err == nil {
 		t.Fatal("expected aggregated error, got nil")
 	}
 

@@ -31,8 +31,19 @@ type ExitError struct {
 	Err  error
 }
 
-func (e *ExitError) Error() string { return e.Err.Error() }
-func (e *ExitError) Unwrap() error { return e.Err }
+func (e *ExitError) Error() string {
+	if e == nil || e.Err == nil {
+		return ""
+	}
+	return e.Err.Error()
+}
+
+func (e *ExitError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.Err
+}
 
 const (
 	exitOK              = 0
@@ -134,7 +145,9 @@ func Execute() int {
 
 func executeCommand(cmd *cobra.Command, stderr io.Writer) int {
 	if err := cmd.Execute(); err != nil {
-		_, _ = io.WriteString(stderr, "error: "+err.Error()+"\n")
+		if message := err.Error(); message != "" {
+			_, _ = io.WriteString(stderr, "error: "+message+"\n")
+		}
 		return exitCodeForError(err)
 	}
 	return exitOK

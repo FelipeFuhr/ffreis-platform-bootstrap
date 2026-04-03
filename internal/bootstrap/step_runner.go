@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"os"
 	"time"
 
 	"github.com/ffreis/platform-bootstrap/internal/logging"
@@ -77,10 +76,10 @@ func writeStepLine(w io.Writer, line string) {
 	_, _ = io.WriteString(w, line+"\n")
 }
 
-func runSteps(ctx context.Context, dryRun bool, mode stepRunMode, sequenceName string, steps []step) error {
+func runSteps(ctx context.Context, dryRun bool, mode stepRunMode, sequenceName string, progressOut io.Writer, steps []step) error {
 	logger := logging.FromContext(ctx)
 	presenter := platformui.FromContext(ctx)
-	reporter := newStepReporter(presenter, os.Stderr)
+	reporter := newStepReporter(presenter, progressOut)
 
 	var errs []error
 	for _, s := range steps {

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io"
 	"strings"
 	"testing"
 	"time"
@@ -20,7 +21,7 @@ func TestRunStepsDryRunSkipsAllSteps(t *testing.T) {
 		{name: "two", desc: "two", run: func(context.Context) error { calls++; return nil }},
 	}
 
-	if err := runSteps(ctx, true, stepRunStopOnError, "bootstrap", steps); err != nil {
+	if err := runSteps(ctx, true, stepRunStopOnError, "bootstrap", io.Discard, steps); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if calls != 0 {
@@ -38,7 +39,7 @@ func TestRunStepsStopOnErrorAborts(t *testing.T) {
 		{name: "three", desc: "three", run: func(context.Context) error { calls++; return nil }},
 	}
 
-	err := runSteps(ctx, false, stepRunStopOnError, "bootstrap", steps)
+	err := runSteps(ctx, false, stepRunStopOnError, "bootstrap", io.Discard, steps)
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -60,7 +61,7 @@ func TestRunStepsContinueOnErrorRunsAllStepsAndJoinsErrors(t *testing.T) {
 		{name: "three", desc: "three", run: func(context.Context) error { calls++; return errors.New("e3") }},
 	}
 
-	err := runSteps(ctx, false, stepRunContinueOnError, "nuke", steps)
+	err := runSteps(ctx, false, stepRunContinueOnError, "nuke", io.Discard, steps)
 	if err == nil {
 		t.Fatal("expected error")
 	}

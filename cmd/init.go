@@ -66,7 +66,7 @@ Pass --dry-run to see what would be created without making any changes.`,
 			"caller_arn", deps.clients.CallerARN,
 		)
 
-		if err := bootstrap.Run(ctx, deps.cfg, deps.clients); err != nil {
+		if err := bootstrap.Run(ctx, deps.cfg, deps.clients, cmd.ErrOrStderr()); err != nil {
 			return &ExitError{Code: exitPartialComplete, Err: err}
 		}
 

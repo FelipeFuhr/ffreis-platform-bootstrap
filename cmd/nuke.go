@@ -64,7 +64,7 @@ Pass --dry-run to preview what would be deleted without making any AWS calls.`,
 			}
 		}
 
-		if err := bootstrap.Nuke(ctx, deps.cfg, deps.clients); err != nil {
+		if err := bootstrap.Nuke(ctx, deps.cfg, deps.clients, cmd.ErrOrStderr()); err != nil {
 			return &ExitError{Code: exitPartialComplete, Err: err}
 		}
 
