@@ -11,6 +11,11 @@ import (
 	iamtypes "github.com/aws/aws-sdk-go-v2/service/iam/types"
 )
 
+const (
+	errCreateTempUserUnexpected = "CreateTempBootstrapUser() unexpected error: %v"
+	errCreateTempUserExpected   = "CreateTempBootstrapUser() expected error, got nil"
+)
+
 type tempUserIAMMock struct {
 	mockIAM
 	getUserOut            *iam.GetUserOutput
@@ -126,7 +131,7 @@ func TestCreateTempBootstrapUserCreatesUserPolicyAndKey(t *testing.T) {
 		"Project":   "platform",
 	})
 	if err != nil {
-		t.Fatalf("CreateTempBootstrapUser() unexpected error: %v", err)
+		t.Fatalf(errCreateTempUserUnexpected, err)
 	}
 	if got.UserName != TempBootstrapUserName || got.AccessKeyID != "AKIATEST" || got.SecretAccessKey != "secret" {
 		t.Fatalf("CreateTempBootstrapUser() returned unexpected user: %+v", got)
@@ -155,7 +160,7 @@ func TestCreateTempBootstrapUserReusesExistingUser(t *testing.T) {
 
 	_, err := CreateTempBootstrapUser(context.Background(), m, testPlatformAdminRoleARN, nil)
 	if err != nil {
-		t.Fatalf("CreateTempBootstrapUser() unexpected error: %v", err)
+		t.Fatalf(errCreateTempUserUnexpected, err)
 	}
 	if m.createUserInput != nil {
 		t.Fatal("CreateUser should not be called when temp user already exists")
@@ -175,7 +180,7 @@ func TestCreateTempBootstrapUserCreateAccessKeyError(t *testing.T) {
 
 	_, err := CreateTempBootstrapUser(context.Background(), m, testPlatformAdminRoleARN, nil)
 	if err == nil {
-		t.Fatal("CreateTempBootstrapUser() expected error, got nil")
+		t.Fatal(errCreateTempUserExpected)
 	}
 	if !strings.Contains(err.Error(), "creating access key for temp user") {
 		t.Fatalf("CreateTempBootstrapUser() should wrap key error, got: %v", err)
