@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	platformaws "github.com/ffreis/platform-bootstrap/internal/aws"
 )
 
 func TestRenderBackendHCL(t *testing.T) {
@@ -56,6 +58,69 @@ func TestWriteBackendHCL(t *testing.T) {
 	}
 	if got := string(data); got != renderBackendHCL(cfg) {
 		t.Fatalf("writeBackendHCL() wrote unexpected content:\n%s", got)
+	}
+
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("Stat() unexpected error: %v", err)
+	}
+	if perms := info.Mode().Perm(); perms != 0600 {
+		t.Fatalf("file perms: want 0600, got %#o", perms)
+	}
+}
+
+func TestAccountsFromRecords(t *testing.T) {
+	t.Parallel()
+
+	records := []platformaws.ConfigRecord{
+		{ConfigName: "dev", Data: map[string]string{"email": "dev@example.com"}},
+		{ConfigName: "prod", Data: map[string]string{"email": "prod@example.com"}},
+	}
+
+	got := accountsFromRecords(records)
+	if len(got) != 2 {
+		t.Fatalf("accountsFromRecords() len = %d, want 2", len(got))
+	}
+	if got["dev"]["email"] != "dev@example.com" || got["prod"]["email"] != "prod@example.com" {
+		t.Fatalf("accountsFromRecords() unexpected result: %+v", got)
+	}
+}
+
+func TestAdminAlertEmail(t *testing.T) {
+	t.Parallel()
+
+	records := []platformaws.ConfigRecord{
+		{ConfigName: "ignored", Data: map[string]string{"email": "ignored@example.com"}},
+		{ConfigName: "alert_email", Data: map[string]string{"email": "admin@example.com"}},
+	}
+	if got := adminAlertEmail(records); got != "admin@example.com" {
+		t.Fatalf("adminAlertEmail() = %q, want %q", got, "admin@example.com")
+	}
+	if got := adminAlertEmail(nil); got != "" {
+		t.Fatalf("adminAlertEmail(nil) = %q, want empty string", got)
+	}
+}
+
+func TestWriteFetchedJSONFile(t *testing.T) {
+	t.Parallel()
+
+	oldLogger := deps.logger
+	deps.logger = nil
+	t.Cleanup(func() { deps.logger = oldLogger })
+
+	path := filepath.Join(t.TempDir(), "envs", "prod", "fetched.auto.tfvars.json")
+	data := []byte("{\"org\":\"acme\"}\n")
+
+	if err := writeFetchedJSON(path, data, 1); err != nil {
+		t.Fatalf("writeFetchedJSON() unexpected error: %v", err)
+	}
+
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile() unexpected error: %v", err)
+	}
+	if string(got) != string(data) {
+		t.Fatalf("writeFetchedJSON() wrote %q, want %q", string(got), string(data))
 	}
 
 	info, err := os.Stat(path)

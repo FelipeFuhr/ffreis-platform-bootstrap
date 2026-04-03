@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -35,26 +36,14 @@ func writeFetchedConfig(outputPath, backendOutputPath string) error {
 	ctx := rootCmd.Context()
 	tableName := deps.cfg.RegistryTableName()
 
-	records, err := platformaws.FetchConfig(ctx, deps.clients.DynamoDB, tableName, "account")
+	accounts, err := fetchAccountsConfig(ctx, tableName)
 	if err != nil {
-		return fmt.Errorf("fetching account config: %w", err)
+		return err
 	}
 
-	accounts := make(map[string]map[string]string, len(records))
-	for _, rec := range records {
-		accounts[rec.ConfigName] = rec.Data
-	}
-
-	adminRecords, err := platformaws.FetchConfig(ctx, deps.clients.DynamoDB, tableName, "admin")
+	budgetAlertEmail, err := fetchAdminAlertEmail(ctx, tableName)
 	if err != nil {
-		return fmt.Errorf("fetching admin config: %w", err)
-	}
-	var budgetAlertEmail string
-	for _, rec := range adminRecords {
-		if rec.ConfigName == "alert_email" {
-			budgetAlertEmail = rec.Data["email"]
-			break
-		}
+		return err
 	}
 
 	out := fetchedConfig{
@@ -70,18 +59,8 @@ func writeFetchedConfig(outputPath, backendOutputPath string) error {
 	}
 	data = append(data, '\n')
 
-	if outputPath == "-" {
-		if _, err := os.Stdout.Write(data); err != nil {
-			return fmt.Errorf("writing to stdout: %w", err)
-		}
-	} else {
-		if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
-			return fmt.Errorf("creating output directory: %w", err)
-		}
-		if err := os.WriteFile(outputPath, data, 0600); err != nil {
-			return fmt.Errorf("writing output to %s: %w", outputPath, err)
-		}
-		deps.logger.Info("wrote tfvars", "path", outputPath, "accounts", len(accounts))
+	if err := writeFetchedJSON(outputPath, data, len(accounts)); err != nil {
+		return err
 	}
 
 	if backendOutputPath != "" {
@@ -95,6 +74,58 @@ func writeFetchedConfig(outputPath, backendOutputPath string) error {
 		}
 	}
 
+	return nil
+}
+
+func fetchAccountsConfig(ctx context.Context, tableName string) (map[string]map[string]string, error) {
+	records, err := platformaws.FetchConfig(ctx, deps.clients.DynamoDB, tableName, "account")
+	if err != nil {
+		return nil, fmt.Errorf("fetching account config: %w", err)
+	}
+	return accountsFromRecords(records), nil
+}
+
+func fetchAdminAlertEmail(ctx context.Context, tableName string) (string, error) {
+	records, err := platformaws.FetchConfig(ctx, deps.clients.DynamoDB, tableName, "admin")
+	if err != nil {
+		return "", fmt.Errorf("fetching admin config: %w", err)
+	}
+	return adminAlertEmail(records), nil
+}
+
+func accountsFromRecords(records []platformaws.ConfigRecord) map[string]map[string]string {
+	accounts := make(map[string]map[string]string, len(records))
+	for _, rec := range records {
+		accounts[rec.ConfigName] = rec.Data
+	}
+	return accounts
+}
+
+func adminAlertEmail(records []platformaws.ConfigRecord) string {
+	for _, rec := range records {
+		if rec.ConfigName == "alert_email" {
+			return rec.Data["email"]
+		}
+	}
+	return ""
+}
+
+func writeFetchedJSON(outputPath string, data []byte, accountCount int) error {
+	if outputPath == "-" {
+		if _, err := os.Stdout.Write(data); err != nil {
+			return fmt.Errorf("writing to stdout: %w", err)
+		}
+		return nil
+	}
+	if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
+		return fmt.Errorf("creating output directory: %w", err)
+	}
+	if err := os.WriteFile(outputPath, data, 0600); err != nil {
+		return fmt.Errorf("writing output to %s: %w", outputPath, err)
+	}
+	if deps.logger != nil {
+		deps.logger.Info("wrote tfvars", "path", outputPath, "accounts", accountCount)
+	}
 	return nil
 }
 
