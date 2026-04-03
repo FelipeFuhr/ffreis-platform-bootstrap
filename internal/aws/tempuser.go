@@ -35,12 +35,34 @@ type TempUser struct {
 // sts:AssumeRole on the platform-admin role ARN.
 //
 // If the user already exists (e.g. left over from a previous partial run),
-// the existing user is reused: the policy is overwritten and a new access
-// key is created. Callers should always call DeleteTempBootstrapUser to
-// remove the user once role assumption succeeds.
+// the existing user is reused: any existing access keys are deleted first
+// (IAM users are limited to 2 keys, and orphaned keys from a previous run
+// would cause CreateAccessKey to fail), the policy is overwritten, and a
+// fresh access key is created. Callers should always call
+// DeleteTempBootstrapUser to remove the user once role assumption succeeds.
 func CreateTempBootstrapUser(ctx context.Context, client IAMAPI, roleARN string, tags map[string]string) (TempUser, error) {
 	if err := ensureTempUserExists(ctx, client, tags); err != nil {
 		return TempUser{}, err
+	}
+
+	// Delete any existing access keys before creating a new one.
+	// IAM users are limited to 2 access keys; orphaned keys from a previous
+	// partial run would cause CreateAccessKey to fail.
+	existingKeys, err := client.ListAccessKeys(ctx, &iam.ListAccessKeysInput{
+		UserName: sdkaws.String(TempBootstrapUserName),
+	})
+	if err != nil {
+		return TempUser{}, fmt.Errorf("listing temp user access keys: %w", err)
+	}
+	if existingKeys != nil {
+		for _, k := range existingKeys.AccessKeyMetadata {
+			if _, delErr := client.DeleteAccessKey(ctx, &iam.DeleteAccessKeyInput{
+				UserName:    sdkaws.String(TempBootstrapUserName),
+				AccessKeyId: k.AccessKeyId,
+			}); delErr != nil && !isNoSuchEntity(delErr) {
+				return TempUser{}, fmt.Errorf("deleting orphaned temp user access key: %w", delErr)
+			}
+		}
 	}
 
 	if err := putTempUserPolicy(ctx, client, roleARN); err != nil {

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"io"
+	"regexp"
 	"strconv"
 	"strings"
 	"text/tabwriter"
@@ -81,11 +82,29 @@ func (o *commandOutput) Bullet(label, value string) {
 	o.Line("- " + label + ": " + value)
 }
 
+// ansiEscapeRE matches ANSI/VT100 escape sequences (e.g. colour codes emitted
+// by lipgloss). Stripping these before text/tabwriter ensures column-width
+// calculations are based on visible characters only.
+var ansiEscapeRE = regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]`)
+
+// stripANSI removes ANSI escape sequences from s.
+func stripANSI(s string) string {
+	return ansiEscapeRE.ReplaceAllString(s, "")
+}
+
 func (o *commandOutput) Table(headers []string, rows [][]string) error {
 	w := tabwriter.NewWriter(o.out, 0, 0, 2, ' ', 0)
-	_, _ = io.WriteString(w, strings.Join(headers, "\t")+"\n")
+	stripped := make([]string, len(headers))
+	for i, h := range headers {
+		stripped[i] = stripANSI(h)
+	}
+	_, _ = io.WriteString(w, strings.Join(stripped, "\t")+"\n")
 	for _, row := range rows {
-		_, _ = io.WriteString(w, strings.Join(row, "\t")+"\n")
+		cells := make([]string, len(row))
+		for i, cell := range row {
+			cells[i] = stripANSI(cell)
+		}
+		_, _ = io.WriteString(w, strings.Join(cells, "\t")+"\n")
 	}
 	return w.Flush()
 }

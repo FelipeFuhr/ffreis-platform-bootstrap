@@ -270,6 +270,74 @@ func TestIsTempUserPropagationError(t *testing.T) {
 	}
 }
 
+func TestCreateTempBootstrapUserDeletesOrphanedKeysBeforeCreating(t *testing.T) {
+	t.Parallel()
+
+	// Simulate a user that already exists with 2 orphaned keys from a previous run.
+	m := &tempUserIAMMock{
+		getUserOut: &iam.GetUserOutput{User: &iamtypes.User{UserName: sdkaws.String(TempBootstrapUserName)}},
+		listAccessKeysOut: &iam.ListAccessKeysOutput{
+			AccessKeyMetadata: []iamtypes.AccessKeyMetadata{
+				{AccessKeyId: sdkaws.String("AKIA_ORPHAN1")},
+				{AccessKeyId: sdkaws.String("AKIA_ORPHAN2")},
+			},
+		},
+	}
+
+	got, err := CreateTempBootstrapUser(context.Background(), m, testPlatformAdminRoleARN, nil)
+	if err != nil {
+		t.Fatalf("CreateTempBootstrapUser() unexpected error: %v", err)
+	}
+	if got.UserName != TempBootstrapUserName {
+		t.Fatalf("CreateTempBootstrapUser() returned unexpected user: %+v", got)
+	}
+	if len(m.deleteAccessKeyInputs) != 2 {
+		t.Fatalf("expected 2 orphaned keys to be deleted, got %d", len(m.deleteAccessKeyInputs))
+	}
+	if m.createAccessKeyInput == nil {
+		t.Fatal("expected a new access key to be created")
+	}
+}
+
+func TestCreateTempBootstrapUserListAccessKeysError(t *testing.T) {
+	t.Parallel()
+
+	m := &tempUserIAMMock{
+		getUserErr:         &iamtypes.NoSuchEntityException{},
+		listAccessKeysErr:  errors.New("iam list keys boom"),
+	}
+
+	_, err := CreateTempBootstrapUser(context.Background(), m, testPlatformAdminRoleARN, nil)
+	if err == nil {
+		t.Fatal("CreateTempBootstrapUser() expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "listing temp user access keys") {
+		t.Fatalf("CreateTempBootstrapUser() should wrap list keys error, got: %v", err)
+	}
+}
+
+func TestCreateTempBootstrapUserDeleteOrphanedKeyError(t *testing.T) {
+	t.Parallel()
+
+	m := &tempUserIAMMock{
+		getUserErr: &iamtypes.NoSuchEntityException{},
+		listAccessKeysOut: &iam.ListAccessKeysOutput{
+			AccessKeyMetadata: []iamtypes.AccessKeyMetadata{
+				{AccessKeyId: sdkaws.String("AKIA_ORPHAN1")},
+			},
+		},
+		deleteAccessKeyErr: errors.New("delete key boom"),
+	}
+
+	_, err := CreateTempBootstrapUser(context.Background(), m, testPlatformAdminRoleARN, nil)
+	if err == nil {
+		t.Fatal("CreateTempBootstrapUser() expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "deleting orphaned temp user access key") {
+		t.Fatalf("CreateTempBootstrapUser() should wrap delete key error, got: %v", err)
+	}
+}
+
 func TestIsNoSuchEntity(t *testing.T) {
 	t.Parallel()
 
