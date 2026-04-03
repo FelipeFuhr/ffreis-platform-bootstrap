@@ -35,7 +35,7 @@ func TestWithPresenterRoundTrip(t *testing.T) {
 		t.Fatalf("New() error: %v", err)
 	}
 	ctx := WithPresenter(context.Background(), presenter)
-	if got := FromContext(ctx); got != presenter {
+	if FromContext(ctx) != presenter {
 		t.Fatal("expected presenter round-trip")
 	}
 }

@@ -61,7 +61,7 @@ func (m *mockSNS) DeleteTopic(_ context.Context, _ *sns.DeleteTopicInput, _ ...f
 }
 
 // TestEnsureEventsTopic_ReturnsARN verifies that the topic ARN is returned.
-func TestEnsureEventsTopic_ReturnsARN(t *testing.T) {
+func TestEnsureEventsTopicReturnsARN(t *testing.T) {
 	m := &mockSNS{}
 
 	arn, err := EnsureEventsTopic(context.Background(), m, testEventsTopicName, nil)
@@ -76,7 +76,7 @@ func TestEnsureEventsTopic_ReturnsARN(t *testing.T) {
 // TestEnsureEventsTopic_Idempotent verifies that calling EnsureEventsTopic
 // twice does not duplicate the topic — both calls succeed and return the
 // same ARN. This mirrors AWS SNS behaviour: CreateTopic is idempotent.
-func TestEnsureEventsTopic_Idempotent(t *testing.T) {
+func TestEnsureEventsTopicIdempotent(t *testing.T) {
 	m := &mockSNS{}
 
 	arn1, err := EnsureEventsTopic(context.Background(), m, testEventsTopicName, nil)
@@ -99,7 +99,7 @@ func TestEnsureEventsTopic_Idempotent(t *testing.T) {
 
 // TestEnsureEventsTopic_TagsApplied verifies that when tags are provided,
 // TagResource is called.
-func TestEnsureEventsTopic_TagsApplied(t *testing.T) {
+func TestEnsureEventsTopicTagsApplied(t *testing.T) {
 	m := &mockSNS{}
 	tags := map[string]string{"Project": "platform", "Layer": "bootstrap"}
 
@@ -115,7 +115,7 @@ func TestEnsureEventsTopic_TagsApplied(t *testing.T) {
 
 // TestEnsureTopicBudgetPolicy_SetsAttributes verifies that SetTopicAttributes
 // is called with a valid JSON policy containing the budgets principal.
-func TestEnsureTopicBudgetPolicy_SetsAttributes(t *testing.T) {
+func TestEnsureTopicBudgetPolicySetsAttributes(t *testing.T) {
 	m := &mockSNS{}
 
 	if err := EnsureTopicBudgetPolicy(context.Background(), m, testTopicARN, "123456789012"); err != nil {
@@ -129,7 +129,7 @@ func TestEnsureTopicBudgetPolicy_SetsAttributes(t *testing.T) {
 
 // TestPublishEvent_SendsCorrectPayload verifies that the published message
 // body is valid JSON containing all Event fields.
-func TestPublishEvent_SendsCorrectPayload(t *testing.T) {
+func TestPublishEventSendsCorrectPayload(t *testing.T) {
 	m := &mockSNS{}
 	e := NewEvent(EventTypeResourceCreated, "S3Bucket", "ffreis-tf-state-root", testRootARN)
 
@@ -166,7 +166,7 @@ func TestPublishEvent_SendsCorrectPayload(t *testing.T) {
 
 // TestPublishEvent_SubjectIsEventType verifies the SNS Subject header is set
 // to the event type so filtering rules can act without parsing the body.
-func TestPublishEvent_SubjectIsEventType(t *testing.T) {
+func TestPublishEventSubjectIsEventType(t *testing.T) {
 	m := &mockSNS{}
 	e := NewEvent(EventTypeResourceExists, "DynamoDBTable", "ffreis-tf-locks-root", testRootARN)
 
@@ -182,7 +182,7 @@ func TestPublishEvent_SubjectIsEventType(t *testing.T) {
 
 // TestPublishEvent_UsesProvidedARN verifies the message is sent to the
 // correct topic rather than a hardcoded one.
-func TestPublishEvent_UsesProvidedARN(t *testing.T) {
+func TestPublishEventUsesProvidedARN(t *testing.T) {
 	m := &mockSNS{}
 	customARN := "arn:aws:sns:eu-west-1:999:other-topic"
 	e := NewEvent(EventTypeResourceCreated, "IAMRole", "platform-admin", "arn:aws:iam::999:root")
@@ -198,7 +198,7 @@ func TestPublishEvent_UsesProvidedARN(t *testing.T) {
 }
 
 // TestNewEvent_TimestampIsUTC verifies that NewEvent stamps events in UTC.
-func TestNewEvent_TimestampIsUTC(t *testing.T) {
+func TestNewEventTimestampIsUTC(t *testing.T) {
 	before := time.Now().UTC()
 	e := NewEvent(EventTypeResourceCreated, "S3Bucket", "bucket", "actor")
 	after := time.Now().UTC()
@@ -214,7 +214,7 @@ func TestNewEvent_TimestampIsUTC(t *testing.T) {
 
 // TestPublishEvent_EventTypeConstants verifies the constant values are stable.
 // These are part of the public contract — changing them breaks consumers.
-func TestPublishEvent_EventTypeConstants(t *testing.T) {
+func TestPublishEventEventTypeConstants(t *testing.T) {
 	if EventTypeResourceCreated != "resource_created" {
 		t.Errorf("EventTypeResourceCreated changed: got %q", EventTypeResourceCreated)
 	}

@@ -81,7 +81,7 @@ func (m *mockDynamoDB) Scan(_ context.Context, _ *dynamodb.ScanInput, _ ...func(
 
 // TestEnsureLockTable_Create verifies that when the table does not exist,
 // CreateTable is called and the result is an ACTIVE table.
-func TestEnsureLockTable_Create(t *testing.T) {
+func TestEnsureLockTableCreate(t *testing.T) {
 	m := &mockDynamoDB{}
 
 	if err := EnsureLockTable(context.Background(), m, testLockTable, nil); err != nil {
@@ -101,7 +101,7 @@ func TestEnsureLockTable_Create(t *testing.T) {
 
 // TestEnsureLockTable_AlreadyActive verifies that when the table is already
 // ACTIVE, CreateTable is never called.
-func TestEnsureLockTable_AlreadyActive(t *testing.T) {
+func TestEnsureLockTableAlreadyActive(t *testing.T) {
 	m := &mockDynamoDB{tableStatus: dbtypes.TableStatusActive}
 
 	if err := EnsureLockTable(context.Background(), m, testLockTable, nil); err != nil {
@@ -115,7 +115,7 @@ func TestEnsureLockTable_AlreadyActive(t *testing.T) {
 
 // TestEnsureLockTable_ResourceInUse verifies that a concurrent CreateTable
 // (ResourceInUseException) is treated as success.
-func TestEnsureLockTable_ResourceInUse(t *testing.T) {
+func TestEnsureLockTableResourceInUse(t *testing.T) {
 	concurrent := &concurrentMockDynamoDB{}
 	if err := EnsureLockTable(context.Background(), concurrent, testLockTable, nil); err != nil {
 		t.Fatalf("expected ResourceInUseException to be handled, got: %v", err)
@@ -175,7 +175,7 @@ func (m *concurrentMockDynamoDB) Scan(_ context.Context, _ *dynamodb.ScanInput, 
 
 // TestEnsureLockTable_Idempotent is the core idempotency test:
 // calling EnsureLockTable twice must result in exactly one CreateTable.
-func TestEnsureLockTable_Idempotent(t *testing.T) {
+func TestEnsureLockTableIdempotent(t *testing.T) {
 	m := &mockDynamoDB{}
 
 	// First call — table does not exist.
@@ -197,7 +197,7 @@ func TestEnsureLockTable_Idempotent(t *testing.T) {
 
 // TestEnsureLockTable_Schema verifies the table is created with the correct
 // schema: PAY_PER_REQUEST billing and a single hash key named LockID.
-func TestEnsureLockTable_Schema(t *testing.T) {
+func TestEnsureLockTableSchema(t *testing.T) {
 	capture := &schemaCapturingDynamoDB{}
 
 	if err := EnsureLockTable(context.Background(), capture, testLockTable, nil); err != nil {
@@ -226,7 +226,7 @@ func TestEnsureLockTable_Schema(t *testing.T) {
 
 // TestEnsureLockTable_TagsApplied verifies that when tags are provided,
 // TagResource is called.
-func TestEnsureLockTable_TagsApplied(t *testing.T) {
+func TestEnsureLockTableTagsApplied(t *testing.T) {
 	m := &mockDynamoDB{}
 	tags := map[string]string{"Project": "platform", "Layer": "bootstrap"}
 

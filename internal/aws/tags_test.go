@@ -2,7 +2,7 @@ package aws
 
 import "testing"
 
-func TestRequiredTags_Fields(t *testing.T) {
+func TestRequiredTagsFields(t *testing.T) {
 	tags := RequiredTags("acme", "v1.2.3")
 
 	cases := []struct{ key, want string }{
@@ -22,7 +22,7 @@ func TestRequiredTags_Fields(t *testing.T) {
 	}
 }
 
-func TestRequiredTags_OwnerVaries(t *testing.T) {
+func TestRequiredTagsOwnerVaries(t *testing.T) {
 	tags1 := RequiredTags("org-a", "dev")
 	tags2 := RequiredTags("org-b", "dev")
 	if tags1["Owner"] == tags2["Owner"] {
@@ -30,7 +30,7 @@ func TestRequiredTags_OwnerVaries(t *testing.T) {
 	}
 }
 
-func TestRequiredTags_EmptyVersionDefaultsToDev(t *testing.T) {
+func TestRequiredTagsEmptyVersionDefaultsToDev(t *testing.T) {
 	tags := RequiredTags("acme", "")
 	if tags["ToolVersion"] != "dev" {
 		t.Errorf("empty toolVersion: want %q, got %q", "dev", tags["ToolVersion"])

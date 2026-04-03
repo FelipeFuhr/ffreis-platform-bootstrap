@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestRunSteps_DryRunSkipsAllSteps(t *testing.T) {
+func TestRunStepsDryRunSkipsAllSteps(t *testing.T) {
 	ctx := context.Background()
 
 	calls := 0
@@ -24,7 +24,7 @@ func TestRunSteps_DryRunSkipsAllSteps(t *testing.T) {
 	}
 }
 
-func TestRunSteps_StopOnErrorAborts(t *testing.T) {
+func TestRunStepsStopOnErrorAborts(t *testing.T) {
 	ctx := context.Background()
 
 	calls := 0
@@ -46,7 +46,7 @@ func TestRunSteps_StopOnErrorAborts(t *testing.T) {
 	}
 }
 
-func TestRunSteps_ContinueOnErrorRunsAllStepsAndJoinsErrors(t *testing.T) {
+func TestRunStepsContinueOnErrorRunsAllStepsAndJoinsErrors(t *testing.T) {
 	ctx := context.Background()
 
 	calls := 0

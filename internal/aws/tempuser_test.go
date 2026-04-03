@@ -108,7 +108,7 @@ func (m *tempUserIAMMock) DeleteUser(_ context.Context, params *iam.DeleteUserIn
 	return &iam.DeleteUserOutput{}, nil
 }
 
-func TestCreateTempBootstrapUser_CreatesUserPolicyAndKey(t *testing.T) {
+func TestCreateTempBootstrapUserCreatesUserPolicyAndKey(t *testing.T) {
 	t.Parallel()
 
 	m := &tempUserIAMMock{
@@ -121,7 +121,7 @@ func TestCreateTempBootstrapUser_CreatesUserPolicyAndKey(t *testing.T) {
 		},
 	}
 
-	got, err := CreateTempBootstrapUser(context.Background(), m, "arn:aws:iam::123456789012:role/platform-admin", map[string]string{
+	got, err := CreateTempBootstrapUser(context.Background(), m, testPlatformAdminRoleARN, map[string]string{
 		"ManagedBy": "platform-bootstrap",
 		"Project":   "platform",
 	})
@@ -146,14 +146,14 @@ func TestCreateTempBootstrapUser_CreatesUserPolicyAndKey(t *testing.T) {
 	}
 }
 
-func TestCreateTempBootstrapUser_ReusesExistingUser(t *testing.T) {
+func TestCreateTempBootstrapUserReusesExistingUser(t *testing.T) {
 	t.Parallel()
 
 	m := &tempUserIAMMock{
 		getUserOut: &iam.GetUserOutput{User: &iamtypes.User{UserName: sdkaws.String(TempBootstrapUserName)}},
 	}
 
-	_, err := CreateTempBootstrapUser(context.Background(), m, "arn:aws:iam::123456789012:role/platform-admin", nil)
+	_, err := CreateTempBootstrapUser(context.Background(), m, testPlatformAdminRoleARN, nil)
 	if err != nil {
 		t.Fatalf("CreateTempBootstrapUser() unexpected error: %v", err)
 	}
@@ -165,7 +165,7 @@ func TestCreateTempBootstrapUser_ReusesExistingUser(t *testing.T) {
 	}
 }
 
-func TestCreateTempBootstrapUser_CreateAccessKeyError(t *testing.T) {
+func TestCreateTempBootstrapUserCreateAccessKeyError(t *testing.T) {
 	t.Parallel()
 
 	m := &tempUserIAMMock{
@@ -173,7 +173,7 @@ func TestCreateTempBootstrapUser_CreateAccessKeyError(t *testing.T) {
 		createAccessKeyErr: errors.New("key boom"),
 	}
 
-	_, err := CreateTempBootstrapUser(context.Background(), m, "arn:aws:iam::123456789012:role/platform-admin", nil)
+	_, err := CreateTempBootstrapUser(context.Background(), m, testPlatformAdminRoleARN, nil)
 	if err == nil {
 		t.Fatal("CreateTempBootstrapUser() expected error, got nil")
 	}
@@ -182,7 +182,7 @@ func TestCreateTempBootstrapUser_CreateAccessKeyError(t *testing.T) {
 	}
 }
 
-func TestEnsureTempUserExists_ConcurrentCreateAllowed(t *testing.T) {
+func TestEnsureTempUserExistsConcurrentCreateAllowed(t *testing.T) {
 	t.Parallel()
 
 	m := &tempUserIAMMock{
@@ -195,7 +195,7 @@ func TestEnsureTempUserExists_ConcurrentCreateAllowed(t *testing.T) {
 	}
 }
 
-func TestEnsureTempUserExists_UnexpectedLookupError(t *testing.T) {
+func TestEnsureTempUserExistsUnexpectedLookupError(t *testing.T) {
 	t.Parallel()
 
 	m := &tempUserIAMMock{getUserErr: errors.New("iam boom")}
@@ -208,7 +208,7 @@ func TestEnsureTempUserExists_UnexpectedLookupError(t *testing.T) {
 	}
 }
 
-func TestDeleteTempBootstrapUser_DeletesAllKeysAndIgnoresMissingCleanup(t *testing.T) {
+func TestDeleteTempBootstrapUserDeletesAllKeysAndIgnoresMissingCleanup(t *testing.T) {
 	t.Parallel()
 
 	m := &tempUserIAMMock{
@@ -234,7 +234,7 @@ func TestDeleteTempBootstrapUser_DeletesAllKeysAndIgnoresMissingCleanup(t *testi
 	}
 }
 
-func TestDeleteTempBootstrapUser_ListKeysError(t *testing.T) {
+func TestDeleteTempBootstrapUserListKeysError(t *testing.T) {
 	t.Parallel()
 
 	m := &tempUserIAMMock{listAccessKeysErr: errors.New("list boom")}

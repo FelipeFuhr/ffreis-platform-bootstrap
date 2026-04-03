@@ -33,8 +33,8 @@ var ErrNoCredentials = errors.New(
 // All service fields are interface types so tests can substitute mocks without
 // needing a live AWS endpoint.
 type Clients struct {
-	STS            CallerIdentityGetter
-	STSRoleAssumer RoleAssumerAPI
+	STS            CallerIdentityProvider
+	STSRoleAssumer AssumeRoler
 	S3             S3API
 	DynamoDB       DynamoDBAPI
 	IAM            IAMAPI

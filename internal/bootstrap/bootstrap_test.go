@@ -22,14 +22,14 @@ func minimalConfig() *config.Config {
 
 // ── ExpectedResources ─────────────────────────────────────────────────────────
 
-func TestExpectedResources_Count(t *testing.T) {
+func TestExpectedResourcesCount(t *testing.T) {
 	resources := ExpectedResources(minimalConfig())
 	if len(resources) != 6 {
 		t.Errorf("want 6 expected resources, got %d", len(resources))
 	}
 }
 
-func TestExpectedResources_ContainsAllTypes(t *testing.T) {
+func TestExpectedResourcesContainsAllTypes(t *testing.T) {
 	resources := ExpectedResources(minimalConfig())
 
 	typeCounts := map[string]int{}
@@ -54,7 +54,7 @@ func TestExpectedResources_ContainsAllTypes(t *testing.T) {
 	}
 }
 
-func TestExpectedResources_RegistryTableFirst(t *testing.T) {
+func TestExpectedResourcesRegistryTableFirst(t *testing.T) {
 	cfg := minimalConfig()
 	resources := ExpectedResources(cfg)
 
@@ -69,7 +69,7 @@ func TestExpectedResources_RegistryTableFirst(t *testing.T) {
 	}
 }
 
-func TestExpectedResources_AdminRolePresent(t *testing.T) {
+func TestExpectedResourcesAdminRolePresent(t *testing.T) {
 	cfg := minimalConfig()
 	resources := ExpectedResources(cfg)
 
@@ -85,7 +85,7 @@ func TestExpectedResources_AdminRolePresent(t *testing.T) {
 	}
 }
 
-func TestExpectedResources_BudgetLast(t *testing.T) {
+func TestExpectedResourcesBudgetLast(t *testing.T) {
 	cfg := minimalConfig()
 	resources := ExpectedResources(cfg)
 
@@ -96,7 +96,7 @@ func TestExpectedResources_BudgetLast(t *testing.T) {
 	}
 }
 
-func TestExpectedResources_NamesMatchConfig(t *testing.T) {
+func TestExpectedResourcesNamesMatchConfig(t *testing.T) {
 	cfg := minimalConfig()
 	resources := ExpectedResources(cfg)
 
@@ -120,7 +120,7 @@ func TestExpectedResources_NamesMatchConfig(t *testing.T) {
 
 // TestRun_DryRun verifies that when DryRun is true, Run returns nil and makes
 // no AWS calls (the nil Clients field pointers are never dereferenced).
-func TestRun_DryRun(t *testing.T) {
+func TestRunDryRun(t *testing.T) {
 	cfg := minimalConfig()
 	cfg.DryRun = true
 
@@ -132,7 +132,7 @@ func TestRun_DryRun(t *testing.T) {
 	}
 }
 
-func TestRun_NilClientsWhenNotDryRun(t *testing.T) {
+func TestRunNilClientsWhenNotDryRun(t *testing.T) {
 	cfg := minimalConfig()
 	cfg.DryRun = false
 

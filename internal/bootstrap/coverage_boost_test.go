@@ -200,7 +200,7 @@ func (o *okBudgets) DeleteBudget(_ context.Context, _ *budgets.DeleteBudgetInput
 	return &budgets.DeleteBudgetOutput{}, o.deleteErr
 }
 
-func TestValidateClientsForBootstrap_Success(t *testing.T) {
+func TestValidateClientsForBootstrapSuccess(t *testing.T) {
 	var typedNilS3 *s3.Client
 	var typedNilDB *dynamodb.Client
 	var typedNilIAM *iam.Client
@@ -223,14 +223,14 @@ func TestValidateClientsForBootstrap_Success(t *testing.T) {
 	}
 }
 
-func TestValidateClientsForBootstrap_MissingFields(t *testing.T) {
+func TestValidateClientsForBootstrapMissingFields(t *testing.T) {
 	err := validateClientsForBootstrap(&platformaws.Clients{})
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
 }
 
-func TestValidateClientsForNuke_Success(t *testing.T) {
+func TestValidateClientsForNukeSuccess(t *testing.T) {
 	var typedNilS3 *s3.Client
 	var typedNilDB *dynamodb.Client
 	var typedNilIAM *iam.Client
@@ -252,14 +252,14 @@ func TestValidateClientsForNuke_Success(t *testing.T) {
 	}
 }
 
-func TestValidateClientsForNuke_MissingFields(t *testing.T) {
+func TestValidateClientsForNukeMissingFields(t *testing.T) {
 	err := validateClientsForNuke(&platformaws.Clients{})
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
 }
 
-func TestBootstrapRunner_TryPublish_PublishErrorStillContinues(t *testing.T) {
+func TestBootstrapRunnerTryPublishPublishErrorStillContinues(t *testing.T) {
 	ctx := logging.WithLogger(context.Background(), slog.New(slog.NewTextHandler(testSink{}, nil)))
 
 	snsMock := &okSNS{publishErr: errors.New("publish failed")}
@@ -280,7 +280,7 @@ func TestBootstrapRunner_TryPublish_PublishErrorStillContinues(t *testing.T) {
 	}
 }
 
-func TestBootstrapRunner_TryRegister_RegisterErrorStillContinues(t *testing.T) {
+func TestBootstrapRunnerTryRegisterRegisterErrorStillContinues(t *testing.T) {
 	ctx := logging.WithLogger(context.Background(), slog.New(slog.NewTextHandler(testSink{}, nil)))
 
 	dbMock := &okDynamoDB{putItemErr: errors.New("put failed")}
@@ -298,7 +298,7 @@ func TestBootstrapRunner_TryRegister_RegisterErrorStillContinues(t *testing.T) {
 	r.tryRegister(ctx, ResourceTypeS3Bucket, "bucket")
 }
 
-func TestNuke_NonDryRunSuccessRunsAllSteps(t *testing.T) {
+func TestNukeNonDryRunSuccessRunsAllSteps(t *testing.T) {
 	ctx := logging.WithLogger(context.Background(), slog.New(slog.NewTextHandler(testSink{}, nil)))
 
 	cfg := &config.Config{
@@ -348,7 +348,7 @@ func TestNuke_NonDryRunSuccessRunsAllSteps(t *testing.T) {
 	}
 }
 
-func TestNuke_ContinuesOnError(t *testing.T) {
+func TestNukeContinuesOnError(t *testing.T) {
 	ctx := logging.WithLogger(context.Background(), slog.New(slog.NewTextHandler(testSink{}, nil)))
 
 	cfg := &config.Config{

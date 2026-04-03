@@ -2,7 +2,7 @@ package config
 
 import "testing"
 
-func TestLoad_AWSProfileFallback_AWSProfileEnv(t *testing.T) {
+func TestLoadAWSProfileFallbackAWSProfileEnv(t *testing.T) {
 	t.Setenv(EnvOrgName, testOrgName)
 	t.Setenv(EnvRegion, DefaultRegion)
 	t.Setenv(EnvAWSProfile, "")
@@ -18,7 +18,7 @@ func TestLoad_AWSProfileFallback_AWSProfileEnv(t *testing.T) {
 	}
 }
 
-func TestLoad_AWSProfileFallback_AWSDefaultProfileEnv(t *testing.T) {
+func TestLoadAWSProfileFallbackAWSDefaultProfileEnv(t *testing.T) {
 	t.Setenv(EnvOrgName, testOrgName)
 	t.Setenv(EnvRegion, DefaultRegion)
 	t.Setenv(EnvAWSProfile, "")
@@ -34,7 +34,7 @@ func TestLoad_AWSProfileFallback_AWSDefaultProfileEnv(t *testing.T) {
 	}
 }
 
-func TestLoad_AWSProfileFallback_DoesNotOverridePlatformProfile(t *testing.T) {
+func TestLoadAWSProfileFallbackDoesNotOverridePlatformProfile(t *testing.T) {
 	t.Setenv(EnvOrgName, testOrgName)
 	t.Setenv(EnvRegion, DefaultRegion)
 	t.Setenv(EnvAWSProfile, "platform-profile")

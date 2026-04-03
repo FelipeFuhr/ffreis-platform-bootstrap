@@ -22,6 +22,11 @@ type mockRoleAssumer struct {
 	lastInput *sts.AssumeRoleInput
 }
 
+const (
+	testPlatformAdminRoleARN = "arn:aws:iam::123456789012:role/platform-admin"
+	errUnexpectedSTSAction   = "unexpected STS action %q"
+)
+
 func (m *mockRoleAssumer) AssumeRole(_ context.Context, params *sts.AssumeRoleInput, _ ...func(*sts.Options)) (*sts.AssumeRoleOutput, error) {
 	m.lastInput = params
 	if m.err != nil {
@@ -52,7 +57,7 @@ func TestIsRootARN(t *testing.T) {
 	}
 }
 
-func TestVerifyIdentity_ProfileAddsSSOHint(t *testing.T) {
+func TestVerifyIdentityProfileAddsSSOHint(t *testing.T) {
 	t.Parallel()
 
 	c := &Clients{
@@ -69,7 +74,7 @@ func TestVerifyIdentity_ProfileAddsSSOHint(t *testing.T) {
 	}
 }
 
-func TestAssumeAdminRole_AssumeError(t *testing.T) {
+func TestAssumeAdminRoleAssumeError(t *testing.T) {
 	t.Parallel()
 
 	orig := &Clients{
@@ -79,7 +84,7 @@ func TestAssumeAdminRole_AssumeError(t *testing.T) {
 		AccountID:      "123456789012",
 	}
 
-	_, err := AssumeAdminRole(context.Background(), orig, "arn:aws:iam::123456789012:role/platform-admin")
+	_, err := AssumeAdminRole(context.Background(), orig, testPlatformAdminRoleARN)
 	if err == nil {
 		t.Fatal("AssumeAdminRole() expected error, got nil")
 	}
@@ -88,7 +93,7 @@ func TestAssumeAdminRole_AssumeError(t *testing.T) {
 	}
 }
 
-func TestAssumeAdminRole_Success(t *testing.T) {
+func TestAssumeAdminRoleSuccess(t *testing.T) {
 	server := newSTSTestServer(t, func(action string, _ string, w http.ResponseWriter) {
 		switch action {
 		case "GetCallerIdentity":
@@ -102,7 +107,7 @@ func TestAssumeAdminRole_Success(t *testing.T) {
   <ResponseMetadata><RequestId>req-1</RequestId></ResponseMetadata>
 </GetCallerIdentityResponse>`)
 		default:
-			t.Fatalf("unexpected STS action %q", action)
+			t.Fatalf(errUnexpectedSTSAction, action)
 		}
 	})
 	defer server.Close()
@@ -126,7 +131,7 @@ func TestAssumeAdminRole_Success(t *testing.T) {
 		AccountID:      "123456789012",
 	}
 
-	got, err := AssumeAdminRole(context.Background(), orig, "arn:aws:iam::123456789012:role/platform-admin")
+	got, err := AssumeAdminRole(context.Background(), orig, testPlatformAdminRoleARN)
 	if err != nil {
 		t.Fatalf("AssumeAdminRole() unexpected error: %v", err)
 	}
@@ -147,7 +152,7 @@ func TestAssumeAdminRole_Success(t *testing.T) {
 	}
 }
 
-func TestAssumeRoleWithTempUser_RetriesPropagationThenSucceeds(t *testing.T) {
+func TestAssumeRoleWithTempUserRetriesPropagationThenSucceeds(t *testing.T) {
 	var assumeCalls atomic.Int32
 	server := newSTSTestServer(t, func(action string, _ string, w http.ResponseWriter) {
 		switch action {
@@ -183,7 +188,7 @@ func TestAssumeRoleWithTempUser_RetriesPropagationThenSucceeds(t *testing.T) {
   <ResponseMetadata><RequestId>req-3</RequestId></ResponseMetadata>
 </GetCallerIdentityResponse>`)
 		default:
-			t.Fatalf("unexpected STS action %q", action)
+			t.Fatalf(errUnexpectedSTSAction, action)
 		}
 	})
 	defer server.Close()
@@ -205,7 +210,7 @@ func TestAssumeRoleWithTempUser_RetriesPropagationThenSucceeds(t *testing.T) {
 		SecretAccessKey: "secret",
 	}
 
-	got, err := AssumeRoleWithTempUser(context.Background(), orig, u, "arn:aws:iam::123456789012:role/platform-admin")
+	got, err := AssumeRoleWithTempUser(context.Background(), orig, u, testPlatformAdminRoleARN)
 	if err != nil {
 		t.Fatalf("AssumeRoleWithTempUser() unexpected error: %v", err)
 	}
@@ -217,7 +222,7 @@ func TestAssumeRoleWithTempUser_RetriesPropagationThenSucceeds(t *testing.T) {
 	}
 }
 
-func TestAssumeRoleWithTempUser_ContextCancelledDuringRetry(t *testing.T) {
+func TestAssumeRoleWithTempUserContextCancelledDuringRetry(t *testing.T) {
 	attempted := make(chan struct{}, 1)
 	server := newSTSTestServer(t, func(action string, _ string, w http.ResponseWriter) {
 		switch action {
@@ -230,7 +235,7 @@ func TestAssumeRoleWithTempUser_ContextCancelledDuringRetry(t *testing.T) {
 		case "GetCallerIdentity":
 			t.Fatalf("GetCallerIdentity should not be called when assume role keeps failing")
 		default:
-			t.Fatalf("unexpected STS action %q", action)
+			t.Fatalf(errUnexpectedSTSAction, action)
 		}
 	})
 	defer server.Close()
@@ -255,7 +260,7 @@ func TestAssumeRoleWithTempUser_ContextCancelledDuringRetry(t *testing.T) {
 		UserName:        TempBootstrapUserName,
 		AccessKeyID:     "AKIATEMP",
 		SecretAccessKey: "secret",
-	}, "arn:aws:iam::123456789012:role/platform-admin")
+	}, testPlatformAdminRoleARN)
 	if err == nil {
 		t.Fatal("AssumeRoleWithTempUser() expected error, got nil")
 	}

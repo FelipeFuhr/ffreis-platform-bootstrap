@@ -209,12 +209,12 @@ func (m *integrationMockIAM) CreateAccessKey(_ context.Context, _ *iam.CreateAcc
 		m.tempUserKeys = map[string]string{}
 	}
 	keyID := "AKIAIOSFODNN7EXAMPLE"
-	secret := "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
-	m.tempUserKeys[keyID] = secret
+	accessKeySecret := "integration-temp-access-key-secret"
+	m.tempUserKeys[keyID] = accessKeySecret
 	return &iam.CreateAccessKeyOutput{
 		AccessKey: &iamtypes.AccessKey{
 			AccessKeyId:     sdkaws.String(keyID),
-			SecretAccessKey: sdkaws.String(secret),
+			SecretAccessKey: sdkaws.String(accessKeySecret),
 			UserName:        sdkaws.String(platformaws.TempBootstrapUserName),
 		},
 	}, nil

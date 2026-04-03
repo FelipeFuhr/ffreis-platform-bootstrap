@@ -113,7 +113,7 @@ func (m *mockS3) DeleteBucket(_ context.Context, _ *s3.DeleteBucketInput, _ ...f
 
 // TestEnsureStateBucket_Create verifies that when the bucket does not exist,
 // CreateBucket is called exactly once and configuration is applied.
-func TestEnsureStateBucket_Create(t *testing.T) {
+func TestEnsureStateBucketCreate(t *testing.T) {
 	m := &mockS3{}
 
 	if err := EnsureStateBucket(context.Background(), m, testS3Bucket, testRegion, nil); err != nil {
@@ -136,7 +136,7 @@ func TestEnsureStateBucket_Create(t *testing.T) {
 
 // TestEnsureStateBucket_AlreadyExists verifies that when HeadBucket succeeds,
 // CreateBucket is never called and configuration is still applied.
-func TestEnsureStateBucket_AlreadyExists(t *testing.T) {
+func TestEnsureStateBucketAlreadyExists(t *testing.T) {
 	m := &mockS3{bucketExists: true}
 
 	if err := EnsureStateBucket(context.Background(), m, testS3Bucket, testRegion, nil); err != nil {
@@ -156,7 +156,7 @@ func TestEnsureStateBucket_AlreadyExists(t *testing.T) {
 
 // TestEnsureStateBucket_BucketAlreadyOwnedByYou verifies that a concurrent
 // create (BucketAlreadyOwnedByYou) is treated as success.
-func TestEnsureStateBucket_BucketAlreadyOwnedByYou(t *testing.T) {
+func TestEnsureStateBucketBucketAlreadyOwnedByYou(t *testing.T) {
 	m := &mockS3{
 		createErr: &s3types.BucketAlreadyOwnedByYou{},
 	}
@@ -172,7 +172,7 @@ func TestEnsureStateBucket_BucketAlreadyOwnedByYou(t *testing.T) {
 
 // TestEnsureStateBucket_Idempotent is the core idempotency test:
 // calling EnsureStateBucket twice must result in exactly one CreateBucket.
-func TestEnsureStateBucket_Idempotent(t *testing.T) {
+func TestEnsureStateBucketIdempotent(t *testing.T) {
 	m := &mockS3{}
 
 	// First call — bucket does not exist yet.
@@ -198,7 +198,7 @@ func TestEnsureStateBucket_Idempotent(t *testing.T) {
 
 // TestEnsureStateBucket_LocationConstraint verifies that non-us-east-1
 // regions include a CreateBucketConfiguration in the CreateBucket call.
-func TestEnsureStateBucket_LocationConstraint(t *testing.T) {
+func TestEnsureStateBucketLocationConstraint(t *testing.T) {
 	var capturedInput *s3.CreateBucketInput
 
 	m := &mockS3{}
@@ -227,7 +227,7 @@ func TestEnsureStateBucket_LocationConstraint(t *testing.T) {
 
 // TestEnsureStateBucket_TagsApplied verifies that when tags are provided,
 // PutBucketTagging is called.
-func TestEnsureStateBucket_TagsApplied(t *testing.T) {
+func TestEnsureStateBucketTagsApplied(t *testing.T) {
 	m := &mockS3{}
 	tags := map[string]string{"Project": "platform", "Layer": "bootstrap"}
 
@@ -242,7 +242,7 @@ func TestEnsureStateBucket_TagsApplied(t *testing.T) {
 
 // TestEnsureStateBucket_TaggingFailureFatal verifies that a tagging failure
 // is propagated as an error (not swallowed).
-func TestEnsureStateBucket_TaggingFailureFatal(t *testing.T) {
+func TestEnsureStateBucketTaggingFailureFatal(t *testing.T) {
 	m := &mockS3{taggingErr: errTaggingFailed}
 	tags := map[string]string{"Project": "platform"}
 

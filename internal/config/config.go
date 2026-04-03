@@ -85,39 +85,23 @@ func Load(flags *pflag.FlagSet) (*Config, error) {
 
 // overlayEnv applies non-empty PLATFORM_* environment variables onto cfg.
 func overlayEnv(cfg *Config) {
-	if v := os.Getenv(EnvOrgName); v != "" {
-		cfg.OrgName = v
-	}
-	if v := os.Getenv(EnvAWSProfile); v != "" {
-		cfg.AWSProfile = v
-	}
+	applyEnvString(EnvOrgName, func(v string) { cfg.OrgName = v })
+	applyEnvString(EnvAWSProfile, func(v string) { cfg.AWSProfile = v })
 	resolveAWSProfileFallback(cfg)
-	if v := os.Getenv(EnvRegion); v != "" {
-		cfg.Region = v
-	}
-	if v := os.Getenv(EnvStateRegion); v != "" {
-		cfg.StateRegion = v
-	}
-	if v := os.Getenv(EnvAllowedRegions); v != "" {
-		cfg.AllowedRegions = splitTrimmed(v, ",")
-	}
-	if v := os.Getenv(EnvLogLevel); v != "" {
-		cfg.LogLevel = v
-	}
-	if v := os.Getenv(EnvDryRun); v != "" {
-		applyDryRun(cfg, v)
-	}
-	if v := os.Getenv(EnvRootEmail); v != "" {
-		cfg.RootEmail = v
-	}
-	if v := os.Getenv(EnvBudgetUSD); v != "" {
-		applyBudgetUSD(cfg, v)
-	}
-	if v := os.Getenv(EnvAccounts); v != "" {
-		applyAccountsEnv(cfg, v)
-	}
-	if v := os.Getenv(EnvAdminEmail); v != "" {
-		cfg.AdminEmail = v
+	applyEnvString(EnvRegion, func(v string) { cfg.Region = v })
+	applyEnvString(EnvStateRegion, func(v string) { cfg.StateRegion = v })
+	applyEnvString(EnvAllowedRegions, func(v string) { cfg.AllowedRegions = splitTrimmed(v, ",") })
+	applyEnvString(EnvLogLevel, func(v string) { cfg.LogLevel = v })
+	applyEnvString(EnvDryRun, func(v string) { applyDryRun(cfg, v) })
+	applyEnvString(EnvRootEmail, func(v string) { cfg.RootEmail = v })
+	applyEnvString(EnvBudgetUSD, func(v string) { applyBudgetUSD(cfg, v) })
+	applyEnvString(EnvAccounts, func(v string) { applyAccountsEnv(cfg, v) })
+	applyEnvString(EnvAdminEmail, func(v string) { cfg.AdminEmail = v })
+}
+
+func applyEnvString(key string, apply func(string)) {
+	if v := os.Getenv(key); v != "" {
+		apply(v)
 	}
 }
 

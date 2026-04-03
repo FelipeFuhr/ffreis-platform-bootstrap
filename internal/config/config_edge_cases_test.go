@@ -2,7 +2,7 @@ package config
 
 import "testing"
 
-func TestLoad_BudgetUSDEnv_InvalidDoesNotOverrideDefault(t *testing.T) {
+func TestLoadBudgetUSDEnvInvalidDoesNotOverrideDefault(t *testing.T) {
 	t.Setenv(EnvOrgName, testOrgName)
 	t.Setenv(EnvRegion, DefaultRegion)
 	t.Setenv(EnvBudgetUSD, "-1")
@@ -16,7 +16,7 @@ func TestLoad_BudgetUSDEnv_InvalidDoesNotOverrideDefault(t *testing.T) {
 	}
 }
 
-func TestLoad_AccountsEnv_InvalidDoesNotPopulateAccounts(t *testing.T) {
+func TestLoadAccountsEnvInvalidDoesNotPopulateAccounts(t *testing.T) {
 	t.Setenv(EnvOrgName, testOrgName)
 	t.Setenv(EnvRegion, DefaultRegion)
 	t.Setenv(EnvAccounts, "not-a-pair")

@@ -57,7 +57,7 @@ func (m *mockBudgets) DeleteBudget(_ context.Context, _ *budgets.DeleteBudgetInp
 
 // TestEnsureBudget_Create verifies that when the budget does not exist,
 // CreateBudget is called exactly once.
-func TestEnsureBudget_Create(t *testing.T) {
+func TestEnsureBudgetCreate(t *testing.T) {
 	m := &mockBudgets{}
 
 	if err := EnsureBudget(context.Background(), m, testAccountID, testBudgetARN, testBudgetName, 20.0); err != nil {
@@ -71,7 +71,7 @@ func TestEnsureBudget_Create(t *testing.T) {
 
 // TestEnsureBudget_AlreadyExists verifies that when the budget already
 // exists, CreateBudget is never called.
-func TestEnsureBudget_AlreadyExists(t *testing.T) {
+func TestEnsureBudgetAlreadyExists(t *testing.T) {
 	m := &mockBudgets{budgetExists: true}
 
 	if err := EnsureBudget(context.Background(), m, testAccountID, testBudgetARN, testBudgetName, 20.0); err != nil {
@@ -85,7 +85,7 @@ func TestEnsureBudget_AlreadyExists(t *testing.T) {
 
 // TestEnsureBudget_Idempotent verifies that calling EnsureBudget twice
 // results in exactly one CreateBudget call.
-func TestEnsureBudget_Idempotent(t *testing.T) {
+func TestEnsureBudgetIdempotent(t *testing.T) {
 	m := &mockBudgets{}
 
 	if err := EnsureBudget(context.Background(), m, testAccountID, testBudgetARN, testBudgetName, 20.0); err != nil {
@@ -106,7 +106,7 @@ func TestEnsureBudget_Idempotent(t *testing.T) {
 
 // TestEnsureBudget_DuplicateRecordException verifies that a concurrent
 // CreateBudget (DuplicateRecordException) is treated as success.
-func TestEnsureBudget_DuplicateRecordException(t *testing.T) {
+func TestEnsureBudgetDuplicateRecordException(t *testing.T) {
 	m := &mockBudgets{
 		createErr: &budgetstypes.DuplicateRecordException{},
 	}
@@ -118,7 +118,7 @@ func TestEnsureBudget_DuplicateRecordException(t *testing.T) {
 
 // TestEnsureBudget_ThreeNotifications verifies that three notification
 // thresholds (50, 80, 100) are included in the CreateBudget call.
-func TestEnsureBudget_ThreeNotifications(t *testing.T) {
+func TestEnsureBudgetThreeNotifications(t *testing.T) {
 	var captured *budgets.CreateBudgetInput
 
 	captureMock := &capturingBudgets{}

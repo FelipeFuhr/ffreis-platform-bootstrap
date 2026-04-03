@@ -16,42 +16,121 @@ permissions:
 
 jobs:
   gitleaks:
+    name: Gitleaks
+    runs-on: ubuntu-latest
     permissions:
       contents: read
-      actions: read
-      security-events: write
-    uses: FelipeFuhr/ffreis-workflows-general/.github/workflows/general-gitleaks.yml@c3e3e0a44d4b79697f1babaa9bf287d1b264da52
-    with:
-      working-directory: "."
-      scan-history: true
-      upload-sarif: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Install gitleaks
+        env:
+          GITLEAKS_VERSION: "8.24.3"
+        run: |
+          set -euo pipefail
+          url="https://github.com/zricethezav/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+          curl -fsSL "$url" -o "$tmp/gitleaks.tgz"
+          tar -xzf "$tmp/gitleaks.tgz" -C "$tmp"
+          sudo install -m 0755 "$tmp/gitleaks" /usr/local/bin/gitleaks
+          gitleaks version
+
+      - name: Run gitleaks
+        run: |
+          set -euo pipefail
+          if [[ -f ".gitleaks.toml" ]] && grep -qF '[[allowlist]]' .gitleaks.toml; then
+            echo "ERROR: .gitleaks.toml uses legacy '[[allowlist]]' (array) format."
+            echo "Gitleaks expects a single '[allowlist]' table (map)."
+            echo "Fix: merge the entries into one '[allowlist]' with combined 'regexes'/'paths'."
+            exit 1
+          fi
+          gitleaks detect --no-banner --redact --source .
 
   trivy-fs:
+    name: Trivy (fs)
+    runs-on: ubuntu-latest
     permissions:
       contents: read
-      actions: read
-      security-events: write
-    uses: FelipeFuhr/ffreis-workflows-general/.github/workflows/general-scan-trivy-fs.yml@c3e3e0a44d4b79697f1babaa9bf287d1b264da52
-    with:
-      scan-ref: "."
-      upload-sarif: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Run Trivy (filesystem)
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1
+        with:
+          scan-type: fs
+          scan-ref: .
+          exit-code: 1
+          severity: HIGH,CRITICAL
 
   grype-fs:
+    name: Grype (fs)
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       actions: read
-      security-events: write
-    uses: FelipeFuhr/ffreis-workflows-general/.github/workflows/general-scan-grype-fs.yml@c3e3e0a44d4b79697f1babaa9bf287d1b264da52
-    with:
-      path: "."
-      upload-sarif: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Install Grype
+        env:
+          GRYPE_BIN_DIR: ${{ runner.temp }}/grype-bin
+        run: |
+          set -euo pipefail
+          PINNED_COMMIT="dee8de483dfba5b4e0bc0aa8e4ab2ce52137e490"
+          SCRIPT_URL="https://raw.githubusercontent.com/anchore/grype/${PINNED_COMMIT}/install.sh"
+          mkdir -p "${GRYPE_BIN_DIR}"
+          curl --fail --show-error --silent --location \
+            --proto '=https' --proto-redir '=https' \
+            "${SCRIPT_URL}" -o /tmp/grype-install.sh
+          grep -q "grype" /tmp/grype-install.sh
+          sh /tmp/grype-install.sh -b "${GRYPE_BIN_DIR}"
+          "${GRYPE_BIN_DIR}/grype" version
+
+      - name: Run Grype (filesystem)
+        env:
+          GRYPE_BIN_DIR: ${{ runner.temp }}/grype-bin
+        run: |
+          set -euo pipefail
+          set +e
+          # Install the scanner outside the checkout so the repo scan does not
+          # report vulnerabilities from Grype's own binary.
+          "${GRYPE_BIN_DIR}/grype" "dir:." \
+            --fail-on high \
+            -o sarif \
+            > grype.sarif 2> grype.stderr.log
+          exit_code="$?"
+          set -e
+          if ! test -s grype.sarif; then
+            echo "::error::grype.sarif was not generated or is empty"
+            if test -s grype.stderr.log; then
+              echo "::group::grype stderr (tail)"
+              tail -n 200 grype.stderr.log || true
+              echo "::endgroup::"
+            fi
+            exit 1
+          fi
+          if [[ "${exit_code}" -ne 0 ]]; then
+            echo "::warning::Grype found vulnerabilities (exit=${exit_code}); continuing."
+          fi
 
   osv:
+    name: OSV Scanner
+    runs-on: ubuntu-latest
     permissions:
       contents: read
-      actions: read
-      security-events: write
-    uses: FelipeFuhr/ffreis-workflows-general/.github/workflows/general-osv-scanner.yml@c3e3e0a44d4b79697f1babaa9bf287d1b264da52
-    with:
-      working-directory: "."
-      upload-sarif: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Setup Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version: "1.25.8"
+          cache: true
+
+      - name: Run OSV Scanner
+        run: |
+          set -euo pipefail
+          go run github.com/google/osv-scanner/cmd/osv-scanner@v1.9.2 --lockfile=go.mod

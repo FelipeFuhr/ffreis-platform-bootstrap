@@ -31,8 +31,10 @@ type tempUserBootstrapIAMMock struct {
 	deleteUserErr         error
 }
 
+const errNotImplemented = "not implemented"
+
 func (m *tempUserBootstrapIAMMock) GetRole(context.Context, *iam.GetRoleInput, ...func(*iam.Options)) (*iam.GetRoleOutput, error) {
-	return nil, errors.New("not implemented")
+	return nil, errors.New(errNotImplemented)
 }
 
 func (m *tempUserBootstrapIAMMock) GetAccountSummary(context.Context, *iam.GetAccountSummaryInput, ...func(*iam.Options)) (*iam.GetAccountSummaryOutput, error) {
@@ -40,27 +42,27 @@ func (m *tempUserBootstrapIAMMock) GetAccountSummary(context.Context, *iam.GetAc
 }
 
 func (m *tempUserBootstrapIAMMock) CreateRole(context.Context, *iam.CreateRoleInput, ...func(*iam.Options)) (*iam.CreateRoleOutput, error) {
-	return nil, errors.New("not implemented")
+	return nil, errors.New(errNotImplemented)
 }
 
 func (m *tempUserBootstrapIAMMock) PutRolePolicy(context.Context, *iam.PutRolePolicyInput, ...func(*iam.Options)) (*iam.PutRolePolicyOutput, error) {
-	return nil, errors.New("not implemented")
+	return nil, errors.New(errNotImplemented)
 }
 
 func (m *tempUserBootstrapIAMMock) TagRole(context.Context, *iam.TagRoleInput, ...func(*iam.Options)) (*iam.TagRoleOutput, error) {
-	return nil, errors.New("not implemented")
+	return nil, errors.New(errNotImplemented)
 }
 
 func (m *tempUserBootstrapIAMMock) ListRolePolicies(context.Context, *iam.ListRolePoliciesInput, ...func(*iam.Options)) (*iam.ListRolePoliciesOutput, error) {
-	return nil, errors.New("not implemented")
+	return nil, errors.New(errNotImplemented)
 }
 
 func (m *tempUserBootstrapIAMMock) DeleteRolePolicy(context.Context, *iam.DeleteRolePolicyInput, ...func(*iam.Options)) (*iam.DeleteRolePolicyOutput, error) {
-	return nil, errors.New("not implemented")
+	return nil, errors.New(errNotImplemented)
 }
 
 func (m *tempUserBootstrapIAMMock) DeleteRole(context.Context, *iam.DeleteRoleInput, ...func(*iam.Options)) (*iam.DeleteRoleOutput, error) {
-	return nil, errors.New("not implemented")
+	return nil, errors.New(errNotImplemented)
 }
 
 func (m *tempUserBootstrapIAMMock) GetUser(context.Context, *iam.GetUserInput, ...func(*iam.Options)) (*iam.GetUserOutput, error) {
@@ -130,7 +132,7 @@ func (m *tempUserBootstrapIAMMock) DeleteUser(_ context.Context, params *iam.Del
 	return &iam.DeleteUserOutput{}, nil
 }
 
-func TestBootstrapStepDefs_CreateTempUserRootPath(t *testing.T) {
+func TestBootstrapStepDefsCreateTempUserRootPath(t *testing.T) {
 	t.Parallel()
 
 	cfg := minimalConfig()
@@ -154,7 +156,7 @@ func TestBootstrapStepDefs_CreateTempUserRootPath(t *testing.T) {
 	}
 }
 
-func TestBootstrapStepDefs_AssumeAdminRoleSkipsWithoutAssumer(t *testing.T) {
+func TestBootstrapStepDefsAssumeAdminRoleSkipsWithoutAssumer(t *testing.T) {
 	t.Parallel()
 
 	cfg := minimalConfig()
@@ -174,7 +176,7 @@ func TestBootstrapStepDefs_AssumeAdminRoleSkipsWithoutAssumer(t *testing.T) {
 	}
 }
 
-func TestBootstrapStepDefs_PlatformBudgetRequiresTopic(t *testing.T) {
+func TestBootstrapStepDefsPlatformBudgetRequiresTopic(t *testing.T) {
 	t.Parallel()
 
 	cfg := minimalConfig()
@@ -194,7 +196,7 @@ func TestBootstrapStepDefs_PlatformBudgetRequiresTopic(t *testing.T) {
 	}
 }
 
-func TestBootstrapStepDefs_DeleteTempUserSkipsWhenNil(t *testing.T) {
+func TestBootstrapStepDefsDeleteTempUserSkipsWhenNil(t *testing.T) {
 	t.Parallel()
 
 	cfg := minimalConfig()
@@ -209,7 +211,7 @@ func TestBootstrapStepDefs_DeleteTempUserSkipsWhenNil(t *testing.T) {
 	}
 }
 
-func TestBootstrapStepDefs_DeleteTempUserUsesCurrentIAMWhenRootClientMissing(t *testing.T) {
+func TestBootstrapStepDefsDeleteTempUserUsesCurrentIAMWhenRootClientMissing(t *testing.T) {
 	t.Parallel()
 
 	cfg := minimalConfig()
@@ -233,7 +235,7 @@ func TestBootstrapStepDefs_DeleteTempUserUsesCurrentIAMWhenRootClientMissing(t *
 	}
 }
 
-func TestRunAccountConfig_PropagatesWriteErrors(t *testing.T) {
+func TestRunAccountConfigPropagatesWriteErrors(t *testing.T) {
 	t.Parallel()
 
 	cfg := minimalConfig()

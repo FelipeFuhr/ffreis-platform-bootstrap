@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 set -euo pipefail
-IFS=$'\n\t'
 
 source "$(dirname "$0")/../lib/common.sh"
 
@@ -12,13 +11,23 @@ common_require_git_repo
 is_allowlisted() {
   local path="$1"
   common_is_allowlisted_path "$path"
+  return $?
 }
 
 while IFS= read -r -d '' file; do
   size="$(git cat-file -s ":${file}")"
-  if [[ -z "$size" ]]; then
-    continue
-  fi
+  case "${size}" in
+    "")
+      continue
+      ;;
+    *[!0-9]*)
+      common_err "Unable to determine staged file size for ${file}: ${size}"
+      has_error=1
+      continue
+      ;;
+    *)
+      ;;
+  esac
 
   if [[ "$size" -le "$MAX_SIZE_BYTES" ]]; then
     continue

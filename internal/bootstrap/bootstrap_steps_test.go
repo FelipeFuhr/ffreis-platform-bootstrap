@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestBootstrapRunner_StepOrderAndNames(t *testing.T) {
+func TestBootstrapRunnerStepOrderAndNames(t *testing.T) {
 	cfg := minimalConfig()
 
 	r := newBootstrapRunner(context.Background(), cfg, nil)

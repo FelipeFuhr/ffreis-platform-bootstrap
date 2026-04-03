@@ -69,7 +69,7 @@ func (f *fakeSNS) DeleteTopic(context.Context, *sns.DeleteTopicInput, ...func(*s
 	return &sns.DeleteTopicOutput{}, nil
 }
 
-func TestBootstrapRunner_EnsureResource_PostEnsureRuns(t *testing.T) {
+func TestBootstrapRunnerEnsureResourcePostEnsureRuns(t *testing.T) {
 	t.Parallel()
 
 	cfg := minimalConfig()
@@ -102,7 +102,7 @@ func TestBootstrapRunner_EnsureResource_PostEnsureRuns(t *testing.T) {
 	}
 }
 
-func TestBootstrapRunner_EnsureResource_ErrorDoesNotPostEnsure(t *testing.T) {
+func TestBootstrapRunnerEnsureResourceErrorDoesNotPostEnsure(t *testing.T) {
 	t.Parallel()
 
 	cfg := minimalConfig()
@@ -133,14 +133,14 @@ func TestBootstrapRunner_EnsureResource_ErrorDoesNotPostEnsure(t *testing.T) {
 	}
 }
 
-func TestBootstrapRunner_TryPublish_NoTopicDoesNothing(t *testing.T) {
+func TestBootstrapRunnerTryPublishNoTopicDoesNothing(t *testing.T) {
 	t.Parallel()
 
 	r := &bootstrapRunner{}
 	r.tryPublish(context.Background(), platformaws.Event{})
 }
 
-func TestBootstrapRunner_ExistedOrUnknown(t *testing.T) {
+func TestBootstrapRunnerExistedOrUnknown(t *testing.T) {
 	t.Parallel()
 
 	cfg := minimalConfig()
@@ -164,7 +164,7 @@ func TestBootstrapRunner_ExistedOrUnknown(t *testing.T) {
 	}
 }
 
-func TestBootstrapRunner_RequireTopic(t *testing.T) {
+func TestBootstrapRunnerRequireTopic(t *testing.T) {
 	t.Parallel()
 
 	r := &bootstrapRunner{}
@@ -177,7 +177,7 @@ func TestBootstrapRunner_RequireTopic(t *testing.T) {
 	}
 }
 
-func TestBootstrapRunner_TryPublishAndRegister_ErrorPathsDoNotFail(t *testing.T) {
+func TestBootstrapRunnerTryPublishAndRegisterErrorPathsDoNotFail(t *testing.T) {
 	t.Parallel()
 
 	cfg := minimalConfig()
@@ -199,7 +199,7 @@ func TestBootstrapRunner_TryPublishAndRegister_ErrorPathsDoNotFail(t *testing.T)
 	r.tryRegister(context.Background(), ResourceTypeIAMRole, "role")
 }
 
-func TestRunAccountConfig_WritesAccountAndAdmin(t *testing.T) {
+func TestRunAccountConfigWritesAccountAndAdmin(t *testing.T) {
 	t.Parallel()
 
 	cfg := minimalConfig()

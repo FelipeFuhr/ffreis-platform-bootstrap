@@ -25,7 +25,7 @@ func integrationConfig() *config.Config {
 	}
 }
 
-func TestRun_HappyPath_Integration(t *testing.T) {
+func TestRunHappyPathIntegration(t *testing.T) {
 	h := newIntegrationHarness(integrationConfig())
 	err := Run(context.Background(), h.cfg, h.clients)
 	if err != nil {
@@ -58,7 +58,7 @@ func TestRun_HappyPath_Integration(t *testing.T) {
 	}
 }
 
-func TestRun_Idempotent_Integration(t *testing.T) {
+func TestRunIdempotentIntegration(t *testing.T) {
 	h := newIntegrationHarness(integrationConfig())
 	h.cfg.Accounts = map[string]string{}
 	h.s3.bucketExists = true
@@ -100,7 +100,7 @@ func TestRun_Idempotent_Integration(t *testing.T) {
 	}
 }
 
-func TestRun_StepFailure_Integration(t *testing.T) {
+func TestRunStepFailureIntegration(t *testing.T) {
 	h := newIntegrationHarness(integrationConfig())
 	h.cfg.Accounts = map[string]string{}
 	h.s3.versioningErr = errors.New("versioning failed")
@@ -117,7 +117,7 @@ func TestRun_StepFailure_Integration(t *testing.T) {
 	}
 }
 
-func TestRun_TopicARNGuard_Integration(t *testing.T) {
+func TestRunTopicARNGuardIntegration(t *testing.T) {
 	h := newIntegrationHarness(integrationConfig())
 	h.cfg.Accounts = map[string]string{}
 	h.sns.returnNilTopic = true

@@ -131,26 +131,34 @@ const stepAccountConfig = "account-config"
 // runAccountConfig writes per-account and admin email entries to the registry.
 func runAccountConfig(ctx context.Context, r *bootstrapRunner, cfg *config.Config) error {
 	for name, email := range cfg.Accounts {
-		if err := platformaws.WriteConfig(
-			ctx, r.c.DynamoDB, r.registryTable,
-			"account", name, r.c.CallerARN,
-			map[string]string{"email": email},
-		); err != nil {
+		if err := writeAccountEmailConfig(ctx, r, name, email); err != nil {
 			return fmt.Errorf("writing account config %q: %w", name, err)
 		}
 		r.log.Info("account config written", "step", stepAccountConfig, "account", name)
 	}
 	if cfg.AdminEmail != "" {
-		if err := platformaws.WriteConfig(
-			ctx, r.c.DynamoDB, r.registryTable,
-			"admin", "alert_email", r.c.CallerARN,
-			map[string]string{"email": cfg.AdminEmail},
-		); err != nil {
+		if err := writeAdminAlertEmailConfig(ctx, r, cfg.AdminEmail); err != nil {
 			return fmt.Errorf("writing admin alert email config: %w", err)
 		}
 		r.log.Info("admin config written", "step", stepAccountConfig, "key", "alert_email")
 	}
 	return nil
+}
+
+func writeAccountEmailConfig(ctx context.Context, r *bootstrapRunner, name, email string) error {
+	return platformaws.WriteConfig(
+		ctx, r.c.DynamoDB, r.registryTable,
+		"account", name, r.c.CallerARN,
+		map[string]string{"email": email},
+	)
+}
+
+func writeAdminAlertEmailConfig(ctx context.Context, r *bootstrapRunner, email string) error {
+	return platformaws.WriteConfig(
+		ctx, r.c.DynamoDB, r.registryTable,
+		"admin", "alert_email", r.c.CallerARN,
+		map[string]string{"email": email},
+	)
 }
 
 type bootstrapStepDef struct {

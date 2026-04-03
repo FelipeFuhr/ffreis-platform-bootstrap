@@ -26,6 +26,7 @@ common_require_git_repo() {
     return 0
   fi
   common_die "This hook must run inside a Git repository."
+  return 1
 }
 
 common_is_allowlisted_path() {

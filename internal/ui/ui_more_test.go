@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-func TestResolveMode_Branches(t *testing.T) {
+func TestResolveModeBranches(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
@@ -41,7 +41,7 @@ func TestResolveMode_Branches(t *testing.T) {
 	}
 }
 
-func TestFromContext_DefaultPresenter(t *testing.T) {
+func TestFromContextDefaultPresenter(t *testing.T) {
 	t.Parallel()
 
 	p := FromContext(context.Background())

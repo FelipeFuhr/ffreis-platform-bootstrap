@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 set -euo pipefail
-IFS=$'\n\t'
 
 source "$(dirname "$0")/../lib/common.sh"
 
@@ -61,3 +60,5 @@ if [[ "${changed}" -ne 0 ]]; then
   common_err "Run 'go mod tidy' and commit the resulting go.mod/go.sum changes."
   exit 1
 fi
+
+exit 0

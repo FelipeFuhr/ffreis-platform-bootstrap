@@ -11,15 +11,15 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 )
 
-// CallerIdentityGetter is the subset of STS operations used to verify caller identity.
+// CallerIdentityProvider is the subset of STS operations used to verify caller identity.
 // *sts.Client satisfies this interface.
-type CallerIdentityGetter interface {
+type CallerIdentityProvider interface {
 	GetCallerIdentity(ctx context.Context, params *sts.GetCallerIdentityInput, optFns ...func(*sts.Options)) (*sts.GetCallerIdentityOutput, error)
 }
 
-// RoleAssumerAPI is the subset of STS operations used to assume an IAM role.
+// AssumeRoler is the subset of STS operations used to assume an IAM role.
 // *sts.Client satisfies this interface.
-type RoleAssumerAPI interface {
+type AssumeRoler interface {
 	AssumeRole(ctx context.Context, params *sts.AssumeRoleInput, optFns ...func(*sts.Options)) (*sts.AssumeRoleOutput, error)
 }
 
