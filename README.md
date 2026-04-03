@@ -19,7 +19,7 @@ All operations are idempotent. Re-running after a partial failure is safe.
 
 ## Prerequisites
 
-- Go 1.22+
+- Go 1.25+
 - AWS credentials for an **administrator principal in the management account**
   (root is not required, but the principal must be allowed to call IAM, S3,
   DynamoDB, Budgets, and SNS APIs)
@@ -33,6 +33,9 @@ make tidy
 
 # 2. Build the binary
 make build
+
+# Or build directly from the real entrypoint package
+go build -o ./bin/platform-bootstrap ./cmd/platform-bootstrap
 
 # 2a. Optional: diagnose credentials & permissions (read-only)
 ./bin/platform-bootstrap doctor --org acme --profile bootstrap --region us-east-1
@@ -55,8 +58,14 @@ Or invoke the binary directly:
   --org acme \
   --profile bootstrap \
   --root-email root@acme.example.com \
-  --region us-east-1
+  --region us-east-1 \
+  --org-dir ../your-platform-org-repo
 ```
+
+`--org-dir` is optional, but recommended when the sibling platform org
+Terraform repo is checked out next to this one. When set, bootstrap writes the
+fetched Terraform inputs that the next layer needs so you can move directly to
+apply under `terraform/envs/` and `terraform/stack/`.
 
 ## Configuration
 
@@ -71,8 +80,10 @@ over environment variables; environment variables take precedence over defaults.
 | `--log-level`     | `PLATFORM_LOG_LEVEL`      | `info`      | all commands |
 | `--dry-run`       | `PLATFORM_DRY_RUN`        | `false`     | all commands |
 | `--root-email`    | `PLATFORM_ROOT_EMAIL`     | —           | `init`       |
+| `--admin-email`   | `PLATFORM_ADMIN_EMAIL`    | —           | `init`       |
 | `--state-region`  | `PLATFORM_STATE_REGION`   | `--region`  | `init`       |
 | `--allowed-regions` | `PLATFORM_ALLOWED_REGIONS` | —        | `init`       |
+| `--org-dir`       | —                         | —           | `init`       |
 
 `--allowed-regions` is comma-separated both in the flag and env var:
 
@@ -101,7 +112,7 @@ export PLATFORM_ORG=acme
 export PLATFORM_REGION=us-east-1
 export PLATFORM_ROOT_EMAIL=root@acme.example.com
 
-./bin/platform-bootstrap init
+./bin/platform-bootstrap init --org-dir ../your-platform-org-repo
 ```
 
 ## Project structure
@@ -112,15 +123,22 @@ platform-bootstrap/
 │   ├── platform-bootstrap/
 │   │   └── main.go                  entry point
 │   ├── root.go                      root command, global flags, PersistentPreRunE
-│   └── init.go                      `init` subcommand
+│   ├── init.go                      `init` subcommand
+│   ├── fetch.go                     write fetched org-layer config files
+│   ├── audit.go                     compare registry vs AWS reality
+│   └── nuke.go                      delete Layer 0 resources
 ├── internal/
 │   ├── config/
 │   │   ├── defaults.go              constants: defaults, env var names, naming patterns
 │   │   └── config.go                Config struct, Load(), Validate()
 │   ├── aws/
-│   │   └── session.go               AWS credential resolution, sts:GetCallerIdentity
+│   │   ├── session.go               AWS credential resolution, sts:GetCallerIdentity
+│   │   ├── registry.go              bootstrap registry reads/writes
+│   │   └── *.go                     AWS resource creation helpers
 │   ├── bootstrap/
-│   │   └── bootstrap.go             Step type, Run() orchestrator (stub)
+│   │   ├── bootstrap.go             ordered bootstrap steps and Run() orchestration
+│   │   ├── nuke.go                  reverse-order cleanup orchestration
+│   │   └── step_runner.go           shared step execution/reporting
 │   └── logging/
 │       ├── logger.go                slog logger construction, IsTTY()
 │       └── context.go               WithLogger / FromContext

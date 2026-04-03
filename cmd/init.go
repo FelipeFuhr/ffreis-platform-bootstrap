@@ -91,9 +91,9 @@ Pass --dry-run to see what would be created without making any changes.`,
 		// needs to run terraform init + apply, so the operator can proceed
 		// immediately without a separate fetch step.
 		if orgDir != "" && !deps.cfg.DryRun {
-			tfvarsPath := filepath.Join(orgDir, "envs", "prod", "fetched.auto.tfvars.json")
-			backendPath := filepath.Join(orgDir, "stack", "backend.local.hcl")
-			nextStep := "cd " + filepath.Join(orgDir, "stack") + " && terraform init -backend-config=backend.local.hcl -backend-config=../envs/prod/backend.hcl && terraform apply -var-file=../envs/prod/terraform.tfvars"
+			tfvarsPath := filepath.Join(orgDir, "terraform", "envs", "prod", "fetched.auto.tfvars.json")
+			backendPath := filepath.Join(orgDir, "terraform", "stack", "backend.local.hcl")
+			nextStep := "cd " + filepath.Join(orgDir, "terraform", "stack") + " && terraform init -backend-config=backend.local.hcl -backend-config=../envs/prod/backend.hcl && terraform apply -var-file=../envs/prod/terraform.tfvars"
 
 			deps.logger.Info("writing org layer config files",
 				"tfvars", tfvarsPath,
@@ -137,7 +137,7 @@ func init() {
 	f.String("admin-email", "",
 		"email address for platform budget alert notifications — stored in the bootstrap registry, never committed (env: "+config.EnvAdminEmail+")")
 	f.String("org-dir", "",
-		"path to the platform-org Terraform repo; when set, org config files are written automatically after init completes (e.g. ../ffreis-platform-org)")
+		"path to the sibling platform org Terraform repo; when set, org config files are written automatically after init completes (e.g. ../your-platform-org-repo)")
 
 	rootCmd.AddCommand(initCmd)
 }

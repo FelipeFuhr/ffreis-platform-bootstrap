@@ -135,7 +135,7 @@ func renderBackendHCL(cfg backendConfig) string {
 	b.WriteString("# Contains real infrastructure identifiers for the root Terraform state.\n")
 	b.WriteString("# The state key lives in envs/prod/backend.hcl and IS committed.\n")
 	b.WriteString("#\n")
-	b.WriteString("# Usage (from stack/):\n")
+	b.WriteString("# Usage (from terraform/stack/):\n")
 	b.WriteString("#   terraform init \\\n")
 	b.WriteString("#     -backend-config=backend.local.hcl \\\n")
 	b.WriteString("#     -backend-config=../envs/prod/backend.hcl\n")
@@ -167,8 +167,8 @@ Example:
   platform-bootstrap fetch \
     --org ffreis \
     --profile bootstrap \
-    --output    ../ffreis-platform-org/envs/prod/fetched.auto.tfvars.json \
-    --backend-out ../ffreis-platform-org/stack/backend.local.hcl`,
+    --output    ../your-platform-org-repo/terraform/envs/prod/fetched.auto.tfvars.json \
+    --backend-out ../your-platform-org-repo/terraform/stack/backend.local.hcl`,
 
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		outputPath, _ := cmd.Flags().GetString("output")
@@ -207,6 +207,6 @@ func init() {
 	fetchCmd.Flags().String("output", "-",
 		`path to write fetched.auto.tfvars.json; use "-" for stdout`)
 	fetchCmd.Flags().String("backend-out", "",
-		`path to write backend.local.hcl (e.g. ../ffreis-platform-org/stack/backend.local.hcl); omit to skip`)
+		`path to write backend.local.hcl (e.g. ../your-platform-org-repo/terraform/stack/backend.local.hcl); omit to skip`)
 	rootCmd.AddCommand(fetchCmd)
 }
