@@ -42,7 +42,8 @@ type bootstrapRunner struct {
 	registryTable string
 	topic         string
 	// tempUser is set during the create-temp-user step and consumed by
-	// assume-admin-role. It is deleted in the delete-temp-user step.
+	// assume-admin-role. It is deleted in the delete-temp-user step or, on
+	// early abort, by the defer in Run().
 	tempUser *platformaws.TempUser
 	// rootIAM holds the original IAM client (as root) used to delete the
 	// temp user, since r.c.IAM is replaced after role assumption.
@@ -437,6 +438,18 @@ func Run(ctx context.Context, cfg *config.Config, clients *platformaws.Clients) 
 	}
 
 	r := newBootstrapRunner(ctx, cfg, clients)
+	defer func() {
+		if r.tempUser == nil {
+			return
+		}
+		iamClient := r.rootIAM
+		if iamClient == nil {
+			iamClient = r.c.IAM
+		}
+		if err := platformaws.DeleteTempBootstrapUser(ctx, iamClient, *r.tempUser); err != nil {
+			logger.Error("failed to delete temp bootstrap user during cleanup", "error", err)
+		}
+	}()
 	if err := runSteps(ctx, cfg.DryRun, stepRunStopOnError, "bootstrap", r.steps()); err != nil {
 		return err
 	}

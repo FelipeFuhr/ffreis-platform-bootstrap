@@ -84,7 +84,7 @@ lint:
 ## validate: static analysis and compilation check (go vet + build)
 validate:
 	go vet ./...
-	go build -o /dev/null $(CMD_PKG)
+	go build -o /dev/null ./...
 
 ## plan: not applicable — use 'make validate' or 'make quality-gates' for Go repos
 plan:

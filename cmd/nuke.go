@@ -38,7 +38,7 @@ Pass --dry-run to preview what would be deleted without making any AWS calls.`,
 			warningTarget := strconv.Quote(deps.cfg.OrgName) + "."
 			if deps.ui != nil {
 				out.ErrLine(deps.ui.Header("Platform Bootstrap Nuke", "org "+deps.cfg.OrgName))
-				out.ErrLine(deps.ui.Badge("error", "warn") + " This will permanently destroy all Layer 0 bootstrap resources for org " + warningTarget)
+				out.ErrLine(deps.ui.Badge("warn", "warn") + " This will permanently destroy all Layer 0 bootstrap resources for org " + warningTarget)
 			} else {
 				out.ErrLine("WARNING: This will permanently destroy all Layer 0 bootstrap resources for org " + warningTarget)
 			}
