@@ -2,6 +2,8 @@ package aws
 
 import (
 	"context"
+	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -69,6 +71,18 @@ func (m *registryMockDynamoDB) Scan(_ context.Context, in *dynamodb.ScanInput, _
 		items = append(items, item)
 	}
 	return &dynamodb.ScanOutput{Items: items}, nil
+}
+
+type scanRegistryMock struct {
+	registryMockDynamoDB
+	scanErr error
+}
+
+func (m *scanRegistryMock) Scan(ctx context.Context, in *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
+	if m.scanErr != nil {
+		return nil, m.scanErr
+	}
+	return m.registryMockDynamoDB.Scan(ctx, in, optFns...)
 }
 
 // TestEnsureRegistryTable_Schema verifies the registry table is created with
@@ -279,5 +293,56 @@ func TestScanRegistry_ReturnsList(t *testing.T) {
 
 	if len(records) != 2 {
 		t.Errorf("records: want 2, got %d", len(records))
+	}
+}
+
+func TestScanRegistry_MissingTableReturnsEmpty(t *testing.T) {
+	t.Parallel()
+
+	m := &scanRegistryMock{scanErr: &dbtypes.ResourceNotFoundException{}}
+
+	records, err := ScanRegistry(context.Background(), m, testRegistryTable)
+	if err != nil {
+		t.Fatalf("ScanRegistry: %v", err)
+	}
+	if len(records) != 0 {
+		t.Fatalf("records: want 0 for missing table, got %d", len(records))
+	}
+}
+
+func TestScanRegistry_UnexpectedError(t *testing.T) {
+	t.Parallel()
+
+	m := &scanRegistryMock{scanErr: errors.New("boom")}
+
+	_, err := ScanRegistry(context.Background(), m, testRegistryTable)
+	if err == nil {
+		t.Fatal("expected ScanRegistry to fail")
+	}
+	if err.Error() != "scanning registry table "+testRegistryTable+": boom" {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestScanRegistry_UnmarshalError(t *testing.T) {
+	t.Parallel()
+
+	m := newRegistryMock()
+	m.items["RESOURCE#S3Bucket/bad"] = map[string]dbtypes.AttributeValue{
+		"PK":            &dbtypes.AttributeValueMemberS{Value: "RESOURCE#S3Bucket"},
+		"SK":            &dbtypes.AttributeValueMemberS{Value: "bad"},
+		"resource_type": &dbtypes.AttributeValueMemberS{Value: "S3Bucket"},
+		"resource_name": &dbtypes.AttributeValueMemberS{Value: "bad"},
+		"created_at":    &dbtypes.AttributeValueMemberS{Value: "not-a-timestamp"},
+		"created_by":    &dbtypes.AttributeValueMemberS{Value: "actor"},
+		"tags":          &dbtypes.AttributeValueMemberS{Value: "{}"},
+	}
+
+	_, err := ScanRegistry(context.Background(), m, testRegistryTable)
+	if err == nil {
+		t.Fatal("expected ScanRegistry to fail on invalid item")
+	}
+	if !strings.Contains(err.Error(), "unmarshalling registry record") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }

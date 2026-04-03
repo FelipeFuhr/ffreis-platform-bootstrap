@@ -1,6 +1,11 @@
 name: Code Scanning (CodeQL)
 
 on:
+  pull_request:
+    branches: [main, master]
+    paths:
+      - '**'
+      - '.github/workflows/**'
   push:
     branches: [main, master]
   schedule:

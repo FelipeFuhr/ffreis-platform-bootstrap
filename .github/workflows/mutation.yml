@@ -1,6 +1,11 @@
 name: Mutation Testing
 
 on:
+  pull_request:
+    branches: [main, master]
+    paths:
+      - '**'
+      - '.github/workflows/**'
   schedule:
     - cron: "0 2 * * 0"   # Sundays 02:00 UTC
   workflow_dispatch:
