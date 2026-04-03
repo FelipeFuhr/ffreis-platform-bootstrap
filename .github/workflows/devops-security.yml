@@ -33,7 +33,9 @@ jobs:
           url="https://github.com/zricethezav/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
           tmp="$(mktemp -d)"
           trap 'rm -rf "$tmp"' EXIT
-          curl -fsSL "$url" -o "$tmp/gitleaks.tgz"
+          curl --fail --show-error --silent --location \
+            --proto '=https' --proto-redir '=https' \
+            "$url" -o "$tmp/gitleaks.tgz"
           tar -xzf "$tmp/gitleaks.tgz" -C "$tmp"
           sudo install -m 0755 "$tmp/gitleaks" /usr/local/bin/gitleaks
           gitleaks version

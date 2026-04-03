@@ -16,6 +16,10 @@ permissions:
   actions: read
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   codeql:
     # GitHub Code Scanning cannot process SARIF uploads from "advanced" CodeQL
