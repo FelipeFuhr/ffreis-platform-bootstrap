@@ -152,7 +152,7 @@ platform-bootstrap/
 ```sh
 make fmt          # format source
 make test         # run tests
-make lint         # run golangci-lint (requires separate install)
+make lint         # run golangci-lint v2 (install: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.4.0)
 make build        # compile binary to ./bin/
 make clean        # remove ./bin/
 ```

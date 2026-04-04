@@ -117,7 +117,7 @@ func writeFetchedJSON(outputPath string, data []byte, accountCount int) error {
 		}
 		return nil
 	}
-	if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(outputPath), 0750); err != nil {
 		return fmt.Errorf("creating output directory: %w", err)
 	}
 	if err := os.WriteFile(outputPath, data, 0600); err != nil {
@@ -191,7 +191,7 @@ Example:
 
 // writeBackendHCL renders backend.local.hcl to path.
 func writeBackendHCL(path string, cfg backendConfig) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0750); err != nil {
 		return fmt.Errorf("creating backend output directory: %w", err)
 	}
 	if err := os.WriteFile(path, []byte(renderBackendHCL(cfg)), 0600); err != nil {
