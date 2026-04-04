@@ -259,8 +259,8 @@ type capturingS3 struct {
 
 func (c *capturingS3) CreateBucket(_ context.Context, params *s3.CreateBucketInput, _ ...func(*s3.Options)) (*s3.CreateBucketOutput, error) {
 	c.lastCreateInput = params
-	c.mockS3.createCalls++
-	c.mockS3.bucketExists = true
+	c.createCalls++
+	c.bucketExists = true
 	return &s3.CreateBucketOutput{
 		Location: sdkaws.String("/" + sdkaws.ToString(params.Bucket)),
 	}, nil

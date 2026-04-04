@@ -31,21 +31,17 @@ jobs:
     needs: [fmt]
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-
-      - name: Setup Go
-        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version: "1.25.8"
           cache: true
-
+          cache-dependency-path: go.sum
       - name: go vet
         run: go vet ./...
-
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@55c2c1448f86e01eaae002a5a3a9624417608d84
+        uses: golangci/golangci-lint-action@9fae48acfc02a90574d7c304a1758ef9895495fa # v7
         with:
-          version: v1.64.8
-          install-mode: goinstall
-          args: --path-prefix=. --timeout=5m
+          version: v2.4.0
+          working-directory: .
+          args: --timeout=5m

@@ -8,6 +8,7 @@ CMD_PKG    := ./cmd/$(BINARY)
 
 GOFMT         ?= gofmt
 GOLANGCI_LINT ?= golangci-lint
+GOLANGCI_LINT_VERSION ?= v2.4.0
 GITLEAKS      ?= gitleaks
 GOVULNCHECK   ?= govulncheck
 COVERAGE_MIN  ?= 90
@@ -78,7 +79,8 @@ fmt-check:
 
 ## lint: run golangci-lint
 lint:
-	@command -v $(GOLANGCI_LINT) >/dev/null 2>&1 || (echo "Missing tool: $(GOLANGCI_LINT). Install with: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest" && exit 1)
+	@command -v $(GOLANGCI_LINT) >/dev/null 2>&1 || (echo "Missing tool: $(GOLANGCI_LINT). Install with: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)" && exit 1)
+	@$(GOLANGCI_LINT) version 2>/dev/null | grep -Eq 'golangci-lint has version (v)?2\.' || (echo "golangci-lint v2 is required by .golangci.yml. Install with: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)" && exit 1)
 	$(GOLANGCI_LINT) run ./...
 
 ## validate: static analysis and compilation check (go vet + build)

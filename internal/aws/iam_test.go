@@ -277,7 +277,7 @@ type trustCapturingIAM struct {
 
 func (c *trustCapturingIAM) CreateRole(_ context.Context, params *iam.CreateRoleInput, _ ...func(*iam.Options)) (*iam.CreateRoleOutput, error) {
 	c.lastTrustDoc = sdkaws.ToString(params.AssumeRolePolicyDocument)
-	c.mockIAM.roleExists = true
+	c.roleExists = true
 	return &iam.CreateRoleOutput{Role: &iamtypes.Role{RoleName: params.RoleName}}, nil
 }
 
@@ -292,7 +292,7 @@ type policyCapturingIAM struct {
 
 func (c *policyCapturingIAM) PutRolePolicy(_ context.Context, params *iam.PutRolePolicyInput, _ ...func(*iam.Options)) (*iam.PutRolePolicyOutput, error) {
 	c.lastPolicyDoc = sdkaws.ToString(params.PolicyDocument)
-	c.mockIAM.putPolicyCalls++
+	c.putPolicyCalls++
 	return &iam.PutRolePolicyOutput{}, nil
 }
 
