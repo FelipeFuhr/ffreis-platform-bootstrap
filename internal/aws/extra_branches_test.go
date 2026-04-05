@@ -85,6 +85,7 @@ func TestEnsureStateBucketPublicBlockError(t *testing.T) {
 type iamErrorMock struct {
 	getErr       error
 	createErr    error
+	updateErr    error
 	putPolicyErr error
 	tagErr       error
 }
@@ -100,6 +101,9 @@ func (m *iamErrorMock) GetRole(_ context.Context, _ *iam.GetRoleInput, _ ...func
 }
 func (m *iamErrorMock) CreateRole(_ context.Context, _ *iam.CreateRoleInput, _ ...func(*iam.Options)) (*iam.CreateRoleOutput, error) {
 	return &iam.CreateRoleOutput{}, m.createErr
+}
+func (m *iamErrorMock) UpdateAssumeRolePolicy(_ context.Context, _ *iam.UpdateAssumeRolePolicyInput, _ ...func(*iam.Options)) (*iam.UpdateAssumeRolePolicyOutput, error) {
+	return &iam.UpdateAssumeRolePolicyOutput{}, m.updateErr
 }
 func (m *iamErrorMock) PutRolePolicy(_ context.Context, _ *iam.PutRolePolicyInput, _ ...func(*iam.Options)) (*iam.PutRolePolicyOutput, error) {
 	return &iam.PutRolePolicyOutput{}, m.putPolicyErr
@@ -146,6 +150,14 @@ func TestEnsurePlatformAdminRolePutPolicyError(t *testing.T) {
 	err := EnsurePlatformAdminRole(context.Background(), &iamErrorMock{putPolicyErr: errSentinel}, testRoleName, testAccountID, nil)
 	if err == nil || !strings.Contains(err.Error(), "putting inline policy") {
 		t.Fatalf("expected wrapped put policy error, got: %v", err)
+	}
+}
+
+func TestEnsurePlatformAdminRoleUpdateTrustError(t *testing.T) {
+	errSentinel := errors.New("update trust failed")
+	err := EnsurePlatformAdminRole(context.Background(), &iamErrorMock{updateErr: errSentinel}, testRoleName, testAccountID, nil)
+	if err == nil || !strings.Contains(err.Error(), "updating trust policy") {
+		t.Fatalf("expected wrapped trust update error, got: %v", err)
 	}
 }
 

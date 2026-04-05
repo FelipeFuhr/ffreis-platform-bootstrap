@@ -66,6 +66,22 @@ Pass --dry-run to see what would be created without making any changes.`,
 			"caller_arn", deps.clients.CallerARN,
 		)
 
+		doctorReport, err := bootstrapDoctorRunFn(ctx, bootstrapDoctorModes.init)
+		if err != nil {
+			return &ExitError{Code: exitAWSError, Err: fmt.Errorf("bootstrap doctor preflight: %w", err)}
+		}
+		if deps.ui != nil {
+			out.Status("info", "doctor", "running bootstrap preflight checks")
+			printBootstrapDoctorSummary(out, doctorReport)
+		}
+		if doctorReport.HasFailures() {
+			if deps.ui != nil {
+				out.Blank()
+				printBootstrapDoctorReport(out, doctorReport)
+			}
+			return &ExitError{Code: exitPartialComplete, Err: fmt.Errorf("bootstrap doctor preflight failed with %d blocking check(s)", doctorReport.Summary.Fail)}
+		}
+
 		if err := bootstrap.Run(ctx, deps.cfg, deps.clients, cmd.ErrOrStderr()); err != nil {
 			return &ExitError{Code: exitPartialComplete, Err: err}
 		}

@@ -16,6 +16,7 @@ import (
 //
 // Calling this function multiple times is safe:
 //   - Role already exists → CreateRole is skipped, PutRolePolicy still runs.
+//   - Trust policy is always re-applied, so drifted trust is healed in place.
 //   - PutRolePolicy is an idempotent PUT; re-applying the same policy is a no-op.
 //   - TagRole is idempotent — re-applying the same tags is safe.
 //
@@ -26,6 +27,9 @@ func EnsurePlatformAdminRole(ctx context.Context, client IAMAPI, roleName, accou
 	if err := ensureRoleExists(ctx, client, roleName, accountID); err != nil {
 		return err
 	}
+	if err := updateTrustPolicy(ctx, client, roleName, accountID); err != nil {
+		return fmt.Errorf("updating trust policy on role %s: %w", roleName, err)
+	}
 	if err := putAdminPolicy(ctx, client, roleName); err != nil {
 		return fmt.Errorf("putting inline policy on role %s: %w", roleName, err)
 	}
@@ -35,6 +39,21 @@ func EnsurePlatformAdminRole(ctx context.Context, client IAMAPI, roleName, accou
 		}
 	}
 	return nil
+}
+
+// updateTrustPolicy always reapplies the assume-role trust policy so a role
+// left behind in a drifted state can be repaired by a normal bootstrap run.
+func updateTrustPolicy(ctx context.Context, client IAMAPI, roleName, accountID string) error {
+	trustDoc, err := marshalPolicy(buildTrustPolicy(accountID))
+	if err != nil {
+		return fmt.Errorf("marshalling trust policy: %w", err)
+	}
+
+	_, err = client.UpdateAssumeRolePolicy(ctx, &iam.UpdateAssumeRolePolicyInput{
+		RoleName:       sdkaws.String(roleName),
+		PolicyDocument: sdkaws.String(trustDoc),
+	})
+	return err
 }
 
 // ensureRoleExists creates the role when it does not exist.

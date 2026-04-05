@@ -173,6 +173,9 @@ func (m *integrationMockIAM) CreateRole(_ context.Context, in *iam.CreateRoleInp
 	m.roleExists = true
 	return &iam.CreateRoleOutput{Role: &iamtypes.Role{RoleName: in.RoleName}}, nil
 }
+func (m *integrationMockIAM) UpdateAssumeRolePolicy(_ context.Context, _ *iam.UpdateAssumeRolePolicyInput, _ ...func(*iam.Options)) (*iam.UpdateAssumeRolePolicyOutput, error) {
+	return &iam.UpdateAssumeRolePolicyOutput{}, nil
+}
 func (m *integrationMockIAM) PutRolePolicy(_ context.Context, _ *iam.PutRolePolicyInput, _ ...func(*iam.Options)) (*iam.PutRolePolicyOutput, error) {
 	m.putPolicyCalls++
 	return &iam.PutRolePolicyOutput{}, nil

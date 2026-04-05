@@ -115,6 +115,14 @@ func (p *Presenter) Interactive() bool {
 	return p != nil && p.interactive
 }
 
+func (p *Presenter) Rich() bool {
+	return p != nil && p.mode == ModeRich
+}
+
+func (p *Presenter) Key(value string) string {
+	return p.render(value, p.key)
+}
+
 func (p *Presenter) Header(title, subtitle string) string {
 	if subtitle == "" {
 		return p.render(title, p.header)

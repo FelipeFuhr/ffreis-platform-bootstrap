@@ -23,6 +23,7 @@ import (
 	"github.com/spf13/cobra"
 
 	platformaws "github.com/ffreis/platform-bootstrap/internal/aws"
+	"github.com/ffreis/platform-bootstrap/internal/config"
 	platformui "github.com/ffreis/platform-bootstrap/internal/ui"
 )
 
@@ -69,6 +70,11 @@ func TestInitRunEDryRun(t *testing.T) {
 
 	cmd, stdout, _ := newTestCommand(testCommandContext(presenter))
 	cmd.Flags().String("org-dir", "", "")
+	oldDoctor := bootstrapDoctorRunFn
+	t.Cleanup(func() { bootstrapDoctorRunFn = oldDoctor })
+	bootstrapDoctorRunFn = func(context.Context, bootstrapDoctorMode) (BootstrapDoctorReport, error) {
+		return BootstrapDoctorReport{Summary: bootstrapDoctorSummary{OK: 1, Total: 1}}, nil
+	}
 
 	if err := initCmd.RunE(cmd, nil); err != nil {
 		t.Fatalf(errUnexpectedRunE, err)
@@ -131,6 +137,11 @@ func TestAuditRunEJSONAndInconsistencies(t *testing.T) {
 
 	cmd, _, _ := newTestCommand(context.Background())
 	cmd.Flags().Bool("json", false, "")
+	oldDoctor := bootstrapDoctorRunFn
+	t.Cleanup(func() { bootstrapDoctorRunFn = oldDoctor })
+	bootstrapDoctorRunFn = func(context.Context, bootstrapDoctorMode) (BootstrapDoctorReport, error) {
+		return BootstrapDoctorReport{Summary: bootstrapDoctorSummary{OK: 1, Total: 1}}, nil
+	}
 	if err := cmd.Flags().Set("json", "true"); err != nil {
 		t.Fatalf("Flags().Set() unexpected error: %v", err)
 	}
@@ -152,6 +163,141 @@ func TestAuditRunEJSONAndInconsistencies(t *testing.T) {
 	}
 	if report.Summary.Missing == 0 || report.Summary.Unmanaged == 0 {
 		t.Fatalf("expected missing and unmanaged resources in report: %+v", report.Summary)
+	}
+}
+
+func TestAuditRunEJSONClassifiesDiscoveredOwnedResources(t *testing.T) {
+	cfg := testConfig()
+
+	clients := &platformaws.Clients{
+		AccountID: "123456789012",
+		CallerARN: testBootstrapRoleARN,
+		Region:    cfg.Region,
+		DynamoDB: &cmdDynamoDBMock{
+			scanFn: func(in *dynamodb.ScanInput) (*dynamodb.ScanOutput, error) {
+				return &dynamodb.ScanOutput{}, nil
+			},
+			describeTableFn: func(in *dynamodb.DescribeTableInput) (*dynamodb.DescribeTableOutput, error) {
+				tableName := *in.TableName
+				return &dynamodb.DescribeTableOutput{
+					Table: &dbtypes.TableDescription{
+						TableArn: &[]string{"arn:aws:dynamodb:us-east-1:123456789012:table/" + tableName}[0],
+					},
+				}, nil
+			},
+			listTagsFn: func(in *dynamodb.ListTagsOfResourceInput) (*dynamodb.ListTagsOfResourceOutput, error) {
+				return &dynamodb.ListTagsOfResourceOutput{
+					Tags: []dbtypes.Tag{
+						{Key: &[]string{"ManagedBy"}[0], Value: &[]string{"terraform"}[0]},
+						{Key: &[]string{"Stack"}[0], Value: &[]string{"platform-org"}[0]},
+					},
+				}, nil
+			},
+			listTablesOut: &dynamodb.ListTablesOutput{
+				TableNames: []string{
+					cfg.RegistryTableName(),
+					cfg.OrgName + "-runtime-extra",
+				},
+			},
+		},
+		S3: &cmdS3Mock{
+			headBucketFn: func(in *s3.HeadBucketInput) (*s3.HeadBucketOutput, error) {
+				return nil, &s3types.NotFound{}
+			},
+			getTaggingFn: func(in *s3.GetBucketTaggingInput) (*s3.GetBucketTaggingOutput, error) {
+				return &s3.GetBucketTaggingOutput{
+					TagSet: []s3types.Tag{
+						{Key: &[]string{"ManagedBy"}[0], Value: &[]string{"terraform"}[0]},
+						{Key: &[]string{"Stack"}[0], Value: &[]string{"platform-org"}[0]},
+					},
+				}, nil
+			},
+			listBucketsOut: &s3.ListBucketsOutput{
+				Buckets: []s3types.Bucket{
+					{Name: &[]string{cfg.OrgName + "-manual-bucket"}[0]},
+				},
+			},
+		},
+		IAM: &cmdIAMMock{},
+		SNS: &cmdSNSMock{
+			getTopicAttributesFn: func(*sns.GetTopicAttributesInput) (*sns.GetTopicAttributesOutput, error) {
+				return nil, &snstypes.NotFoundException{}
+			},
+			listTagsFn: func(*sns.ListTagsForResourceInput) (*sns.ListTagsForResourceOutput, error) {
+				return &sns.ListTagsForResourceOutput{
+					Tags: []snstypes.Tag{
+						{Key: &[]string{"ManagedBy"}[0], Value: &[]string{"terraform"}[0]},
+						{Key: &[]string{"Stack"}[0], Value: &[]string{"platform-org"}[0]},
+					},
+				}, nil
+			},
+			listTopicsOut: &sns.ListTopicsOutput{
+				Topics: []snstypes.Topic{
+					{TopicArn: &[]string{"arn:aws:sns:us-east-1:123456789012:" + cfg.OrgName + "-manual-topic"}[0]},
+				},
+			},
+		},
+		Budgets: &cmdBudgetsMock{
+			describeBudgetFn: func(*budgets.DescribeBudgetInput) (*budgets.DescribeBudgetOutput, error) {
+				return nil, &budgetstypes.NotFoundException{}
+			},
+			listTagsFn: func(*budgets.ListTagsForResourceInput) (*budgets.ListTagsForResourceOutput, error) {
+				return &budgets.ListTagsForResourceOutput{
+					ResourceTags: []budgetstypes.ResourceTag{
+						{Key: &[]string{"ManagedBy"}[0], Value: &[]string{"terraform"}[0]},
+						{Key: &[]string{"Stack"}[0], Value: &[]string{"platform-org"}[0]},
+					},
+				}, nil
+			},
+			describeBudgetsOut: &budgets.DescribeBudgetsOutput{
+				Budgets: []budgetstypes.Budget{
+					{BudgetName: &[]string{cfg.OrgName + "-manual-budget"}[0]},
+				},
+			},
+		},
+	}
+	setTestDeps(t, cfg, clients, nil)
+
+	cmd, _, _ := newTestCommand(context.Background())
+	cmd.Flags().Bool("json", false, "")
+	oldDoctor := bootstrapDoctorRunFn
+	t.Cleanup(func() { bootstrapDoctorRunFn = oldDoctor })
+	bootstrapDoctorRunFn = func(context.Context, bootstrapDoctorMode) (BootstrapDoctorReport, error) {
+		return BootstrapDoctorReport{Summary: bootstrapDoctorSummary{OK: 1, Total: 1}}, nil
+	}
+	if err := cmd.Flags().Set("json", "true"); err != nil {
+		t.Fatalf("Flags().Set() unexpected error: %v", err)
+	}
+
+	var runErr error
+	jsonOut := captureStdout(t, func() {
+		runErr = auditCmd.RunE(cmd, nil)
+	})
+	if runErr == nil {
+		t.Fatal("expected audit to report missing expected resources")
+	}
+
+	var report AuditReport
+	if err := json.Unmarshal([]byte(jsonOut), &report); err != nil {
+		t.Fatalf("json.Unmarshal() unexpected error: %v", err)
+	}
+
+	want := map[string]bool{
+		"S3Bucket/" + cfg.OrgName + "-manual-bucket":      false,
+		"DynamoDBTable/" + cfg.OrgName + "-runtime-extra": false,
+		"SNSTopic/" + cfg.OrgName + "-manual-topic":       false,
+		"AWSBudget/" + cfg.OrgName + "-manual-budget":     false,
+	}
+	for _, resource := range report.Resources {
+		key := resource.ResourceType + "/" + resource.ResourceName
+		if _, ok := want[key]; ok && resource.Status == "owned" && resource.Owner == "platform-org" {
+			want[key] = true
+		}
+	}
+	for key, found := range want {
+		if !found {
+			t.Fatalf("expected discovered owned resource %q in report: %+v", key, report.Resources)
+		}
 	}
 }
 
@@ -195,12 +341,21 @@ func TestPrintAuditReportAndStatusIcon(t *testing.T) {
 		OrgName:   cfg.OrgName,
 		AccountID: "123456789012",
 		Region:    cfg.Region,
-		Resources: []AuditResult{{ResourceType: "S3Bucket", ResourceName: "bucket", Status: "ok"}},
-		Summary:   AuditSummary{Total: 1, OK: 1},
+		Resources: []AuditResult{
+			{ResourceType: "S3Bucket", ResourceName: "bucket", Status: "ok", Expected: true, Owner: "bootstrap"},
+			{ResourceType: "SNSTopic", ResourceName: "manual-topic", Status: "owned", Owner: "platform-org"},
+		},
+		Summary: AuditSummary{Total: 2, OK: 1, Owned: 1},
 	})
 
 	got := stdout.String()
-	for _, want := range []string{"Platform Bootstrap Audit", "STATUS", "Summary:"} {
+	for _, want := range []string{
+		"Platform Bootstrap Audit",
+		"Expected Bootstrap Resources",
+		"Unexpected Bootstrap-like Resources",
+		"STATUS",
+		"Summary:",
+	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf(errOutputMissing, want, got)
 		}
@@ -226,12 +381,29 @@ func TestDoctorRunESuccess(t *testing.T) {
 	setTestDeps(t, cfg, clients, nil)
 
 	cmd, stdout, _ := newTestCommand(context.Background())
+	oldDoctor := bootstrapDoctorRunFn
+	t.Cleanup(func() { bootstrapDoctorRunFn = oldDoctor })
+	bootstrapDoctorRunFn = func(context.Context, bootstrapDoctorMode) (BootstrapDoctorReport, error) {
+		return BootstrapDoctorReport{
+			Mode: "doctor",
+			Sections: []bootstrapDoctorSection{{
+				Title: "Layer 0",
+				Checks: []bootstrapDoctorCheck{{
+					Key:    "layer0.bucket",
+					Title:  "root state bucket exists",
+					Status: "ok",
+					Detail: "bucket present",
+				}},
+			}},
+			Summary: bootstrapDoctorSummary{OK: 1, Total: 1},
+		}, nil
+	}
 	if err := doctorCmd.RunE(cmd, nil); err != nil {
 		t.Fatalf(errUnexpectedRunE, err)
 	}
 
 	got := stdout.String()
-	for _, want := range []string{"platform-bootstrap doctor", "Checks:", "All checks passed."} {
+	for _, want := range []string{"platform-bootstrap doctor", "Layer 0", "root state bucket exists", "Integrity Summary:", "ok=1"} {
 		if !strings.Contains(got, want) {
 			t.Fatalf(errOutputMissing, want, got)
 		}
@@ -254,16 +426,35 @@ func TestDoctorRunEFailureIncludesHints(t *testing.T) {
 	setTestDeps(t, cfg, clients, nil)
 
 	cmd, stdout, _ := newTestCommand(context.Background())
+	oldDoctor := bootstrapDoctorRunFn
+	t.Cleanup(func() { bootstrapDoctorRunFn = oldDoctor })
+	bootstrapDoctorRunFn = func(context.Context, bootstrapDoctorMode) (BootstrapDoctorReport, error) {
+		return BootstrapDoctorReport{
+			Mode: "doctor",
+			Sections: []bootstrapDoctorSection{{
+				Title: "Permissions",
+				Checks: []bootstrapDoctorCheck{{
+					Key:      "iam:get-account-summary",
+					Title:    "Validate IAM read access",
+					Status:   "fail",
+					Detail:   "denied line2",
+					Hint:     "aws sso login --profile bootstrap",
+					Blocking: true,
+				}},
+			}},
+			Summary: bootstrapDoctorSummary{Fail: 1, Total: 1},
+		}, nil
+	}
 	err := doctorCmd.RunE(cmd, nil)
 	if err == nil {
 		t.Fatal("expected doctor to fail")
 	}
 	var exitErr *ExitError
-	if !errors.As(err, &exitErr) || exitErr.Code != exitAWSError {
+	if !errors.As(err, &exitErr) || exitErr.Code != exitPartialComplete {
 		t.Fatalf(errUnexpected, err)
 	}
 	got := stdout.String()
-	for _, want := range []string{"doctor failed: 1 check(s) failed", "aws sso login --profile bootstrap", "error: denied line2"} {
+	for _, want := range []string{"doctor failed: 1 integrity check(s) failed", "aws sso login --profile bootstrap", "denied line2", "Integrity Summary:", "fail=1"} {
 		if !strings.Contains(got+err.Error(), want) {
 			t.Fatalf("missing %q in output/error:\nOUTPUT:\n%s\nERR:%v", want, got, err)
 		}
@@ -302,6 +493,20 @@ func TestNukeRunECancelledByConfirmation(t *testing.T) {
 	}
 	os.Stdin = inputFile
 
+	oldInspect := inspectBootstrapStateStoresForNukeFn
+	oldBackup := backupBootstrapStateStoresForNukeFn
+	t.Cleanup(func() {
+		inspectBootstrapStateStoresForNukeFn = oldInspect
+		backupBootstrapStateStoresForNukeFn = oldBackup
+	})
+	inspectBootstrapStateStoresForNukeFn = func(context.Context, *config.Config, *platformaws.Clients) (bootstrapStateBackupPlan, error) {
+		return bootstrapStateBackupPlan{}, nil
+	}
+	backupBootstrapStateStoresForNukeFn = func(context.Context, *config.Config, *platformaws.Clients, string, bootstrapStateBackupPlan) error {
+		t.Fatal("backup should not run on cancel")
+		return nil
+	}
+
 	cmd, _, stderr := newTestCommand(context.Background())
 	if err := nukeCmd.RunE(cmd, nil); err != nil {
 		t.Fatalf(errUnexpectedRunE, err)
@@ -324,12 +529,372 @@ func TestNukeRunEDryRun(t *testing.T) {
 	clients := &platformaws.Clients{AccountID: "123456789012", Region: cfg.Region}
 	setTestDeps(t, cfg, clients, presenter)
 
+	oldInspect := inspectBootstrapStateStoresForNukeFn
+	oldBackup := backupBootstrapStateStoresForNukeFn
+	t.Cleanup(func() {
+		inspectBootstrapStateStoresForNukeFn = oldInspect
+		backupBootstrapStateStoresForNukeFn = oldBackup
+	})
+	inspectBootstrapStateStoresForNukeFn = func(context.Context, *config.Config, *platformaws.Clients) (bootstrapStateBackupPlan, error) {
+		return bootstrapStateBackupPlan{}, nil
+	}
+	backupBootstrapStateStoresForNukeFn = func(context.Context, *config.Config, *platformaws.Clients, string, bootstrapStateBackupPlan) error {
+		t.Fatal("backup should not run during dry-run")
+		return nil
+	}
+
 	cmd, stdout, _ := newTestCommand(testCommandContext(presenter))
 	if err := nukeCmd.RunE(cmd, nil); err != nil {
 		t.Fatalf(errUnexpectedRunE, err)
 	}
 	if !strings.Contains(stdout.String(), "[ok] bootstrap resources removed") {
 		t.Fatalf("stdout missing success status in:\n%s", stdout.String())
+	}
+}
+
+func TestNukeRunEBacksUpBootstrapStateBeforeDelete(t *testing.T) {
+	cfg := testConfig()
+	cfg.DryRun = false
+	presenter, err := platformui.New("plain")
+	if err != nil {
+		t.Fatalf(errUnexpectedUI, err)
+	}
+	setTestDeps(t, cfg, &platformaws.Clients{}, presenter)
+
+	oldInspect := inspectBootstrapStateStoresForNukeFn
+	oldBackup := backupBootstrapStateStoresForNukeFn
+	oldDefaultDir := defaultBootstrapBackupDirForNukeFn
+	oldBootstrapNukeFn := bootstrapNukeFn
+	t.Cleanup(func() {
+		inspectBootstrapStateStoresForNukeFn = oldInspect
+		backupBootstrapStateStoresForNukeFn = oldBackup
+		defaultBootstrapBackupDirForNukeFn = oldDefaultDir
+		bootstrapNukeFn = oldBootstrapNukeFn
+	})
+	inspectBootstrapStateStoresForNukeFn = func(context.Context, *config.Config, *platformaws.Clients) (bootstrapStateBackupPlan, error) {
+		return bootstrapStateBackupPlan{
+			StateBucket:        "acme-tf-state-root",
+			StateBucketObjects: 2,
+			LockTable:          "acme-tf-locks-root",
+			LockTableItems:     1,
+			RegistryTable:      "acme-bootstrap-registry",
+			RegistryTableItems: 3,
+		}, nil
+	}
+	var gotBackupDir string
+	backupBootstrapStateStoresForNukeFn = func(_ context.Context, _ *config.Config, _ *platformaws.Clients, dir string, _ bootstrapStateBackupPlan) error {
+		gotBackupDir = dir
+		return nil
+	}
+	defaultBootstrapBackupDirForNukeFn = func(string) string {
+		return filepath.Join(t.TempDir(), "backup")
+	}
+	bootstrapCalls := 0
+	bootstrapNukeFn = func(context.Context, *config.Config, *platformaws.Clients, io.Writer) error {
+		bootstrapCalls++
+		return nil
+	}
+
+	oldStdin := os.Stdin
+	t.Cleanup(func() { os.Stdin = oldStdin })
+	inputFile, err := os.CreateTemp(t.TempDir(), "stdin")
+	if err != nil {
+		t.Fatalf("CreateTemp() unexpected error: %v", err)
+	}
+	if _, err := inputFile.WriteString("backup-nuke-acme\n"); err != nil {
+		t.Fatalf("WriteString() unexpected error: %v", err)
+	}
+	if _, err := inputFile.Seek(0, io.SeekStart); err != nil {
+		t.Fatalf("Seek() unexpected error: %v", err)
+	}
+	os.Stdin = inputFile
+
+	cmd, stdout, stderr := newTestCommand(testCommandContext(presenter))
+	if err := nukeCmd.RunE(cmd, nil); err != nil {
+		t.Fatalf(errUnexpectedRunE, err)
+	}
+	if gotBackupDir == "" {
+		t.Fatal("expected backupBootstrapStateStoresForNukeFn to be called")
+	}
+	if bootstrapCalls != 1 {
+		t.Fatalf("bootstrapNukeFn called %d times; want 1", bootstrapCalls)
+	}
+	if !strings.Contains(stderr.String(), `Type "backup-nuke-acme" to confirm:`) {
+		t.Fatalf("stderr missing backup confirmation in:\n%s", stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "[ok] bootstrap resources removed") {
+		t.Fatalf("stdout missing success status in:\n%s", stdout.String())
+	}
+}
+
+func TestNukeRunEAllCancelledByConfirmation(t *testing.T) {
+	cfg := testConfig()
+	cfg.DryRun = false
+	presenter, err := platformui.New("plain")
+	if err != nil {
+		t.Fatalf(errUnexpectedUI, err)
+	}
+	setTestDeps(t, cfg, &platformaws.Clients{}, presenter)
+
+	oldNukeAll := nukeAll
+	oldNukeEnv := nukeEnv
+	oldRepoRootFn := nukeRepoRootFn
+	oldRunStepFn := nukeRunStepFn
+	oldBootstrapNukeFn := bootstrapNukeFn
+	oldPreflightFn := nukePreflightAllFn
+	t.Cleanup(func() {
+		nukeAll = oldNukeAll
+		nukeEnv = oldNukeEnv
+		nukeRepoRootFn = oldRepoRootFn
+		nukeRunStepFn = oldRunStepFn
+		bootstrapNukeFn = oldBootstrapNukeFn
+		nukePreflightAllFn = oldPreflightFn
+	})
+	nukeAll = true
+	nukeEnv = "prod"
+	nukePreflightAllFn = func(string, string) error { return nil }
+	nukeRepoRootFn = func() (string, error) {
+		return "/tmp/platform/ffreis-platform-bootstrap", nil
+	}
+	nukeRunStepFn = func(context.Context, bootstrapNukeAllStep, io.Writer, io.Writer) error {
+		t.Fatal("runNukeAllStep should not be called when confirmation is rejected")
+		return nil
+	}
+	bootstrapNukeFn = func(context.Context, *config.Config, *platformaws.Clients, io.Writer) error {
+		t.Fatal("bootstrap.Nuke should not be called when confirmation is rejected")
+		return nil
+	}
+
+	oldStdin := os.Stdin
+	t.Cleanup(func() { os.Stdin = oldStdin })
+	inputFile, err := os.CreateTemp(t.TempDir(), "stdin")
+	if err != nil {
+		t.Fatalf("CreateTemp() unexpected error: %v", err)
+	}
+	if _, err := inputFile.WriteString("nope\n"); err != nil {
+		t.Fatalf("WriteString() unexpected error: %v", err)
+	}
+	if _, err := inputFile.Seek(0, io.SeekStart); err != nil {
+		t.Fatalf("Seek() unexpected error: %v", err)
+	}
+	os.Stdin = inputFile
+
+	cmd, _, stderr := newTestCommand(context.Background())
+	if err := nukeCmd.RunE(cmd, nil); err != nil {
+		t.Fatalf(errUnexpectedRunE, err)
+	}
+	got := stderr.String()
+	for _, want := range []string{"Platform Bootstrap Nuke", "Steps to be executed:", "platform-org purge", "[skip] operator confirmation did not match"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("stderr missing %q in:\n%s", want, got)
+		}
+	}
+}
+
+func TestNukeRunEAllDryRun(t *testing.T) {
+	presenter, err := platformui.New("plain")
+	if err != nil {
+		t.Fatalf(errUnexpectedUI, err)
+	}
+	cfg := testConfig()
+	cfg.DryRun = true
+	clients := &platformaws.Clients{AccountID: "123456789012", Region: cfg.Region}
+	setTestDeps(t, cfg, clients, presenter)
+
+	oldNukeAll := nukeAll
+	oldNukeEnv := nukeEnv
+	oldRepoRootFn := nukeRepoRootFn
+	oldRunStepFn := nukeRunStepFn
+	oldBootstrapNukeFn := bootstrapNukeFn
+	oldPreflightFn := nukePreflightAllFn
+	t.Cleanup(func() {
+		nukeAll = oldNukeAll
+		nukeEnv = oldNukeEnv
+		nukeRepoRootFn = oldRepoRootFn
+		nukeRunStepFn = oldRunStepFn
+		bootstrapNukeFn = oldBootstrapNukeFn
+		nukePreflightAllFn = oldPreflightFn
+	})
+	nukeAll = true
+	nukeEnv = "prod"
+	nukePreflightAllFn = func(string, string) error { return nil }
+	nukeRepoRootFn = func() (string, error) {
+		return "/tmp/platform/ffreis-platform-bootstrap", nil
+	}
+	nukeRunStepFn = func(context.Context, bootstrapNukeAllStep, io.Writer, io.Writer) error {
+		t.Fatal("runNukeAllStep should not be called during dry-run")
+		return nil
+	}
+	bootstrapCalls := 0
+	bootstrapNukeFn = func(context.Context, *config.Config, *platformaws.Clients, io.Writer) error {
+		bootstrapCalls++
+		return nil
+	}
+
+	cmd, stdout, _ := newTestCommand(testCommandContext(presenter))
+	if err := nukeCmd.RunE(cmd, nil); err != nil {
+		t.Fatalf(errUnexpectedRunE, err)
+	}
+	if bootstrapCalls != 1 {
+		t.Fatalf("bootstrapNukeFn called %d times; want 1", bootstrapCalls)
+	}
+	got := stdout.String()
+	for _, want := range []string{
+		"[dry-run] Atlantis would run",
+		"[dry-run] project-template would run",
+		"[dry-run] github-oidc would run",
+		"[dry-run] platform-org build would run",
+		"[dry-run] platform-org purge would run",
+		"[dry-run] platform-org nuke would run",
+		"[ok] all platform resources removed",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("stdout missing %q in:\n%s", want, got)
+		}
+	}
+}
+
+func TestNukeRunEAllSuccess(t *testing.T) {
+	cfg := testConfig()
+	cfg.DryRun = false
+	presenter, err := platformui.New("plain")
+	if err != nil {
+		t.Fatalf(errUnexpectedUI, err)
+	}
+	setTestDeps(t, cfg, &platformaws.Clients{}, presenter)
+
+	oldNukeAll := nukeAll
+	oldNukeEnv := nukeEnv
+	oldRepoRootFn := nukeRepoRootFn
+	oldRunStepFn := nukeRunStepFn
+	oldBootstrapNukeFn := bootstrapNukeFn
+	oldPreflightFn := nukePreflightAllFn
+	t.Cleanup(func() {
+		nukeAll = oldNukeAll
+		nukeEnv = oldNukeEnv
+		nukeRepoRootFn = oldRepoRootFn
+		nukeRunStepFn = oldRunStepFn
+		bootstrapNukeFn = oldBootstrapNukeFn
+		nukePreflightAllFn = oldPreflightFn
+	})
+	nukeAll = true
+	nukeEnv = "prod"
+	nukePreflightAllFn = func(string, string) error { return nil }
+	nukeRepoRootFn = func() (string, error) {
+		return "/tmp/platform/ffreis-platform-bootstrap", nil
+	}
+	var gotSteps []string
+	nukeRunStepFn = func(_ context.Context, step bootstrapNukeAllStep, _, _ io.Writer) error {
+		gotSteps = append(gotSteps, step.label)
+		return nil
+	}
+	bootstrapCalls := 0
+	bootstrapNukeFn = func(context.Context, *config.Config, *platformaws.Clients, io.Writer) error {
+		bootstrapCalls++
+		return nil
+	}
+
+	oldStdin := os.Stdin
+	t.Cleanup(func() { os.Stdin = oldStdin })
+	inputFile, err := os.CreateTemp(t.TempDir(), "stdin")
+	if err != nil {
+		t.Fatalf("CreateTemp() unexpected error: %v", err)
+	}
+	if _, err := inputFile.WriteString("nuke-all-acme\n"); err != nil {
+		t.Fatalf("WriteString() unexpected error: %v", err)
+	}
+	if _, err := inputFile.Seek(0, io.SeekStart); err != nil {
+		t.Fatalf("Seek() unexpected error: %v", err)
+	}
+	os.Stdin = inputFile
+
+	cmd, stdout, stderr := newTestCommand(context.Background())
+	if err := nukeCmd.RunE(cmd, nil); err != nil {
+		t.Fatalf(errUnexpectedRunE, err)
+	}
+	wantSteps := []string{
+		"Atlantis",
+		"project-template",
+		"github-oidc",
+		"platform-org build",
+		"platform-org purge",
+		"platform-org nuke",
+	}
+	if strings.Join(gotSteps, "|") != strings.Join(wantSteps, "|") {
+		t.Fatalf("steps = %v; want %v", gotSteps, wantSteps)
+	}
+	if bootstrapCalls != 1 {
+		t.Fatalf("bootstrapNukeFn called %d times; want 1", bootstrapCalls)
+	}
+	if !strings.Contains(stderr.String(), "Type \"nuke-all-acme\" to confirm:") {
+		t.Fatalf("stderr missing confirmation prompt in:\n%s", stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "[ok] all platform resources removed") {
+		t.Fatalf("stdout missing success status in:\n%s", stdout.String())
+	}
+}
+
+func TestNukeRunEAllPreflightFailsBeforeConfirmationAndBackup(t *testing.T) {
+	cfg := testConfig()
+	cfg.DryRun = false
+	presenter, err := platformui.New("plain")
+	if err != nil {
+		t.Fatalf(errUnexpectedUI, err)
+	}
+	setTestDeps(t, cfg, &platformaws.Clients{}, presenter)
+
+	oldNukeAll := nukeAll
+	oldNukeEnv := nukeEnv
+	oldRepoRootFn := nukeRepoRootFn
+	oldRunStepFn := nukeRunStepFn
+	oldBootstrapNukeFn := bootstrapNukeFn
+	oldPreflightFn := nukePreflightAllFn
+	oldInspect := inspectBootstrapStateStoresForNukeFn
+	oldBackup := backupBootstrapStateStoresForNukeFn
+	t.Cleanup(func() {
+		nukeAll = oldNukeAll
+		nukeEnv = oldNukeEnv
+		nukeRepoRootFn = oldRepoRootFn
+		nukeRunStepFn = oldRunStepFn
+		bootstrapNukeFn = oldBootstrapNukeFn
+		nukePreflightAllFn = oldPreflightFn
+		inspectBootstrapStateStoresForNukeFn = oldInspect
+		backupBootstrapStateStoresForNukeFn = oldBackup
+	})
+	nukeAll = true
+	nukeEnv = "prod"
+	nukeRepoRootFn = func() (string, error) {
+		return "/tmp/platform/ffreis-platform-bootstrap", nil
+	}
+	nukePreflightAllFn = func(string, string) error {
+		return errors.New("Atlantis preflight failed: envs/prod/backend.hcl is missing required backend keys: bucket, region")
+	}
+	nukeRunStepFn = func(context.Context, bootstrapNukeAllStep, io.Writer, io.Writer) error {
+		t.Fatal("runNukeAllStep should not be called when preflight fails")
+		return nil
+	}
+	bootstrapNukeFn = func(context.Context, *config.Config, *platformaws.Clients, io.Writer) error {
+		t.Fatal("bootstrapNukeFn should not be called when preflight fails")
+		return nil
+	}
+	inspectBootstrapStateStoresForNukeFn = func(context.Context, *config.Config, *platformaws.Clients) (bootstrapStateBackupPlan, error) {
+		return bootstrapStateBackupPlan{
+			StateBucket:        "acme-tf-state-root",
+			StateBucketObjects: 1,
+		}, nil
+	}
+	backupBootstrapStateStoresForNukeFn = func(context.Context, *config.Config, *platformaws.Clients, string, bootstrapStateBackupPlan) error {
+		t.Fatal("backup should not run when preflight fails")
+		return nil
+	}
+
+	cmd, _, _ := newTestCommand(context.Background())
+	err = nukeCmd.RunE(cmd, nil)
+	if err == nil {
+		t.Fatal("expected nuke --all preflight to fail")
+	}
+	if !strings.Contains(err.Error(), "Atlantis preflight failed") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
