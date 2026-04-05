@@ -7,6 +7,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 
 	platformui "github.com/ffreis/platform-bootstrap/internal/ui"
@@ -93,6 +94,10 @@ func stripANSI(s string) string {
 }
 
 func (o *commandOutput) Table(headers []string, rows [][]string) error {
+	if o.ui != nil && o.ui.Rich() {
+		return o.writeRichTable(headers, rows)
+	}
+
 	w := tabwriter.NewWriter(o.out, 0, 0, 2, ' ', 0)
 	stripped := make([]string, len(headers))
 	for i, h := range headers {
@@ -107,6 +112,52 @@ func (o *commandOutput) Table(headers []string, rows [][]string) error {
 		_, _ = io.WriteString(w, strings.Join(cells, "\t")+"\n")
 	}
 	return w.Flush()
+}
+
+func (o *commandOutput) writeRichTable(headers []string, rows [][]string) error {
+	styledHeaders := make([]string, len(headers))
+	copy(styledHeaders, headers)
+	for i, h := range styledHeaders {
+		styledHeaders[i] = o.ui.Key(h)
+	}
+
+	colWidths := make([]int, len(headers))
+	for i, h := range styledHeaders {
+		colWidths[i] = lipgloss.Width(h)
+	}
+	for _, row := range rows {
+		for i, cell := range row {
+			if i >= len(colWidths) {
+				break
+			}
+			if width := lipgloss.Width(cell); width > colWidths[i] {
+				colWidths[i] = width
+			}
+		}
+	}
+
+	writeRow := func(row []string) {
+		for i, cell := range row {
+			if i >= len(colWidths) {
+				break
+			}
+			if i > 0 {
+				_, _ = io.WriteString(o.out, "  ")
+			}
+			_, _ = io.WriteString(o.out, cell)
+			padding := colWidths[i] - lipgloss.Width(cell)
+			if padding > 0 {
+				_, _ = io.WriteString(o.out, strings.Repeat(" ", padding))
+			}
+		}
+		_, _ = io.WriteString(o.out, "\n")
+	}
+
+	writeRow(styledHeaders)
+	for _, row := range rows {
+		writeRow(row)
+	}
+	return nil
 }
 
 func (o *commandOutput) Write(data []byte) error {

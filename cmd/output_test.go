@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -77,6 +78,31 @@ func TestCommandOutputWithPresenter(t *testing.T) {
 		if !bytes.Contains([]byte(got), []byte(want)) {
 			t.Fatalf("output missing %q in:\n%s", want, got)
 		}
+	}
+}
+
+func TestTablePreservesANSIInRichMode(t *testing.T) {
+	t.Setenv("NO_COLOR", "")
+
+	presenter, err := platformui.New(platformui.ModeRich)
+	if err != nil {
+		t.Fatalf("ui.New() unexpected error: %v", err)
+	}
+
+	var stdout bytes.Buffer
+	out := &commandOutput{out: &stdout, err: &stdout, ui: presenter}
+	rows := [][]string{{"\x1b[32mok\x1b[0m", "DynamoDBTable", "registry"}}
+
+	if err := out.Table([]string{"STATUS", "TYPE", "NAME"}, rows); err != nil {
+		t.Fatalf("Table() unexpected error: %v", err)
+	}
+
+	got := stdout.String()
+	if !strings.Contains(got, "\x1b[") {
+		t.Fatalf("rich table output did not preserve ANSI sequences: %q", got)
+	}
+	if strings.Contains(got, "[ok]") {
+		t.Fatalf("rich table output fell back to plain rendering: %q", got)
 	}
 }
 
