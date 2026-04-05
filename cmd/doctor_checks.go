@@ -19,6 +19,8 @@ import (
 	"github.com/ffreis/platform-bootstrap/internal/bootstrap"
 )
 
+const platformAdminRoleName = "platform-admin"
+
 func formatErr(err error) string {
 	if err == nil {
 		return ""
@@ -275,9 +277,9 @@ func bootstrapResourceSection(ctx context.Context, requireExisting bool) bootstr
 			key:          "resource.platform-admin-role",
 			title:        "platform-admin role is readable",
 			resourceType: "IAMRole",
-			name:         "platform-admin",
+			name:         platformAdminRoleName,
 			exists: func() (bool, error) {
-				return deps.clients.RoleExistsChecked(ctx, "platform-admin")
+				return deps.clients.RoleExistsChecked(ctx, platformAdminRoleName)
 			},
 		},
 		{
@@ -383,24 +385,7 @@ func bootstrapRegistrySection(ctx context.Context, requireExisting bool) (bootst
 		_, registered := seen[key]
 		exists := deps.clients.ResourceExists(ctx, resource.ResourceType, resource.ResourceName)
 
-		status := "ok"
-		detail := "registry row and live resource match"
-		if !registered && exists {
-			status = "fail"
-			detail = "resource exists in AWS but is missing from the bootstrap registry"
-		} else if !registered && !exists {
-			if requireExisting {
-				status = "fail"
-				detail = "resource and registry row are both missing"
-			} else {
-				status = "info"
-				detail = "resource and registry row are not created yet"
-			}
-		} else if registered && !exists && requireExisting {
-			status = "fail"
-			detail = "registry row exists but the live resource is missing"
-		}
-
+		status, detail := registryResourceStatus(registered, exists, requireExisting)
 		checks = append(checks, bootstrapDoctorCheck{
 			Key:      "registry." + strings.ToLower(resource.ResourceType) + "." + resource.ResourceName,
 			Title:    fmt.Sprintf("%s registry contract", resource.ResourceName),
@@ -413,6 +398,23 @@ func bootstrapRegistrySection(ctx context.Context, requireExisting bool) (bootst
 	}
 
 	return bootstrapDoctorSection{Title: "Registry Integrity", Checks: checks}, nil
+}
+
+// registryResourceStatus determines the doctor check status and detail message for a single
+// expected resource by comparing whether it is registered in the registry and exists in AWS.
+func registryResourceStatus(registered, exists, requireExisting bool) (status, detail string) {
+	switch {
+	case !registered && exists:
+		return "fail", "resource exists in AWS but is missing from the bootstrap registry"
+	case !registered && !exists && requireExisting:
+		return "fail", "resource and registry row are both missing"
+	case !registered && !exists:
+		return "info", "resource and registry row are not created yet"
+	case registered && !exists && requireExisting:
+		return "fail", "registry row exists but the live resource is missing"
+	default:
+		return "ok", "registry row and live resource match"
+	}
 }
 
 func bootstrapContractSection(ctx context.Context, mode bootstrapDoctorMode) (bootstrapDoctorSection, error) {
@@ -467,9 +469,9 @@ func bootstrapTrustCheck(ctx context.Context, requireExisting bool) bootstrapDoc
 		Blocking: false,
 	}
 
-	out, err := deps.clients.IAM.GetRole(ctx, &iam.GetRoleInput{RoleName: aws.String("platform-admin")})
+	out, err := deps.clients.IAM.GetRole(ctx, &iam.GetRoleInput{RoleName: aws.String(platformAdminRoleName)})
 	if err != nil {
-		exists, existsErr := deps.clients.RoleExistsChecked(ctx, "platform-admin")
+		exists, existsErr := deps.clients.RoleExistsChecked(ctx, platformAdminRoleName)
 		if existsErr != nil {
 			check.Status = "fail"
 			check.Detail = formatErr(existsErr)

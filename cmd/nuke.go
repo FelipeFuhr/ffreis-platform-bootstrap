@@ -17,6 +17,8 @@ import (
 	"github.com/ffreis/platform-bootstrap/internal/bootstrap"
 )
 
+const errMissingBackendKeys = "%s is missing required backend keys: %s"
+
 var (
 	nukeAll            bool
 	nukeEnv            string
@@ -202,39 +204,8 @@ func runBootstrapNukeAll(ctx context.Context, cmd *cobra.Command, out *commandOu
 	}
 
 	if !deps.cfg.DryRun {
-		expected := "nuke-all-" + deps.cfg.OrgName
-		warningTarget := strconv.Quote(deps.cfg.OrgName) + "."
-		if deps.ui != nil {
-			out.ErrLine(deps.ui.Header("Platform Bootstrap Nuke", "org "+deps.cfg.OrgName+" env "+nukeEnv))
-			out.ErrLine(deps.ui.Badge("warn", "warn") + " This will permanently destroy ALL platform resources for org " + warningTarget)
-		} else {
-			out.ErrLine("WARNING: This will permanently destroy ALL platform resources for org " + warningTarget)
-		}
-		out.ErrLine("Steps to be executed:")
-		for i, step := range steps {
-			out.ErrLine("  " + strconv.Itoa(i+1) + ". " + step.label)
-		}
-		out.ErrLine("  " + strconv.Itoa(len(steps)+1) + ". bootstrap Layer 0")
-		out.ErrLine("Stateful stores will be backed up before deletion when data exists.")
-		out.ErrLine("Backup root:")
-		out.ErrLine("  - " + baseBackupDir)
-		if bootstrapBackupPlan.hasData() {
-			out.ErrLine("Bootstrap stateful data detected:")
-			for _, line := range bootstrapBackupPlan.summaryLines() {
-				out.ErrLine("  - " + line)
-			}
-		}
-		_, _ = io.WriteString(cmd.ErrOrStderr(), "\nType "+strconv.Quote(expected)+" to confirm: ")
-
-		scanner := bufio.NewScanner(os.Stdin)
-		scanner.Scan()
-		reply := strings.TrimSpace(scanner.Text())
-		if reply != expected {
-			if deps.ui != nil {
-				out.ErrStatus("muted", "skip", "operator confirmation did not match")
-			} else {
-				out.ErrLine("Cancelled.")
-			}
+		confirmed := confirmBootstrapNukeAll(cmd, out, steps, bootstrapBackupPlan, baseBackupDir)
+		if !confirmed {
 			return nil
 		}
 	}
@@ -278,6 +249,47 @@ func runBootstrapNukeAll(ctx context.Context, cmd *cobra.Command, out *commandOu
 		out.Status("ok", "ok", "all platform resources removed")
 	}
 	return nil
+}
+
+// confirmBootstrapNukeAll prints the destruction warning, lists steps, and reads operator
+// confirmation from stdin. Returns true if the operator confirmed, false if cancelled.
+func confirmBootstrapNukeAll(cmd *cobra.Command, out *commandOutput, steps []bootstrapNukeAllStep, plan bootstrapStateBackupPlan, baseBackupDir string) bool {
+	expected := "nuke-all-" + deps.cfg.OrgName
+	warningTarget := strconv.Quote(deps.cfg.OrgName) + "."
+	if deps.ui != nil {
+		out.ErrLine(deps.ui.Header("Platform Bootstrap Nuke", "org "+deps.cfg.OrgName+" env "+nukeEnv))
+		out.ErrLine(deps.ui.Badge("warn", "warn") + " This will permanently destroy ALL platform resources for org " + warningTarget)
+	} else {
+		out.ErrLine("WARNING: This will permanently destroy ALL platform resources for org " + warningTarget)
+	}
+	out.ErrLine("Steps to be executed:")
+	for i, step := range steps {
+		out.ErrLine("  " + strconv.Itoa(i+1) + ". " + step.label)
+	}
+	out.ErrLine("  " + strconv.Itoa(len(steps)+1) + ". bootstrap Layer 0")
+	out.ErrLine("Stateful stores will be backed up before deletion when data exists.")
+	out.ErrLine("Backup root:")
+	out.ErrLine("  - " + baseBackupDir)
+	if plan.hasData() {
+		out.ErrLine("Bootstrap stateful data detected:")
+		for _, line := range plan.summaryLines() {
+			out.ErrLine("  - " + line)
+		}
+	}
+	_, _ = io.WriteString(cmd.ErrOrStderr(), "\nType "+strconv.Quote(expected)+" to confirm: ")
+
+	scanner := bufio.NewScanner(os.Stdin)
+	scanner.Scan()
+	reply := strings.TrimSpace(scanner.Text())
+	if reply != expected {
+		if deps.ui != nil {
+			out.ErrStatus("muted", "skip", "operator confirmation did not match")
+		} else {
+			out.ErrLine("Cancelled.")
+		}
+		return false
+	}
+	return true
 }
 
 func runNukeAllStep(ctx context.Context, step bootstrapNukeAllStep, stdout, stderr io.Writer) error {
@@ -352,7 +364,7 @@ func preflightAtlantisNuke(platformRoot, env string) error {
 		return err
 	}
 	if missing := missingBackendKeys(backend, "bucket", "key", "region"); len(missing) > 0 {
-		return fmt.Errorf("%s is missing required backend keys: %s", backendPath, strings.Join(missing, ", "))
+		return fmt.Errorf(errMissingBackendKeys, backendPath, strings.Join(missing, ", "))
 	}
 	return nil
 }
@@ -374,7 +386,7 @@ func preflightProjectTemplateNuke(platformRoot, env string) error {
 		return fmt.Errorf("%s still contains placeholder {ACCOUNT_ID}", backendPath)
 	}
 	if missing := missingBackendKeys(backend, "bucket", "key", "region", "dynamodb_table"); len(missing) > 0 {
-		return fmt.Errorf("%s is missing required backend keys: %s", backendPath, strings.Join(missing, ", "))
+		return fmt.Errorf(errMissingBackendKeys, backendPath, strings.Join(missing, ", "))
 	}
 	if _, err := os.Stat(filepath.Join(repo, "envs", env, "fetched.auto.tfvars.json")); err != nil {
 		return fmt.Errorf("missing envs/%s/fetched.auto.tfvars.json; run fetch first", env)
@@ -399,7 +411,7 @@ func preflightGithubOIDCNuke(platformRoot, env string) error {
 		return err
 	}
 	if missing := missingBackendKeys(backend, "bucket", "key", "region", "dynamodb_table"); len(missing) > 0 {
-		return fmt.Errorf("%s is missing required backend keys: %s", backendPath, strings.Join(missing, ", "))
+		return fmt.Errorf(errMissingBackendKeys, backendPath, strings.Join(missing, ", "))
 	}
 	return nil
 }

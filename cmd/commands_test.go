@@ -28,13 +28,21 @@ import (
 )
 
 const (
-	testBootstrapRoleARN = "arn:aws:iam::123456789012:role/bootstrap"
-	errUnexpected        = "unexpected error: %v"
-	errUnexpectedText    = "unexpected error text: %v"
-	errUnexpectedUI      = "ui.New() unexpected error: %v"
-	errUnexpectedRunE    = "RunE() unexpected error: %v"
-	errOutputMissing     = "output missing %q in:\n%s"
-	flagBackendOut       = "backend-out"
+	testBootstrapRoleARN  = "arn:aws:iam::123456789012:role/bootstrap"
+	testBootstrapRepoRoot = "/tmp/platform/ffreis-platform-bootstrap"
+	testOrgStackName      = "platform-org"
+	errUnexpected         = "unexpected error: %v"
+	errUnexpectedText     = "unexpected error text: %v"
+	errUnexpectedUI       = "ui.New() unexpected error: %v"
+	errUnexpectedRunE     = "RunE() unexpected error: %v"
+	errOutputMissing      = "output missing %q in:\n%s"
+	errFlagsSet           = "Flags().Set() unexpected error: %v"
+	errCreateTemp         = "CreateTemp() unexpected error: %v"
+	errWriteString        = "WriteString() unexpected error: %v"
+	errSeek               = "Seek() unexpected error: %v"
+	errStdoutMissingOK    = "stdout missing success status in:\n%s"
+	errNukeCallCount      = "bootstrapNukeFn called %d times; want 1"
+	flagBackendOut        = "backend-out"
 )
 
 func TestInitPreRunERequiresRootEmail(t *testing.T) {
@@ -143,7 +151,7 @@ func TestAuditRunEJSONAndInconsistencies(t *testing.T) {
 		return BootstrapDoctorReport{Summary: bootstrapDoctorSummary{OK: 1, Total: 1}}, nil
 	}
 	if err := cmd.Flags().Set("json", "true"); err != nil {
-		t.Fatalf("Flags().Set() unexpected error: %v", err)
+		t.Fatalf(errFlagsSet, err)
 	}
 
 	jsonOut := captureStdout(t, func() {
@@ -189,7 +197,7 @@ func TestAuditRunEJSONClassifiesDiscoveredOwnedResources(t *testing.T) {
 				return &dynamodb.ListTagsOfResourceOutput{
 					Tags: []dbtypes.Tag{
 						{Key: &[]string{"ManagedBy"}[0], Value: &[]string{"terraform"}[0]},
-						{Key: &[]string{"Stack"}[0], Value: &[]string{"platform-org"}[0]},
+						{Key: &[]string{"Stack"}[0], Value: &[]string{testOrgStackName}[0]},
 					},
 				}, nil
 			},
@@ -208,7 +216,7 @@ func TestAuditRunEJSONClassifiesDiscoveredOwnedResources(t *testing.T) {
 				return &s3.GetBucketTaggingOutput{
 					TagSet: []s3types.Tag{
 						{Key: &[]string{"ManagedBy"}[0], Value: &[]string{"terraform"}[0]},
-						{Key: &[]string{"Stack"}[0], Value: &[]string{"platform-org"}[0]},
+						{Key: &[]string{"Stack"}[0], Value: &[]string{testOrgStackName}[0]},
 					},
 				}, nil
 			},
@@ -227,7 +235,7 @@ func TestAuditRunEJSONClassifiesDiscoveredOwnedResources(t *testing.T) {
 				return &sns.ListTagsForResourceOutput{
 					Tags: []snstypes.Tag{
 						{Key: &[]string{"ManagedBy"}[0], Value: &[]string{"terraform"}[0]},
-						{Key: &[]string{"Stack"}[0], Value: &[]string{"platform-org"}[0]},
+						{Key: &[]string{"Stack"}[0], Value: &[]string{testOrgStackName}[0]},
 					},
 				}, nil
 			},
@@ -245,7 +253,7 @@ func TestAuditRunEJSONClassifiesDiscoveredOwnedResources(t *testing.T) {
 				return &budgets.ListTagsForResourceOutput{
 					ResourceTags: []budgetstypes.ResourceTag{
 						{Key: &[]string{"ManagedBy"}[0], Value: &[]string{"terraform"}[0]},
-						{Key: &[]string{"Stack"}[0], Value: &[]string{"platform-org"}[0]},
+						{Key: &[]string{"Stack"}[0], Value: &[]string{testOrgStackName}[0]},
 					},
 				}, nil
 			},
@@ -266,7 +274,7 @@ func TestAuditRunEJSONClassifiesDiscoveredOwnedResources(t *testing.T) {
 		return BootstrapDoctorReport{Summary: bootstrapDoctorSummary{OK: 1, Total: 1}}, nil
 	}
 	if err := cmd.Flags().Set("json", "true"); err != nil {
-		t.Fatalf("Flags().Set() unexpected error: %v", err)
+		t.Fatalf(errFlagsSet, err)
 	}
 
 	var runErr error
@@ -290,7 +298,7 @@ func TestAuditRunEJSONClassifiesDiscoveredOwnedResources(t *testing.T) {
 	}
 	for _, resource := range report.Resources {
 		key := resource.ResourceType + "/" + resource.ResourceName
-		if _, ok := want[key]; ok && resource.Status == "owned" && resource.Owner == "platform-org" {
+		if _, ok := want[key]; ok && resource.Status == "owned" && resource.Owner == testOrgStackName {
 			want[key] = true
 		}
 	}
@@ -343,7 +351,7 @@ func TestPrintAuditReportAndStatusIcon(t *testing.T) {
 		Region:    cfg.Region,
 		Resources: []AuditResult{
 			{ResourceType: "S3Bucket", ResourceName: "bucket", Status: "ok", Expected: true, Owner: "bootstrap"},
-			{ResourceType: "SNSTopic", ResourceName: "manual-topic", Status: "owned", Owner: "platform-org"},
+			{ResourceType: "SNSTopic", ResourceName: "manual-topic", Status: "owned", Owner: testOrgStackName},
 		},
 		Summary: AuditSummary{Total: 2, OK: 1, Owned: 1},
 	})
@@ -483,13 +491,13 @@ func TestNukeRunECancelledByConfirmation(t *testing.T) {
 	t.Cleanup(func() { os.Stdin = oldStdin })
 	inputFile, err := os.CreateTemp(t.TempDir(), "stdin")
 	if err != nil {
-		t.Fatalf("CreateTemp() unexpected error: %v", err)
+		t.Fatalf(errCreateTemp, err)
 	}
 	if _, err := inputFile.WriteString("nope\n"); err != nil {
-		t.Fatalf("WriteString() unexpected error: %v", err)
+		t.Fatalf(errWriteString, err)
 	}
 	if _, err := inputFile.Seek(0, io.SeekStart); err != nil {
-		t.Fatalf("Seek() unexpected error: %v", err)
+		t.Fatalf(errSeek, err)
 	}
 	os.Stdin = inputFile
 
@@ -548,7 +556,7 @@ func TestNukeRunEDryRun(t *testing.T) {
 		t.Fatalf(errUnexpectedRunE, err)
 	}
 	if !strings.Contains(stdout.String(), "[ok] bootstrap resources removed") {
-		t.Fatalf("stdout missing success status in:\n%s", stdout.String())
+		t.Fatalf(errStdoutMissingOK, stdout.String())
 	}
 }
 
@@ -599,13 +607,13 @@ func TestNukeRunEBacksUpBootstrapStateBeforeDelete(t *testing.T) {
 	t.Cleanup(func() { os.Stdin = oldStdin })
 	inputFile, err := os.CreateTemp(t.TempDir(), "stdin")
 	if err != nil {
-		t.Fatalf("CreateTemp() unexpected error: %v", err)
+		t.Fatalf(errCreateTemp, err)
 	}
 	if _, err := inputFile.WriteString("backup-nuke-acme\n"); err != nil {
-		t.Fatalf("WriteString() unexpected error: %v", err)
+		t.Fatalf(errWriteString, err)
 	}
 	if _, err := inputFile.Seek(0, io.SeekStart); err != nil {
-		t.Fatalf("Seek() unexpected error: %v", err)
+		t.Fatalf(errSeek, err)
 	}
 	os.Stdin = inputFile
 
@@ -617,13 +625,13 @@ func TestNukeRunEBacksUpBootstrapStateBeforeDelete(t *testing.T) {
 		t.Fatal("expected backupBootstrapStateStoresForNukeFn to be called")
 	}
 	if bootstrapCalls != 1 {
-		t.Fatalf("bootstrapNukeFn called %d times; want 1", bootstrapCalls)
+		t.Fatalf(errNukeCallCount, bootstrapCalls)
 	}
 	if !strings.Contains(stderr.String(), `Type "backup-nuke-acme" to confirm:`) {
 		t.Fatalf("stderr missing backup confirmation in:\n%s", stderr.String())
 	}
 	if !strings.Contains(stdout.String(), "[ok] bootstrap resources removed") {
-		t.Fatalf("stdout missing success status in:\n%s", stdout.String())
+		t.Fatalf(errStdoutMissingOK, stdout.String())
 	}
 }
 
@@ -654,7 +662,7 @@ func TestNukeRunEAllCancelledByConfirmation(t *testing.T) {
 	nukeEnv = "prod"
 	nukePreflightAllFn = func(string, string) error { return nil }
 	nukeRepoRootFn = func() (string, error) {
-		return "/tmp/platform/ffreis-platform-bootstrap", nil
+		return testBootstrapRepoRoot, nil
 	}
 	nukeRunStepFn = func(context.Context, bootstrapNukeAllStep, io.Writer, io.Writer) error {
 		t.Fatal("runNukeAllStep should not be called when confirmation is rejected")
@@ -669,13 +677,13 @@ func TestNukeRunEAllCancelledByConfirmation(t *testing.T) {
 	t.Cleanup(func() { os.Stdin = oldStdin })
 	inputFile, err := os.CreateTemp(t.TempDir(), "stdin")
 	if err != nil {
-		t.Fatalf("CreateTemp() unexpected error: %v", err)
+		t.Fatalf(errCreateTemp, err)
 	}
 	if _, err := inputFile.WriteString("nope\n"); err != nil {
-		t.Fatalf("WriteString() unexpected error: %v", err)
+		t.Fatalf(errWriteString, err)
 	}
 	if _, err := inputFile.Seek(0, io.SeekStart); err != nil {
-		t.Fatalf("Seek() unexpected error: %v", err)
+		t.Fatalf(errSeek, err)
 	}
 	os.Stdin = inputFile
 
@@ -719,7 +727,7 @@ func TestNukeRunEAllDryRun(t *testing.T) {
 	nukeEnv = "prod"
 	nukePreflightAllFn = func(string, string) error { return nil }
 	nukeRepoRootFn = func() (string, error) {
-		return "/tmp/platform/ffreis-platform-bootstrap", nil
+		return testBootstrapRepoRoot, nil
 	}
 	nukeRunStepFn = func(context.Context, bootstrapNukeAllStep, io.Writer, io.Writer) error {
 		t.Fatal("runNukeAllStep should not be called during dry-run")
@@ -736,7 +744,7 @@ func TestNukeRunEAllDryRun(t *testing.T) {
 		t.Fatalf(errUnexpectedRunE, err)
 	}
 	if bootstrapCalls != 1 {
-		t.Fatalf("bootstrapNukeFn called %d times; want 1", bootstrapCalls)
+		t.Fatalf(errNukeCallCount, bootstrapCalls)
 	}
 	got := stdout.String()
 	for _, want := range []string{
@@ -781,7 +789,7 @@ func TestNukeRunEAllSuccess(t *testing.T) {
 	nukeEnv = "prod"
 	nukePreflightAllFn = func(string, string) error { return nil }
 	nukeRepoRootFn = func() (string, error) {
-		return "/tmp/platform/ffreis-platform-bootstrap", nil
+		return testBootstrapRepoRoot, nil
 	}
 	var gotSteps []string
 	nukeRunStepFn = func(_ context.Context, step bootstrapNukeAllStep, _, _ io.Writer) error {
@@ -798,13 +806,13 @@ func TestNukeRunEAllSuccess(t *testing.T) {
 	t.Cleanup(func() { os.Stdin = oldStdin })
 	inputFile, err := os.CreateTemp(t.TempDir(), "stdin")
 	if err != nil {
-		t.Fatalf("CreateTemp() unexpected error: %v", err)
+		t.Fatalf(errCreateTemp, err)
 	}
 	if _, err := inputFile.WriteString("nuke-all-acme\n"); err != nil {
-		t.Fatalf("WriteString() unexpected error: %v", err)
+		t.Fatalf(errWriteString, err)
 	}
 	if _, err := inputFile.Seek(0, io.SeekStart); err != nil {
-		t.Fatalf("Seek() unexpected error: %v", err)
+		t.Fatalf(errSeek, err)
 	}
 	os.Stdin = inputFile
 
@@ -824,13 +832,13 @@ func TestNukeRunEAllSuccess(t *testing.T) {
 		t.Fatalf("steps = %v; want %v", gotSteps, wantSteps)
 	}
 	if bootstrapCalls != 1 {
-		t.Fatalf("bootstrapNukeFn called %d times; want 1", bootstrapCalls)
+		t.Fatalf(errNukeCallCount, bootstrapCalls)
 	}
 	if !strings.Contains(stderr.String(), "Type \"nuke-all-acme\" to confirm:") {
 		t.Fatalf("stderr missing confirmation prompt in:\n%s", stderr.String())
 	}
 	if !strings.Contains(stdout.String(), "[ok] all platform resources removed") {
-		t.Fatalf("stdout missing success status in:\n%s", stdout.String())
+		t.Fatalf(errStdoutMissingOK, stdout.String())
 	}
 }
 
@@ -864,7 +872,7 @@ func TestNukeRunEAllPreflightFailsBeforeConfirmationAndBackup(t *testing.T) {
 	nukeAll = true
 	nukeEnv = "prod"
 	nukeRepoRootFn = func() (string, error) {
-		return "/tmp/platform/ffreis-platform-bootstrap", nil
+		return testBootstrapRepoRoot, nil
 	}
 	nukePreflightAllFn = func(string, string) error {
 		return errors.New("Atlantis preflight failed: envs/prod/backend.hcl is missing required backend keys: bucket, region")
@@ -945,7 +953,7 @@ func TestFetchRunESuccess(t *testing.T) {
 	cmd.Flags().String(flagBackendOut, "", "")
 	backendPath := filepath.Join(t.TempDir(), "stack", "backend.local.hcl")
 	if err := cmd.Flags().Set(flagBackendOut, backendPath); err != nil {
-		t.Fatalf("Flags().Set() unexpected error: %v", err)
+		t.Fatalf(errFlagsSet, err)
 	}
 
 	stdout := captureStdout(t, func() {

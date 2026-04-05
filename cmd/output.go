@@ -121,8 +121,20 @@ func (o *commandOutput) writeRichTable(headers []string, rows [][]string) error 
 		styledHeaders[i] = o.ui.Key(h)
 	}
 
+	colWidths := computeColumnWidths(styledHeaders, rows)
+
+	o.writeTableRow(styledHeaders, colWidths)
+	for _, row := range rows {
+		o.writeTableRow(row, colWidths)
+	}
+	return nil
+}
+
+// computeColumnWidths returns the maximum visible width of each column across
+// the header row and all data rows, using lipgloss for ANSI-aware measurement.
+func computeColumnWidths(headers []string, rows [][]string) []int {
 	colWidths := make([]int, len(headers))
-	for i, h := range styledHeaders {
+	for i, h := range headers {
 		colWidths[i] = lipgloss.Width(h)
 	}
 	for _, row := range rows {
@@ -135,29 +147,24 @@ func (o *commandOutput) writeRichTable(headers []string, rows [][]string) error 
 			}
 		}
 	}
+	return colWidths
+}
 
-	writeRow := func(row []string) {
-		for i, cell := range row {
-			if i >= len(colWidths) {
-				break
-			}
-			if i > 0 {
-				_, _ = io.WriteString(o.out, "  ")
-			}
-			_, _ = io.WriteString(o.out, cell)
-			padding := colWidths[i] - lipgloss.Width(cell)
-			if padding > 0 {
-				_, _ = io.WriteString(o.out, strings.Repeat(" ", padding))
-			}
+// writeTableRow writes a single padded row to the output writer.
+func (o *commandOutput) writeTableRow(row []string, colWidths []int) {
+	for i, cell := range row {
+		if i >= len(colWidths) {
+			break
 		}
-		_, _ = io.WriteString(o.out, "\n")
+		if i > 0 {
+			_, _ = io.WriteString(o.out, "  ")
+		}
+		_, _ = io.WriteString(o.out, cell)
+		if padding := colWidths[i] - lipgloss.Width(cell); padding > 0 {
+			_, _ = io.WriteString(o.out, strings.Repeat(" ", padding))
+		}
 	}
-
-	writeRow(styledHeaders)
-	for _, row := range rows {
-		writeRow(row)
-	}
-	return nil
+	_, _ = io.WriteString(o.out, "\n")
 }
 
 func (o *commandOutput) Write(data []byte) error {

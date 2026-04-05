@@ -373,12 +373,31 @@ type discoveredBootstrapResource struct {
 }
 
 func discoverBootstrapLikeResources(ctx context.Context) ([]discoveredBootstrapResource, error) {
-	var resources []discoveredBootstrapResource
+	s3Resources, err := discoverBootstrapS3Buckets(ctx)
+	if err != nil {
+		return nil, err
+	}
+	dynamoResources, err := discoverBootstrapDynamoTables(ctx)
+	if err != nil {
+		return nil, err
+	}
+	snsResources, err := discoverBootstrapSNSTopics(ctx)
+	if err != nil {
+		return nil, err
+	}
+	budgetResources, err := discoverBootstrapBudgets(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return append(append(append(s3Resources, dynamoResources...), snsResources...), budgetResources...), nil
+}
 
+func discoverBootstrapS3Buckets(ctx context.Context) ([]discoveredBootstrapResource, error) {
 	bucketsOut, err := deps.clients.S3.ListBuckets(ctx, &s3.ListBucketsInput{})
 	if err != nil {
 		return nil, fmt.Errorf("listing S3 buckets: %w", err)
 	}
+	var resources []discoveredBootstrapResource
 	for _, bucket := range bucketsOut.Buckets {
 		name := strings.TrimSpace(stringValue(bucket.Name))
 		if matchesBootstrapManagedName("S3Bucket", name) {
@@ -389,7 +408,11 @@ func discoverBootstrapLikeResources(ctx context.Context) ([]discoveredBootstrapR
 			})
 		}
 	}
+	return resources, nil
+}
 
+func discoverBootstrapDynamoTables(ctx context.Context) ([]discoveredBootstrapResource, error) {
+	var resources []discoveredBootstrapResource
 	var tableStart *string
 	for {
 		tablesOut, err := deps.clients.DynamoDB.ListTables(ctx, &dynamodb.ListTablesInput{ExclusiveStartTableName: tableStart})
@@ -410,10 +433,14 @@ func discoverBootstrapLikeResources(ctx context.Context) ([]discoveredBootstrapR
 		}
 		tableStart = tablesOut.LastEvaluatedTableName
 	}
+	return resources, nil
+}
 
-	var nextTopicToken *string
+func discoverBootstrapSNSTopics(ctx context.Context) ([]discoveredBootstrapResource, error) {
+	var resources []discoveredBootstrapResource
+	var nextToken *string
 	for {
-		topicsOut, err := deps.clients.SNS.ListTopics(ctx, &sns.ListTopicsInput{NextToken: nextTopicToken})
+		topicsOut, err := deps.clients.SNS.ListTopics(ctx, &sns.ListTopicsInput{NextToken: nextToken})
 		if err != nil {
 			return nil, fmt.Errorf("listing SNS topics: %w", err)
 		}
@@ -431,14 +458,18 @@ func discoverBootstrapLikeResources(ctx context.Context) ([]discoveredBootstrapR
 		if topicsOut.NextToken == nil || *topicsOut.NextToken == "" {
 			break
 		}
-		nextTopicToken = topicsOut.NextToken
+		nextToken = topicsOut.NextToken
 	}
+	return resources, nil
+}
 
-	var nextBudgetToken *string
+func discoverBootstrapBudgets(ctx context.Context) ([]discoveredBootstrapResource, error) {
+	var resources []discoveredBootstrapResource
+	var nextToken *string
 	for {
 		budgetsOut, err := deps.clients.Budgets.DescribeBudgets(ctx, &budgets.DescribeBudgetsInput{
 			AccountId:  &deps.clients.AccountID,
-			NextToken:  nextBudgetToken,
+			NextToken:  nextToken,
 			MaxResults: nil,
 		})
 		if err != nil {
@@ -457,9 +488,8 @@ func discoverBootstrapLikeResources(ctx context.Context) ([]discoveredBootstrapR
 		if budgetsOut.NextToken == nil || *budgetsOut.NextToken == "" {
 			break
 		}
-		nextBudgetToken = budgetsOut.NextToken
+		nextToken = budgetsOut.NextToken
 	}
-
 	return resources, nil
 }
 

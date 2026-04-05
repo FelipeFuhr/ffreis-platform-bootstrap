@@ -173,32 +173,49 @@ func backupBootstrapStateStoresForNuke(ctx context.Context, cfg *config.Config, 
 		"registry_table_items": plan.RegistryTableItems,
 	}
 
-	if s3Client, ok := clients.S3.(bootstrapNukeBackupS3API); ok && (plan.StateBucketObjects > 0 || plan.DeleteMarkers > 0) {
-		meta, err := backupBootstrapBucket(ctx, s3Client, plan.StateBucket, filepath.Join(dir, "s3", plan.StateBucket))
-		if err != nil {
-			return err
-		}
-		manifest["s3_objects"] = meta
+	if err := backupS3IfNeeded(ctx, clients, plan, dir, manifest); err != nil {
+		return err
 	}
-
-	if dynamoClient, ok := clients.DynamoDB.(bootstrapNukeBackupDynamoAPI); ok {
-		if plan.LockTableItems > 0 {
-			path := filepath.Join(dir, "dynamodb", plan.LockTable+".json")
-			if err := backupBootstrapTable(ctx, dynamoClient, plan.LockTable, path); err != nil {
-				return err
-			}
-			manifest["lock_table_backup"] = path
-		}
-		if plan.RegistryTableItems > 0 {
-			path := filepath.Join(dir, "dynamodb", plan.RegistryTable+".json")
-			if err := backupBootstrapTable(ctx, dynamoClient, plan.RegistryTable, path); err != nil {
-				return err
-			}
-			manifest["registry_table_backup"] = path
-		}
+	if err := backupDynamoIfNeeded(ctx, clients, plan, dir, manifest); err != nil {
+		return err
 	}
 
 	return writeBootstrapJSON(filepath.Join(dir, "manifest.json"), manifest)
+}
+
+func backupS3IfNeeded(ctx context.Context, clients *platformaws.Clients, plan bootstrapStateBackupPlan, dir string, manifest map[string]any) error {
+	s3Client, ok := clients.S3.(bootstrapNukeBackupS3API)
+	if !ok || (plan.StateBucketObjects == 0 && plan.DeleteMarkers == 0) {
+		return nil
+	}
+	meta, err := backupBootstrapBucket(ctx, s3Client, plan.StateBucket, filepath.Join(dir, "s3", plan.StateBucket))
+	if err != nil {
+		return err
+	}
+	manifest["s3_objects"] = meta
+	return nil
+}
+
+func backupDynamoIfNeeded(ctx context.Context, clients *platformaws.Clients, plan bootstrapStateBackupPlan, dir string, manifest map[string]any) error {
+	dynamoClient, ok := clients.DynamoDB.(bootstrapNukeBackupDynamoAPI)
+	if !ok {
+		return nil
+	}
+	if plan.LockTableItems > 0 {
+		path := filepath.Join(dir, "dynamodb", plan.LockTable+".json")
+		if err := backupBootstrapTable(ctx, dynamoClient, plan.LockTable, path); err != nil {
+			return err
+		}
+		manifest["lock_table_backup"] = path
+	}
+	if plan.RegistryTableItems > 0 {
+		path := filepath.Join(dir, "dynamodb", plan.RegistryTable+".json")
+		if err := backupBootstrapTable(ctx, dynamoClient, plan.RegistryTable, path); err != nil {
+			return err
+		}
+		manifest["registry_table_backup"] = path
+	}
+	return nil
 }
 
 func backupBootstrapBucket(ctx context.Context, client bootstrapNukeBackupS3API, bucket, dir string) ([]map[string]any, error) {

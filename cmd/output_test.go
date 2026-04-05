@@ -127,3 +127,35 @@ func TestOutputHelpers(t *testing.T) {
 		t.Fatalf("auditSummary() = %q", got)
 	}
 }
+
+func TestComputeColumnWidths(t *testing.T) {
+	headers := []string{"NAME", "STATUS"}
+	rows := [][]string{
+		{"alice", "ok"},
+		{"very-long-name", "missing"},
+	}
+	widths := computeColumnWidths(headers, rows)
+	if len(widths) != 2 {
+		t.Fatalf("expected 2 widths, got %d", len(widths))
+	}
+	// "very-long-name" (14) > "NAME" (4)
+	if widths[0] != 14 {
+		t.Errorf("col[0] width = %d, want 14", widths[0])
+	}
+	// "missing" (7) > "STATUS" (6)
+	if widths[1] != 7 {
+		t.Errorf("col[1] width = %d, want 7", widths[1])
+	}
+}
+
+func TestComputeColumnWidths_ExtraColumnsIgnored(t *testing.T) {
+	headers := []string{"A"}
+	rows := [][]string{{"x", "extra-col-ignored"}}
+	widths := computeColumnWidths(headers, rows)
+	if len(widths) != 1 {
+		t.Fatalf("expected 1 width, got %d", len(widths))
+	}
+	if widths[0] != 1 {
+		t.Errorf("col[0] width = %d, want 1", widths[0])
+	}
+}
