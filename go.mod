@@ -17,7 +17,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.34.0
 	github.com/charmbracelet/lipgloss v1.0.0
 	github.com/spf13/cobra v1.10.2
-	github.com/spf13/pflag v1.0.9
+	github.com/spf13/pflag v1.0.10
 )
 
 require (
