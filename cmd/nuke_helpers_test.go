@@ -9,6 +9,16 @@ import (
 	"testing"
 )
 
+const (
+	errUnexpectedNukeHelpers = "unexpected error: %v"
+	errMkdirAllUnexpected    = "MkdirAll() unexpected error: %v"
+	backendHCLFileName       = "backend.hcl"
+	projectTemplateRepoName  = "ffreis-platform-project-template"
+	fetchedTFVarsFileName    = "fetched.auto.tfvars.json"
+	githubOIDCRepoName       = "ffreis-platform-github-oidc"
+	platformOrgRepoName      = "ffreis-platform-org"
+)
+
 func TestRunNukeAllStepBranches(t *testing.T) {
 	t.Run("empty command", func(t *testing.T) {
 		err := runNukeAllStep(context.Background(), bootstrapNukeAllStep{label: "empty"}, os.Stdout, os.Stderr)
@@ -24,7 +34,7 @@ func TestRunNukeAllStepBranches(t *testing.T) {
 			command: []string{"sh", "-c", "exit 0"},
 		}
 		if err := runNukeAllStep(context.Background(), step, os.Stdout, os.Stderr); err != nil {
-			t.Fatalf("unexpected error: %v", err)
+			t.Fatalf(errUnexpectedNukeHelpers, err)
 		}
 	})
 
@@ -48,7 +58,7 @@ func TestBootstrapRepoRootFindsGitDirectory(t *testing.T) {
 	}
 	nested := filepath.Join(root, "a", "b", "c")
 	if err := os.MkdirAll(nested, 0o755); err != nil {
-		t.Fatalf("MkdirAll() unexpected error: %v", err)
+		t.Fatalf(errMkdirAllUnexpected, err)
 	}
 
 	oldWD, err := os.Getwd()
@@ -62,7 +72,7 @@ func TestBootstrapRepoRootFindsGitDirectory(t *testing.T) {
 
 	got, err := bootstrapRepoRoot()
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpectedNukeHelpers, err)
 	}
 	if got != root {
 		t.Fatalf("bootstrapRepoRoot() = %q, want %q", got, root)
@@ -89,33 +99,33 @@ func TestPreflightBootstrapNukeAllSuccess(t *testing.T) {
 	platformRoot := t.TempDir()
 	repoRoot := filepath.Join(platformRoot, "ffreis-platform-bootstrap")
 	if err := os.MkdirAll(repoRoot, 0o755); err != nil {
-		t.Fatalf("MkdirAll() unexpected error: %v", err)
+		t.Fatalf(errMkdirAllUnexpected, err)
 	}
 	writeNukeFixture(t, filepath.Join(platformRoot, "ffreis-platform-atlantis", "stack"), "")
-	writeNukeFixture(t, filepath.Join(platformRoot, "ffreis-platform-atlantis", "envs", "prod", "backend.hcl"), "bucket = \"b\"\nkey = \"k\"\nregion = \"r\"\n")
+	writeNukeFixture(t, filepath.Join(platformRoot, "ffreis-platform-atlantis", "envs", "prod", backendHCLFileName), "bucket = \"b\"\nkey = \"k\"\nregion = \"r\"\n")
 
-	writeNukeFixture(t, filepath.Join(platformRoot, "ffreis-platform-project-template", "stack"), "")
-	writeNukeFixture(t, filepath.Join(platformRoot, "ffreis-platform-project-template", "envs", "prod", "backend.hcl"), "bucket = \"b\"\nkey = \"k\"\nregion = \"r\"\ndynamodb_table = \"locks\"\n")
-	writeNukeFixture(t, filepath.Join(platformRoot, "ffreis-platform-project-template", "envs", "prod", "fetched.auto.tfvars.json"), "{}\n")
+	writeNukeFixture(t, filepath.Join(platformRoot, projectTemplateRepoName, "stack"), "")
+	writeNukeFixture(t, filepath.Join(platformRoot, projectTemplateRepoName, "envs", "prod", backendHCLFileName), "bucket = \"b\"\nkey = \"k\"\nregion = \"r\"\ndynamodb_table = \"locks\"\n")
+	writeNukeFixture(t, filepath.Join(platformRoot, projectTemplateRepoName, "envs", "prod", fetchedTFVarsFileName), "{}\n")
 
-	writeNukeFixture(t, filepath.Join(platformRoot, "ffreis-platform-github-oidc", "stack"), "")
-	writeNukeFixture(t, filepath.Join(platformRoot, "ffreis-platform-github-oidc", "envs", "prod", "config.local.yaml"), "role: platform-admin\n")
-	writeNukeFixture(t, filepath.Join(platformRoot, "ffreis-platform-github-oidc", "envs", "prod", "backend.local.hcl"), "bucket = \"b\"\nkey = \"k\"\nregion = \"r\"\ndynamodb_table = \"locks\"\n")
+	writeNukeFixture(t, filepath.Join(platformRoot, githubOIDCRepoName, "stack"), "")
+	writeNukeFixture(t, filepath.Join(platformRoot, githubOIDCRepoName, "envs", "prod", "config.local.yaml"), "role: platform-admin\n")
+	writeNukeFixture(t, filepath.Join(platformRoot, githubOIDCRepoName, "envs", "prod", "backend.local.hcl"), "bucket = \"b\"\nkey = \"k\"\nregion = \"r\"\ndynamodb_table = \"locks\"\n")
 
-	writeNukeFixture(t, filepath.Join(platformRoot, "ffreis-platform-org", "terraform", "stack"), "")
-	writeNukeFixture(t, filepath.Join(platformRoot, "ffreis-platform-org", "terraform", "envs", "prod", "terraform.tfvars"), "org = \"acme\"\n")
-	writeNukeFixture(t, filepath.Join(platformRoot, "ffreis-platform-org", "terraform", "envs", "prod", "fetched.auto.tfvars.json"), "{}\n")
+	writeNukeFixture(t, filepath.Join(platformRoot, platformOrgRepoName, "terraform", "stack"), "")
+	writeNukeFixture(t, filepath.Join(platformRoot, platformOrgRepoName, "terraform", "envs", "prod", "terraform.tfvars"), "org = \"acme\"\n")
+	writeNukeFixture(t, filepath.Join(platformRoot, platformOrgRepoName, "terraform", "envs", "prod", fetchedTFVarsFileName), "{}\n")
 
 	if err := preflightBootstrapNukeAll(repoRoot, "prod"); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpectedNukeHelpers, err)
 	}
 }
 
 func TestPreflightProjectTemplateNukeRejectsPlaceholder(t *testing.T) {
 	platformRoot := t.TempDir()
-	writeNukeFixture(t, filepath.Join(platformRoot, "ffreis-platform-project-template", "stack"), "")
-	writeNukeFixture(t, filepath.Join(platformRoot, "ffreis-platform-project-template", "envs", "prod", "backend.hcl"), "bucket = \"b\"\nkey = \"{ACCOUNT_ID}\"\nregion = \"r\"\ndynamodb_table = \"locks\"\n")
-	writeNukeFixture(t, filepath.Join(platformRoot, "ffreis-platform-project-template", "envs", "prod", "fetched.auto.tfvars.json"), "{}\n")
+	writeNukeFixture(t, filepath.Join(platformRoot, projectTemplateRepoName, "stack"), "")
+	writeNukeFixture(t, filepath.Join(platformRoot, projectTemplateRepoName, "envs", "prod", backendHCLFileName), "bucket = \"b\"\nkey = \"{ACCOUNT_ID}\"\nregion = \"r\"\ndynamodb_table = \"locks\"\n")
+	writeNukeFixture(t, filepath.Join(platformRoot, projectTemplateRepoName, "envs", "prod", fetchedTFVarsFileName), "{}\n")
 
 	err := preflightProjectTemplateNuke(platformRoot, "prod")
 	if err == nil || !strings.Contains(err.Error(), "still contains placeholder") {
@@ -126,9 +136,9 @@ func TestPreflightProjectTemplateNukeRejectsPlaceholder(t *testing.T) {
 func TestRequireDirFileAndBackendKeysHelpers(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "config")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
-		t.Fatalf("MkdirAll() unexpected error: %v", err)
+		t.Fatalf(errMkdirAllUnexpected, err)
 	}
-	filePath := filepath.Join(dir, "backend.hcl")
+	filePath := filepath.Join(dir, backendHCLFileName)
 	content := "# comment\nbucket = \"bucket\"\nkey=\"state\"\n\n"
 	if err := os.WriteFile(filePath, []byte(content), 0o600); err != nil {
 		t.Fatalf("WriteFile() unexpected error: %v", err)
@@ -162,12 +172,12 @@ func writeNukeFixture(t *testing.T, path, content string) {
 	t.Helper()
 	if filepath.Ext(path) == "" {
 		if err := os.MkdirAll(path, 0o755); err != nil {
-			t.Fatalf("MkdirAll() unexpected error: %v", err)
+			t.Fatalf(errMkdirAllUnexpected, err)
 		}
 		return
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		t.Fatalf("MkdirAll() unexpected error: %v", err)
+		t.Fatalf(errMkdirAllUnexpected, err)
 	}
 	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		t.Fatalf("WriteFile() unexpected error: %v", err)

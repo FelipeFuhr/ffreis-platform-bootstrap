@@ -21,6 +21,12 @@ import (
 	"github.com/ffreis/platform-bootstrap/internal/config"
 )
 
+const (
+	errUnexpectedNukeBackup = "unexpected error: %v"
+	errWriteFileUnexpected  = "WriteFile() unexpected error: %v"
+	testBucketName          = "test-bucket"
+)
+
 // --- inspect helpers ---
 
 type nukeBackupS3Mock struct {
@@ -170,7 +176,7 @@ func TestInspectBootstrapStateStores_NilClients(t *testing.T) {
 	cfg := testNukeBackupConfig()
 	plan, err := inspectBootstrapStateStoresForNuke(context.Background(), cfg, nil)
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpectedNukeBackup, err)
 	}
 	if plan.hasData() {
 		t.Error("nil clients should produce empty plan")
@@ -187,7 +193,7 @@ func TestInspectBootstrapBucket_NotFound(t *testing.T) {
 	clients := &platformaws.Clients{S3: s3mock, DynamoDB: &nukeBackupDynamoMock{}}
 	plan, err := inspectBootstrapStateStoresForNuke(context.Background(), cfg, clients)
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpectedNukeBackup, err)
 	}
 	if plan.StateBucketObjects != 0 {
 		t.Errorf("expected 0 objects for missing bucket, got %d", plan.StateBucketObjects)
@@ -212,7 +218,7 @@ func TestInspectBootstrapBucket_CountsVersionsAndMarkers(t *testing.T) {
 	clients := &platformaws.Clients{S3: s3mock, DynamoDB: &nukeBackupDynamoMock{}}
 	plan, err := inspectBootstrapStateStoresForNuke(context.Background(), cfg, clients)
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpectedNukeBackup, err)
 	}
 	if plan.StateBucketObjects != 1 {
 		t.Errorf("expected 1 version, got %d", plan.StateBucketObjects)
@@ -267,7 +273,7 @@ func TestInspectBootstrapBucket_Paginates(t *testing.T) {
 
 	plan, err := inspectBootstrapStateStoresForNuke(context.Background(), cfg, clients)
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpectedNukeBackup, err)
 	}
 	if plan.StateBucketObjects != 1 || plan.DeleteMarkers != 1 || page != 2 {
 		t.Fatalf("unexpected paginated plan: %+v (pages=%d)", plan, page)
@@ -288,7 +294,7 @@ func TestInspectBootstrapTable_NotFound(t *testing.T) {
 	}, DynamoDB: dynmock}
 	plan, err := inspectBootstrapStateStoresForNuke(context.Background(), cfg, clients)
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpectedNukeBackup, err)
 	}
 	if plan.LockTableItems != 0 || plan.RegistryTableItems != 0 {
 		t.Error("missing table should produce 0 items")
@@ -312,7 +318,7 @@ func TestInspectBootstrapTable_CountsItems(t *testing.T) {
 	}, DynamoDB: dynmock}
 	plan, err := inspectBootstrapStateStoresForNuke(context.Background(), cfg, clients)
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpectedNukeBackup, err)
 	}
 	if plan.LockTableItems != 4 {
 		t.Errorf("expected 4 lock items, got %d", plan.LockTableItems)
@@ -345,7 +351,7 @@ func TestInspectBootstrapTable_Paginates(t *testing.T) {
 		}
 	})
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpectedNukeBackup, err)
 	}
 }
 
@@ -378,7 +384,7 @@ func TestBackupBootstrapStateStores_WritesManifest(t *testing.T) {
 	}
 
 	if err := backupBootstrapStateStoresForNuke(context.Background(), cfg, clients, dir, plan); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpectedNukeBackup, err)
 	}
 
 	manifestPath := filepath.Join(dir, "manifest.json")
@@ -400,7 +406,7 @@ func TestBackupBootstrapStateStores_MkdirError(t *testing.T) {
 	root := t.TempDir()
 	blockingPath := filepath.Join(root, "file")
 	if err := os.WriteFile(blockingPath, []byte("x"), 0o600); err != nil {
-		t.Fatalf("WriteFile() unexpected error: %v", err)
+		t.Fatalf(errWriteFileUnexpected, err)
 	}
 
 	err := backupBootstrapStateStoresForNuke(context.Background(), cfg, &platformaws.Clients{}, filepath.Join(blockingPath, "child"), bootstrapStateBackupPlan{})
@@ -427,9 +433,9 @@ func TestBackupBootstrapBucket_DownloadsVersions(t *testing.T) {
 		},
 	}
 
-	meta, err := backupBootstrapBucket(context.Background(), s3mock, "test-bucket", dir)
+	meta, err := backupBootstrapBucket(context.Background(), s3mock, testBucketName, dir)
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpectedNukeBackup, err)
 	}
 	if len(meta) != 1 {
 		t.Fatalf("expected 1 metadata entry, got %d", len(meta))
@@ -460,9 +466,9 @@ func TestBackupBootstrapBucket_TrackDeleteMarkers(t *testing.T) {
 		},
 	}
 
-	meta, err := backupBootstrapBucket(context.Background(), s3mock, "test-bucket", dir)
+	meta, err := backupBootstrapBucket(context.Background(), s3mock, testBucketName, dir)
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpectedNukeBackup, err)
 	}
 	if len(meta) != 1 {
 		t.Fatalf("expected 1 metadata entry for delete marker, got %d", len(meta))
@@ -476,10 +482,10 @@ func TestBackupBootstrapBucket_MkdirError(t *testing.T) {
 	root := t.TempDir()
 	blocking := filepath.Join(root, "file")
 	if err := os.WriteFile(blocking, []byte("x"), 0o600); err != nil {
-		t.Fatalf("WriteFile() unexpected error: %v", err)
+		t.Fatalf(errWriteFileUnexpected, err)
 	}
 
-	_, err := backupBootstrapBucket(context.Background(), &nukeBackupS3Mock{}, "test-bucket", filepath.Join(blocking, "child"))
+	_, err := backupBootstrapBucket(context.Background(), &nukeBackupS3Mock{}, testBucketName, filepath.Join(blocking, "child"))
 	if err == nil {
 		t.Fatal("expected mkdir error")
 	}
@@ -501,7 +507,7 @@ func TestBackupBootstrapTable_WritesJSON(t *testing.T) {
 	}
 
 	if err := backupBootstrapTable(context.Background(), dynmock, "my-table", target); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpectedNukeBackup, err)
 	}
 
 	data, err := os.ReadFile(target)
@@ -537,7 +543,7 @@ func TestBackupBootstrapTable_MkdirError(t *testing.T) {
 	root := t.TempDir()
 	blocking := filepath.Join(root, "file")
 	if err := os.WriteFile(blocking, []byte("x"), 0o600); err != nil {
-		t.Fatalf("WriteFile() unexpected error: %v", err)
+		t.Fatalf(errWriteFileUnexpected, err)
 	}
 
 	err := backupBootstrapTable(context.Background(), &nukeBackupDynamoMock{}, "table", filepath.Join(blocking, "child", "table.json"))
@@ -562,7 +568,7 @@ func TestWriteBootstrapJSON_CreatesFileWithCorrectPermissions(t *testing.T) {
 	path := filepath.Join(dir, "out.json")
 
 	if err := writeBootstrapJSON(path, map[string]string{"foo": "bar"}); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpectedNukeBackup, err)
 	}
 
 	info, err := os.Stat(path)
@@ -611,7 +617,7 @@ func TestBackupS3IfNeeded_SkipsWhenNoData(t *testing.T) {
 	clients := &platformaws.Clients{S3: &nukeBackupS3Mock{}}
 	plan := bootstrapStateBackupPlan{StateBucket: "b", StateBucketObjects: 0, DeleteMarkers: 0}
 	if err := backupS3IfNeeded(context.Background(), clients, plan, dir, manifest); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpectedNukeBackup, err)
 	}
 	if _, ok := manifest["s3_objects"]; ok {
 		t.Error("manifest should not contain s3_objects when no data")
@@ -637,7 +643,7 @@ func TestBackupS3IfNeeded_WritesWhenDataPresent(t *testing.T) {
 	clients := &platformaws.Clients{S3: s3mock}
 	plan := bootstrapStateBackupPlan{StateBucket: "b", StateBucketObjects: 1}
 	if err := backupS3IfNeeded(context.Background(), clients, plan, dir, manifest); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpectedNukeBackup, err)
 	}
 	if _, ok := manifest["s3_objects"]; !ok {
 		t.Error("manifest should contain s3_objects when data present")
@@ -650,7 +656,7 @@ func TestBackupDynamoIfNeeded_SkipsWhenNoItems(t *testing.T) {
 	clients := &platformaws.Clients{DynamoDB: &nukeBackupDynamoMock{}}
 	plan := bootstrapStateBackupPlan{LockTable: "lt", RegistryTable: "rt"}
 	if err := backupDynamoIfNeeded(context.Background(), clients, plan, dir, manifest); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpectedNukeBackup, err)
 	}
 	if _, ok := manifest["lock_table_backup"]; ok {
 		t.Error("manifest should not contain lock_table_backup when 0 items")
@@ -673,7 +679,7 @@ func TestBackupDynamoIfNeeded_WritesWhenItemsPresent(t *testing.T) {
 	clients := &platformaws.Clients{DynamoDB: dynmock}
 	plan := bootstrapStateBackupPlan{LockTable: "lt", LockTableItems: 1, RegistryTable: "rt", RegistryTableItems: 2}
 	if err := backupDynamoIfNeeded(context.Background(), clients, plan, dir, manifest); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpectedNukeBackup, err)
 	}
 	if _, ok := manifest["lock_table_backup"]; !ok {
 		t.Error("manifest should contain lock_table_backup")

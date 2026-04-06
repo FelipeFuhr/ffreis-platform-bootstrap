@@ -22,6 +22,8 @@ import (
 	platformaws "github.com/ffreis/platform-bootstrap/internal/aws"
 )
 
+const errUnexpectedDoctorChecks = "unexpected error: %v"
+
 // --- summarizeBootstrapDoctor ---
 
 func TestSummarizeBootstrapDoctor(t *testing.T) {
@@ -122,7 +124,7 @@ func TestBootstrapResourceSection_AllPresent(t *testing.T) {
 		},
 		IAM: &cmdIAMMock{
 			getRoleFn: func(*iam.GetRoleInput) (*iam.GetRoleOutput, error) {
-				return &iam.GetRoleOutput{Role: &iamtypes.Role{RoleName: aws.String("platform-admin")}}, nil
+				return &iam.GetRoleOutput{Role: &iamtypes.Role{RoleName: aws.String(platformAdminRoleName)}}, nil
 			},
 		},
 		SNS: &cmdSNSMock{
@@ -233,7 +235,7 @@ func TestBootstrapRegistrySection_NoDuplicates(t *testing.T) {
 
 	section, err := bootstrapRegistrySection(context.Background(), false)
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpectedDoctorChecks, err)
 	}
 	var dupCheck *bootstrapDoctorCheck
 	for i, c := range section.Checks {
@@ -315,7 +317,7 @@ func TestBootstrapTrustCheck_TrustContainsAccountRoot(t *testing.T) {
 			getRoleFn: func(*iam.GetRoleInput) (*iam.GetRoleOutput, error) {
 				return &iam.GetRoleOutput{
 					Role: &iamtypes.Role{
-						RoleName:                 aws.String("platform-admin"),
+						RoleName:                 aws.String(platformAdminRoleName),
 						AssumeRolePolicyDocument: aws.String(trustDoc),
 					},
 				}, nil
@@ -340,7 +342,7 @@ func TestBootstrapTrustCheck_TrustMissingAccountRoot(t *testing.T) {
 			getRoleFn: func(*iam.GetRoleInput) (*iam.GetRoleOutput, error) {
 				return &iam.GetRoleOutput{
 					Role: &iamtypes.Role{
-						RoleName:                 aws.String("platform-admin"),
+						RoleName:                 aws.String(platformAdminRoleName),
 						AssumeRolePolicyDocument: aws.String(trustDoc),
 					},
 				}, nil
@@ -375,7 +377,7 @@ func TestBootstrapContractSection_IncludesContractAndTrustChecks(t *testing.T) {
 	mode := bootstrapDoctorModes.command
 	section, err := bootstrapContractSection(context.Background(), mode)
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpectedDoctorChecks, err)
 	}
 	if section.Title != "Exported Contract" {
 		t.Errorf("unexpected section title: %q", section.Title)
@@ -428,7 +430,7 @@ func TestRunBootstrapDoctor_InitMode_SkipsResourcesAndRegistry(t *testing.T) {
 
 	report, err := runBootstrapDoctor(context.Background(), bootstrapDoctorModes.init)
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpectedDoctorChecks, err)
 	}
 	titles := make(map[string]bool)
 	for _, s := range report.Sections {
@@ -459,7 +461,7 @@ func TestRunBootstrapDoctor_AuditMode_SkipsPermissions(t *testing.T) {
 
 	report, err := runBootstrapDoctor(context.Background(), bootstrapDoctorModes.audit)
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpectedDoctorChecks, err)
 	}
 	for _, s := range report.Sections {
 		if s.Title == "Permissions" {

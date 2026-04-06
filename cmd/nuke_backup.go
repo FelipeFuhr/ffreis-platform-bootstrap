@@ -275,6 +275,7 @@ func downloadBootstrapBucketVersion(ctx context.Context, client bootstrapNukeBac
 	}
 	defer func() { _ = out.Body.Close() }()
 
+	//nolint:gosec // target path is generated from internal backup dir + sequential index, not external input
 	file, err := os.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
 	if err != nil {
 		return err

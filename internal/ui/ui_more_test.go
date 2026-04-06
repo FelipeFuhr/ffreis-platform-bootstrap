@@ -8,6 +8,8 @@ import (
 	"time"
 )
 
+const errUnexpectedNew = "New() error: %v"
+
 func TestResolveModeBranches(t *testing.T) {
 	t.Parallel()
 
@@ -58,7 +60,7 @@ func TestPresenterInteractiveAndHeaderSummary(t *testing.T) {
 
 	rich, err := New(ModeRich)
 	if err != nil {
-		t.Fatalf("New() error: %v", err)
+		t.Fatalf(errUnexpectedNew, err)
 	}
 	if !rich.Interactive() {
 		t.Fatal("rich presenter should be interactive")
@@ -84,7 +86,7 @@ func TestPresenterBadgeStatusDurationAndRender(t *testing.T) {
 
 	rich, err := New(ModeRich)
 	if err != nil {
-		t.Fatalf("New() error: %v", err)
+		t.Fatalf(errUnexpectedNew, err)
 	}
 	if got := rich.Badge("missing", "Info"); !strings.Contains(got, "info") {
 		t.Fatalf("Badge() = %q", got)
@@ -126,7 +128,7 @@ func TestPresenterRichAndKeyHelpers(t *testing.T) {
 
 	rich, err := New(ModeRich)
 	if err != nil {
-		t.Fatalf("New() error: %v", err)
+		t.Fatalf(errUnexpectedNew, err)
 	}
 	if !rich.Rich() {
 		t.Fatal("Rich() should report true for rich presenter")

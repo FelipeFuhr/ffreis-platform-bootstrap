@@ -148,16 +148,58 @@ func runBootstrapNukeAll(ctx context.Context, cmd *cobra.Command, out *commandOu
 	if err != nil {
 		return err
 	}
-	platformRoot := filepath.Dir(repoRoot)
-	orgRepo := filepath.Join(platformRoot, "ffreis-platform-org")
-	baseBackupDir := nukeBackupDir
+	platformRoot, orgRepo, baseBackupDir, orgBackupDir, bootstrapBackupDir := resolveBootstrapNukeAllPaths(repoRoot)
+	steps := buildBootstrapNukeAllSteps(platformRoot, orgRepo, orgBackupDir)
+
+	bootstrapBackupPlan, err := inspectBootstrapStateStoresForNukeFn(ctx, deps.cfg, deps.clients)
+	if err != nil {
+		return err
+	}
+	if err := nukePreflightAllFn(repoRoot, nukeEnv); err != nil {
+		return err
+	}
+
+	confirmed := confirmBootstrapNukeAllIfNeeded(cmd, out, steps, bootstrapBackupPlan, baseBackupDir)
+	if !confirmed {
+		return nil
+	}
+
+	if err := runBootstrapNukeAllSteps(ctx, cmd, out, steps); err != nil {
+		return err
+	}
+
+	if err := backupBootstrapNukeAllStateIfNeeded(ctx, out, bootstrapBackupDir, bootstrapBackupPlan); err != nil {
+		return err
+	}
+
+	if err := bootstrapNukeFn(ctx, deps.cfg, deps.clients, cmd.ErrOrStderr()); err != nil {
+		return &ExitError{Code: exitPartialComplete, Err: err}
+	}
+
+	deps.logger.Info("nuke-all complete",
+		"org", deps.cfg.OrgName,
+		"env", nukeEnv,
+	)
+	if deps.ui != nil {
+		out.Status("ok", "ok", "all platform resources removed")
+	}
+	return nil
+}
+
+func resolveBootstrapNukeAllPaths(repoRoot string) (platformRoot, orgRepo, baseBackupDir, orgBackupDir, bootstrapBackupDir string) {
+	platformRoot = filepath.Dir(repoRoot)
+	orgRepo = filepath.Join(platformRoot, "ffreis-platform-org")
+	baseBackupDir = nukeBackupDir
 	if baseBackupDir == "" {
 		baseBackupDir = filepath.Join(repoRoot, ".backups", "nuke", bootstrapNukeTimestamp())
 	}
-	orgBackupDir := filepath.Join(baseBackupDir, "platform-org")
-	bootstrapBackupDir := filepath.Join(baseBackupDir, "bootstrap")
+	orgBackupDir = filepath.Join(baseBackupDir, "platform-org")
+	bootstrapBackupDir = filepath.Join(baseBackupDir, "bootstrap")
+	return
+}
 
-	steps := []bootstrapNukeAllStep{
+func buildBootstrapNukeAllSteps(platformRoot, orgRepo, orgBackupDir string) []bootstrapNukeAllStep {
+	return []bootstrapNukeAllStep{
 		{
 			label:   "Atlantis",
 			workdir: filepath.Join(platformRoot, "ffreis-platform-atlantis"),
@@ -194,22 +236,16 @@ func runBootstrapNukeAll(ctx context.Context, cmd *cobra.Command, out *commandOu
 			stdin:   "destroy-" + nukeEnv + "\n",
 		},
 	}
+}
 
-	bootstrapBackupPlan, err := inspectBootstrapStateStoresForNukeFn(ctx, deps.cfg, deps.clients)
-	if err != nil {
-		return err
+func confirmBootstrapNukeAllIfNeeded(cmd *cobra.Command, out *commandOutput, steps []bootstrapNukeAllStep, plan bootstrapStateBackupPlan, baseBackupDir string) bool {
+	if deps.cfg.DryRun {
+		return true
 	}
-	if err := nukePreflightAllFn(repoRoot, nukeEnv); err != nil {
-		return err
-	}
+	return confirmBootstrapNukeAll(cmd, out, steps, plan, baseBackupDir)
+}
 
-	if !deps.cfg.DryRun {
-		confirmed := confirmBootstrapNukeAll(cmd, out, steps, bootstrapBackupPlan, baseBackupDir)
-		if !confirmed {
-			return nil
-		}
-	}
-
+func runBootstrapNukeAllSteps(ctx context.Context, cmd *cobra.Command, out *commandOutput, steps []bootstrapNukeAllStep) error {
 	for _, step := range steps {
 		if deps.cfg.DryRun {
 			if deps.ui != nil {
@@ -224,29 +260,21 @@ func runBootstrapNukeAll(ctx context.Context, cmd *cobra.Command, out *commandOu
 			return &ExitError{Code: exitPartialComplete, Err: err}
 		}
 	}
+	return nil
+}
 
-	if bootstrapBackupPlan.hasData() && !deps.cfg.DryRun {
-		if deps.ui != nil {
-			out.Status("info", "backup", "writing bootstrap state backup to "+bootstrapBackupDir)
-		}
-		if err := backupBootstrapStateStoresForNukeFn(ctx, deps.cfg, deps.clients, bootstrapBackupDir, bootstrapBackupPlan); err != nil {
-			return &ExitError{Code: exitPartialComplete, Err: err}
-		}
-		if deps.ui != nil {
-			out.Status("ok", "backup", "bootstrap state backup written")
-		}
+func backupBootstrapNukeAllStateIfNeeded(ctx context.Context, out *commandOutput, bootstrapBackupDir string, plan bootstrapStateBackupPlan) error {
+	if !plan.hasData() || deps.cfg.DryRun {
+		return nil
 	}
-
-	if err := bootstrapNukeFn(ctx, deps.cfg, deps.clients, cmd.ErrOrStderr()); err != nil {
+	if deps.ui != nil {
+		out.Status("info", "backup", "writing bootstrap state backup to "+bootstrapBackupDir)
+	}
+	if err := backupBootstrapStateStoresForNukeFn(ctx, deps.cfg, deps.clients, bootstrapBackupDir, plan); err != nil {
 		return &ExitError{Code: exitPartialComplete, Err: err}
 	}
-
-	deps.logger.Info("nuke-all complete",
-		"org", deps.cfg.OrgName,
-		"env", nukeEnv,
-	)
 	if deps.ui != nil {
-		out.Status("ok", "ok", "all platform resources removed")
+		out.Status("ok", "backup", "bootstrap state backup written")
 	}
 	return nil
 }
