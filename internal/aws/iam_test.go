@@ -3,6 +3,7 @@ package aws
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 
@@ -14,17 +15,20 @@ import (
 // mockIAM is a stateful stand-in for IAMAPI. roleExists transitions to true
 // after CreateRole, mirroring real AWS behaviour.
 type mockIAM struct {
-	roleExists      bool
-	getRoleErr      error
-	createRoleErr   error
-	createRoleCalls int
-	putPolicyCalls  int
-	tagRoleCalls    int
-	tagRoleErr      error
-	policyNames     []string
-	listPoliciesErr error
-	deletePolicyErr error
-	deleteRoleErr   error
+	roleExists       bool
+	getRoleErr       error
+	createRoleErr    error
+	createRoleCalls  int
+	updateTrustErr   error
+	updateTrustCalls int
+	putPolicyCalls   int
+	putPolicyErr     error
+	tagRoleCalls     int
+	tagRoleErr       error
+	policyNames      []string
+	listPoliciesErr  error
+	deletePolicyErr  error
+	deleteRoleErr    error
 }
 
 func (m *mockIAM) GetAccountSummary(_ context.Context, _ *iam.GetAccountSummaryInput, _ ...func(*iam.Options)) (*iam.GetAccountSummaryOutput, error) {
@@ -52,9 +56,14 @@ func (m *mockIAM) CreateRole(_ context.Context, params *iam.CreateRoleInput, _ .
 	}, nil
 }
 
+func (m *mockIAM) UpdateAssumeRolePolicy(_ context.Context, _ *iam.UpdateAssumeRolePolicyInput, _ ...func(*iam.Options)) (*iam.UpdateAssumeRolePolicyOutput, error) {
+	m.updateTrustCalls++
+	return &iam.UpdateAssumeRolePolicyOutput{}, m.updateTrustErr
+}
+
 func (m *mockIAM) PutRolePolicy(_ context.Context, _ *iam.PutRolePolicyInput, _ ...func(*iam.Options)) (*iam.PutRolePolicyOutput, error) {
 	m.putPolicyCalls++
-	return &iam.PutRolePolicyOutput{}, nil
+	return &iam.PutRolePolicyOutput{}, m.putPolicyErr
 }
 
 func (m *mockIAM) TagRole(_ context.Context, _ *iam.TagRoleInput, _ ...func(*iam.Options)) (*iam.TagRoleOutput, error) {
@@ -122,6 +131,9 @@ func TestEnsurePlatformAdminRoleCreate(t *testing.T) {
 	if m.putPolicyCalls != 1 {
 		t.Errorf("putPolicyCalls: want 1, got %d", m.putPolicyCalls)
 	}
+	if m.updateTrustCalls != 1 {
+		t.Errorf("updateTrustCalls: want 1, got %d", m.updateTrustCalls)
+	}
 	if m.tagRoleCalls != 0 {
 		t.Errorf("tagRoleCalls: want 0 (nil tags), got %d", m.tagRoleCalls)
 	}
@@ -139,6 +151,9 @@ func TestEnsurePlatformAdminRoleAlreadyExists(t *testing.T) {
 
 	if m.createRoleCalls != 0 {
 		t.Errorf("createRoleCalls: want 0 (role existed), got %d", m.createRoleCalls)
+	}
+	if m.updateTrustCalls != 1 {
+		t.Errorf("updateTrustCalls: want 1 (trust always applied), got %d", m.updateTrustCalls)
 	}
 	if m.putPolicyCalls != 1 {
 		t.Errorf("putPolicyCalls: want 1 (always applied), got %d", m.putPolicyCalls)
@@ -158,6 +173,9 @@ func TestEnsurePlatformAdminRoleEntityAlreadyExists(t *testing.T) {
 
 	if m.putPolicyCalls != 1 {
 		t.Errorf("putPolicyCalls: want 1 (policy applied even after concurrent create), got %d", m.putPolicyCalls)
+	}
+	if m.updateTrustCalls != 1 {
+		t.Errorf("updateTrustCalls: want 1 (trust applied even after concurrent create), got %d", m.updateTrustCalls)
 	}
 }
 
@@ -185,6 +203,9 @@ func TestEnsurePlatformAdminRoleIdempotent(t *testing.T) {
 	if m.putPolicyCalls != 2 {
 		t.Errorf("putPolicyCalls: want 2 (once per run), got %d", m.putPolicyCalls)
 	}
+	if m.updateTrustCalls != 2 {
+		t.Errorf("updateTrustCalls: want 2 (once per run), got %d", m.updateTrustCalls)
+	}
 }
 
 // TestEnsurePlatformAdminRole_TrustPolicy verifies the trust document encodes
@@ -199,7 +220,7 @@ func TestEnsurePlatformAdminRoleTrustPolicy(t *testing.T) {
 
 	raw := capture.lastTrustDoc
 	if raw == "" {
-		t.Fatal("CreateRole was not called")
+		t.Fatal("trust policy was not captured")
 	}
 
 	var doc policyDocument
@@ -268,6 +289,40 @@ func TestEnsurePlatformAdminRoleTagsApplied(t *testing.T) {
 	}
 }
 
+func TestEnsurePlatformAdminRoleGetRoleUnexpectedError(t *testing.T) {
+	m := &mockIAM{getRoleErr: errors.New("access denied")}
+
+	err := EnsurePlatformAdminRole(context.Background(), m, testRoleName, "123456789012", nil)
+	if err == nil || !strings.Contains(err.Error(), "checking role") {
+		t.Fatalf("expected wrapped GetRole error, got %v", err)
+	}
+}
+
+func TestEnsurePlatformAdminRoleUpdateTrustAndPolicyErrors(t *testing.T) {
+	t.Run("trust policy error", func(t *testing.T) {
+		m := &mockIAM{updateTrustErr: errors.New("trust boom")}
+		err := EnsurePlatformAdminRole(context.Background(), m, testRoleName, "123456789012", nil)
+		if err == nil || !strings.Contains(err.Error(), "updating trust policy") {
+			t.Fatalf("expected wrapped trust error, got %v", err)
+		}
+	})
+
+	t.Run("put role policy error", func(t *testing.T) {
+		m := &mockIAM{putPolicyErr: errors.New("policy boom")}
+		err := EnsurePlatformAdminRole(context.Background(), m, testRoleName, "123456789012", nil)
+		if err == nil || !strings.Contains(err.Error(), "putting inline policy") {
+			t.Fatalf("expected wrapped policy error, got %v", err)
+		}
+	})
+}
+
+func TestMarshalPolicyError(t *testing.T) {
+	_, err := marshalPolicy(policyDocument{Statement: []policyStatement{{Action: make(chan int)}}})
+	if err == nil {
+		t.Fatal("expected marshalPolicy() to fail for unsupported value")
+	}
+}
+
 // ---- capture helpers ----
 
 type trustCapturingIAM struct {
@@ -281,6 +336,12 @@ func (c *trustCapturingIAM) CreateRole(_ context.Context, params *iam.CreateRole
 	return &iam.CreateRoleOutput{Role: &iamtypes.Role{RoleName: params.RoleName}}, nil
 }
 
+func (c *trustCapturingIAM) UpdateAssumeRolePolicy(_ context.Context, params *iam.UpdateAssumeRolePolicyInput, _ ...func(*iam.Options)) (*iam.UpdateAssumeRolePolicyOutput, error) {
+	c.lastTrustDoc = sdkaws.ToString(params.PolicyDocument)
+	c.updateTrustCalls++
+	return &iam.UpdateAssumeRolePolicyOutput{}, nil
+}
+
 func (c *trustCapturingIAM) TagRole(_ context.Context, _ *iam.TagRoleInput, _ ...func(*iam.Options)) (*iam.TagRoleOutput, error) {
 	return &iam.TagRoleOutput{}, nil
 }
@@ -288,6 +349,11 @@ func (c *trustCapturingIAM) TagRole(_ context.Context, _ *iam.TagRoleInput, _ ..
 type policyCapturingIAM struct {
 	mockIAM
 	lastPolicyDoc string
+}
+
+func (c *policyCapturingIAM) UpdateAssumeRolePolicy(_ context.Context, _ *iam.UpdateAssumeRolePolicyInput, _ ...func(*iam.Options)) (*iam.UpdateAssumeRolePolicyOutput, error) {
+	c.updateTrustCalls++
+	return &iam.UpdateAssumeRolePolicyOutput{}, nil
 }
 
 func (c *policyCapturingIAM) PutRolePolicy(_ context.Context, params *iam.PutRolePolicyInput, _ ...func(*iam.Options)) (*iam.PutRolePolicyOutput, error) {

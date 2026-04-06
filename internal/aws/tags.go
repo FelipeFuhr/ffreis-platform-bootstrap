@@ -7,6 +7,7 @@ package aws
 // Tag semantics:
 //   - Project:     constant "platform" — identifies the workload family.
 //   - Layer:       constant "bootstrap" — identifies the infrastructure layer.
+//   - Stack:       constant "bootstrap" — identifies the owning stack across layers.
 //   - Owner:       the org name — identifies the owning team or product.
 //   - ManagedBy:   constant "platform-bootstrap" — the tool that owns this resource.
 //   - ToolVersion: the build-time version string — which release last touched it.
@@ -18,6 +19,7 @@ func RequiredTags(orgName, toolVersion string) map[string]string {
 	return map[string]string{
 		"Project":     "platform",
 		"Layer":       "bootstrap",
+		"Stack":       "bootstrap",
 		"Owner":       orgName,
 		"ManagedBy":   "platform-bootstrap",
 		"ToolVersion": v,

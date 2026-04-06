@@ -17,10 +17,10 @@ type ExpectedResource struct {
 	ResourceName string
 }
 
-// ExpectedResources returns the complete set of platform resources that
-// bootstrap creates for the given config. Both Run and audit use this list as
-// the authoritative source of what is platform-managed, so adding a new step
-// only requires updating this function.
+// ExpectedResources projects the bootstrap step definitions into the canonical
+// expected resource inventory. Audit must stay coupled to bootstrapStepDefs so
+// that adding a new resource-producing step automatically changes the expected
+// audit inventory without introducing a second hand-maintained list.
 func ExpectedResources(cfg *config.Config) []ExpectedResource {
 	var out []ExpectedResource
 	for _, def := range bootstrapStepDefs(cfg) {

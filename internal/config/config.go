@@ -72,6 +72,12 @@ func Load(flags *pflag.FlagSet) (*Config, error) {
 		cfg.StateRegion = cfg.Region
 	}
 
+	// Admin email defaults to root email when not explicitly set, so that
+	// budget alerts are delivered without requiring a separate flag.
+	if cfg.AdminEmail == "" {
+		cfg.AdminEmail = cfg.RootEmail
+	}
+
 	if errs := cfg.Validate(); len(errs) > 0 {
 		msgs := make([]string, len(errs))
 		for i, e := range errs {

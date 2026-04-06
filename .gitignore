@@ -1,4 +1,6 @@
 /platform-bootstrap
+.backups
+.bin
 
 .scannerwork
 .tmp_cover_func.txt

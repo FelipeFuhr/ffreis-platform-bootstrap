@@ -45,6 +45,10 @@ func (m *tempUserBootstrapIAMMock) CreateRole(context.Context, *iam.CreateRoleIn
 	return nil, errors.New(errNotImplemented)
 }
 
+func (m *tempUserBootstrapIAMMock) UpdateAssumeRolePolicy(context.Context, *iam.UpdateAssumeRolePolicyInput, ...func(*iam.Options)) (*iam.UpdateAssumeRolePolicyOutput, error) {
+	return nil, errors.New(errNotImplemented)
+}
+
 func (m *tempUserBootstrapIAMMock) PutRolePolicy(context.Context, *iam.PutRolePolicyInput, ...func(*iam.Options)) (*iam.PutRolePolicyOutput, error) {
 	return nil, errors.New(errNotImplemented)
 }

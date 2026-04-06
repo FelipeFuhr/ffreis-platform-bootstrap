@@ -101,6 +101,9 @@ func (o *okIAM) CreateRole(_ context.Context, _ *iam.CreateRoleInput, _ ...func(
 	o.roleExists = true
 	return &iam.CreateRoleOutput{}, nil
 }
+func (o *okIAM) UpdateAssumeRolePolicy(_ context.Context, _ *iam.UpdateAssumeRolePolicyInput, _ ...func(*iam.Options)) (*iam.UpdateAssumeRolePolicyOutput, error) {
+	return &iam.UpdateAssumeRolePolicyOutput{}, nil
+}
 func (o *okIAM) PutRolePolicy(_ context.Context, _ *iam.PutRolePolicyInput, _ ...func(*iam.Options)) (*iam.PutRolePolicyOutput, error) {
 	return &iam.PutRolePolicyOutput{}, nil
 }

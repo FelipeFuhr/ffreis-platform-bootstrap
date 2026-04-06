@@ -16,9 +16,11 @@ import (
 
 // fetchedConfig is the JSON structure written to the output file.
 // It matches the Terraform variable types in platform-org's variables.tf.
+// aws_profile is intentionally omitted — it is static config that belongs in
+// terraform.tfvars (committed), not here. The platform-org CLI injects
+// credentials via AWS_ACCESS_KEY_ID env vars, making the profile irrelevant.
 type fetchedConfig struct {
 	Org              string                       `json:"org"`
-	AWSProfile       string                       `json:"aws_profile"`
 	Accounts         map[string]map[string]string `json:"accounts"`
 	BudgetAlertEmail string                       `json:"budget_alert_email,omitempty"`
 }
@@ -48,7 +50,6 @@ func writeFetchedConfig(outputPath, backendOutputPath string) error {
 
 	out := fetchedConfig{
 		Org:              deps.cfg.OrgName,
-		AWSProfile:       deps.cfg.AWSProfile,
 		Accounts:         accounts,
 		BudgetAlertEmail: budgetAlertEmail,
 	}

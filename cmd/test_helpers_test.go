@@ -104,7 +104,9 @@ func captureStdout(t *testing.T, fn func()) string {
 type cmdDynamoDBMock struct {
 	scanFn          func(*dynamodb.ScanInput) (*dynamodb.ScanOutput, error)
 	describeTableFn func(*dynamodb.DescribeTableInput) (*dynamodb.DescribeTableOutput, error)
+	listTagsFn      func(*dynamodb.ListTagsOfResourceInput) (*dynamodb.ListTagsOfResourceOutput, error)
 	listTablesErr   error
+	listTablesOut   *dynamodb.ListTablesOutput
 }
 
 func (m *cmdDynamoDBMock) DescribeTable(_ context.Context, in *dynamodb.DescribeTableInput, _ ...func(*dynamodb.Options)) (*dynamodb.DescribeTableOutput, error) {
@@ -115,6 +117,9 @@ func (m *cmdDynamoDBMock) DescribeTable(_ context.Context, in *dynamodb.Describe
 }
 
 func (m *cmdDynamoDBMock) ListTables(context.Context, *dynamodb.ListTablesInput, ...func(*dynamodb.Options)) (*dynamodb.ListTablesOutput, error) {
+	if m.listTablesOut != nil {
+		return m.listTablesOut, m.listTablesErr
+	}
 	return &dynamodb.ListTablesOutput{}, m.listTablesErr
 }
 
@@ -141,6 +146,13 @@ func (m *cmdDynamoDBMock) DeleteTable(context.Context, *dynamodb.DeleteTableInpu
 	return &dynamodb.DeleteTableOutput{}, nil
 }
 
+func (m *cmdDynamoDBMock) ListTagsOfResource(_ context.Context, in *dynamodb.ListTagsOfResourceInput, _ ...func(*dynamodb.Options)) (*dynamodb.ListTagsOfResourceOutput, error) {
+	if m.listTagsFn != nil {
+		return m.listTagsFn(in)
+	}
+	return &dynamodb.ListTagsOfResourceOutput{}, nil
+}
+
 type cmdIAMMock struct {
 	getAccountSummaryErr error
 	getRoleFn            func(*iam.GetRoleInput) (*iam.GetRoleOutput, error)
@@ -159,6 +171,10 @@ func (m *cmdIAMMock) GetAccountSummary(context.Context, *iam.GetAccountSummaryIn
 
 func (m *cmdIAMMock) CreateRole(context.Context, *iam.CreateRoleInput, ...func(*iam.Options)) (*iam.CreateRoleOutput, error) {
 	return &iam.CreateRoleOutput{}, nil
+}
+
+func (m *cmdIAMMock) UpdateAssumeRolePolicy(context.Context, *iam.UpdateAssumeRolePolicyInput, ...func(*iam.Options)) (*iam.UpdateAssumeRolePolicyOutput, error) {
+	return &iam.UpdateAssumeRolePolicyOutput{}, nil
 }
 
 func (m *cmdIAMMock) PutRolePolicy(context.Context, *iam.PutRolePolicyInput, ...func(*iam.Options)) (*iam.PutRolePolicyOutput, error) {
@@ -215,7 +231,9 @@ func (m *cmdIAMMock) GetUser(context.Context, *iam.GetUserInput, ...func(*iam.Op
 
 type cmdS3Mock struct {
 	headBucketFn   func(*s3.HeadBucketInput) (*s3.HeadBucketOutput, error)
+	getTaggingFn   func(*s3.GetBucketTaggingInput) (*s3.GetBucketTaggingOutput, error)
 	listBucketsErr error
+	listBucketsOut *s3.ListBucketsOutput
 }
 
 func (m *cmdS3Mock) HeadBucket(_ context.Context, in *s3.HeadBucketInput, _ ...func(*s3.Options)) (*s3.HeadBucketOutput, error) {
@@ -226,6 +244,9 @@ func (m *cmdS3Mock) HeadBucket(_ context.Context, in *s3.HeadBucketInput, _ ...f
 }
 
 func (m *cmdS3Mock) ListBuckets(context.Context, *s3.ListBucketsInput, ...func(*s3.Options)) (*s3.ListBucketsOutput, error) {
+	if m.listBucketsOut != nil {
+		return m.listBucketsOut, m.listBucketsErr
+	}
 	return &s3.ListBucketsOutput{}, m.listBucketsErr
 }
 
@@ -257,9 +278,18 @@ func (m *cmdS3Mock) DeleteBucket(context.Context, *s3.DeleteBucketInput, ...func
 	return &s3.DeleteBucketOutput{}, nil
 }
 
+func (m *cmdS3Mock) GetBucketTagging(_ context.Context, in *s3.GetBucketTaggingInput, _ ...func(*s3.Options)) (*s3.GetBucketTaggingOutput, error) {
+	if m.getTaggingFn != nil {
+		return m.getTaggingFn(in)
+	}
+	return &s3.GetBucketTaggingOutput{}, nil
+}
+
 type cmdSNSMock struct {
 	listTopicsErr        error
+	listTopicsOut        *sns.ListTopicsOutput
 	getTopicAttributesFn func(*sns.GetTopicAttributesInput) (*sns.GetTopicAttributesOutput, error)
+	listTagsFn           func(*sns.ListTagsForResourceInput) (*sns.ListTagsForResourceOutput, error)
 }
 
 func (m *cmdSNSMock) CreateTopic(context.Context, *sns.CreateTopicInput, ...func(*sns.Options)) (*sns.CreateTopicOutput, error) {
@@ -267,6 +297,9 @@ func (m *cmdSNSMock) CreateTopic(context.Context, *sns.CreateTopicInput, ...func
 }
 
 func (m *cmdSNSMock) ListTopics(context.Context, *sns.ListTopicsInput, ...func(*sns.Options)) (*sns.ListTopicsOutput, error) {
+	if m.listTopicsOut != nil {
+		return m.listTopicsOut, m.listTopicsErr
+	}
 	return &sns.ListTopicsOutput{}, m.listTopicsErr
 }
 
@@ -293,9 +326,18 @@ func (m *cmdSNSMock) DeleteTopic(context.Context, *sns.DeleteTopicInput, ...func
 	return &sns.DeleteTopicOutput{}, nil
 }
 
+func (m *cmdSNSMock) ListTagsForResource(_ context.Context, in *sns.ListTagsForResourceInput, _ ...func(*sns.Options)) (*sns.ListTagsForResourceOutput, error) {
+	if m.listTagsFn != nil {
+		return m.listTagsFn(in)
+	}
+	return &sns.ListTagsForResourceOutput{}, nil
+}
+
 type cmdBudgetsMock struct {
 	describeBudgetFn   func(*budgets.DescribeBudgetInput) (*budgets.DescribeBudgetOutput, error)
+	listTagsFn         func(*budgets.ListTagsForResourceInput) (*budgets.ListTagsForResourceOutput, error)
 	describeBudgetsErr error
+	describeBudgetsOut *budgets.DescribeBudgetsOutput
 }
 
 func (m *cmdBudgetsMock) CreateBudget(context.Context, *budgets.CreateBudgetInput, ...func(*budgets.Options)) (*budgets.CreateBudgetOutput, error) {
@@ -310,11 +352,21 @@ func (m *cmdBudgetsMock) DescribeBudget(_ context.Context, in *budgets.DescribeB
 }
 
 func (m *cmdBudgetsMock) DescribeBudgets(context.Context, *budgets.DescribeBudgetsInput, ...func(*budgets.Options)) (*budgets.DescribeBudgetsOutput, error) {
+	if m.describeBudgetsOut != nil {
+		return m.describeBudgetsOut, m.describeBudgetsErr
+	}
 	return &budgets.DescribeBudgetsOutput{}, m.describeBudgetsErr
 }
 
 func (m *cmdBudgetsMock) DeleteBudget(context.Context, *budgets.DeleteBudgetInput, ...func(*budgets.Options)) (*budgets.DeleteBudgetOutput, error) {
 	return &budgets.DeleteBudgetOutput{}, nil
+}
+
+func (m *cmdBudgetsMock) ListTagsForResource(_ context.Context, in *budgets.ListTagsForResourceInput, _ ...func(*budgets.Options)) (*budgets.ListTagsForResourceOutput, error) {
+	if m.listTagsFn != nil {
+		return m.listTagsFn(in)
+	}
+	return &budgets.ListTagsForResourceOutput{}, nil
 }
 
 func resourceNotFoundTable() error {

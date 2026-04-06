@@ -8,6 +8,7 @@ func TestRequiredTagsFields(t *testing.T) {
 	cases := []struct{ key, want string }{
 		{"Project", "platform"},
 		{"Layer", "bootstrap"},
+		{"Stack", "bootstrap"},
 		{"Owner", "acme"},
 		{"ManagedBy", "platform-bootstrap"},
 		{"ToolVersion", "v1.2.3"},
@@ -17,8 +18,8 @@ func TestRequiredTagsFields(t *testing.T) {
 			t.Errorf("RequiredTags[%q]: want %q, got %q", tc.key, tc.want, got)
 		}
 	}
-	if len(tags) != 5 {
-		t.Errorf("RequiredTags: want 5 entries, got %d", len(tags))
+	if len(tags) != 6 {
+		t.Errorf("RequiredTags: want 6 entries, got %d", len(tags))
 	}
 }
 

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -80,6 +81,31 @@ func TestCommandOutputWithPresenter(t *testing.T) {
 	}
 }
 
+func TestTablePreservesANSIInRichMode(t *testing.T) {
+	t.Setenv("NO_COLOR", "")
+
+	presenter, err := platformui.New(platformui.ModeRich)
+	if err != nil {
+		t.Fatalf("ui.New() unexpected error: %v", err)
+	}
+
+	var stdout bytes.Buffer
+	out := &commandOutput{out: &stdout, err: &stdout, ui: presenter}
+	rows := [][]string{{"\x1b[32mok\x1b[0m", "DynamoDBTable", "registry"}}
+
+	if err := out.Table([]string{"STATUS", "TYPE", "NAME"}, rows); err != nil {
+		t.Fatalf("Table() unexpected error: %v", err)
+	}
+
+	got := stdout.String()
+	if !strings.Contains(got, "\x1b[") {
+		t.Fatalf("rich table output did not preserve ANSI sequences: %q", got)
+	}
+	if strings.Contains(got, "[ok]") {
+		t.Fatalf("rich table output fell back to plain rendering: %q", got)
+	}
+}
+
 func TestOutputHelpers(t *testing.T) {
 	var buf bytes.Buffer
 	writeLine(&buf, "line")
@@ -99,5 +125,61 @@ func TestOutputHelpers(t *testing.T) {
 	}
 	if got := auditSummary("acme", "123", "us-east-1"); got != "org acme  account 123  region us-east-1" {
 		t.Fatalf("auditSummary() = %q", got)
+	}
+}
+
+func TestComputeColumnWidths(t *testing.T) {
+	headers := []string{"NAME", "STATUS"}
+	rows := [][]string{
+		{"alice", "ok"},
+		{"very-long-name", "missing"},
+	}
+	widths := computeColumnWidths(headers, rows)
+	if len(widths) != 2 {
+		t.Fatalf("expected 2 widths, got %d", len(widths))
+	}
+	// "very-long-name" (14) > "NAME" (4)
+	if widths[0] != 14 {
+		t.Errorf("col[0] width = %d, want 14", widths[0])
+	}
+	// "missing" (7) > "STATUS" (6)
+	if widths[1] != 7 {
+		t.Errorf("col[1] width = %d, want 7", widths[1])
+	}
+}
+
+func TestComputeColumnWidths_ExtraColumnsIgnored(t *testing.T) {
+	headers := []string{"A"}
+	rows := [][]string{{"x", "extra-col-ignored"}}
+	widths := computeColumnWidths(headers, rows)
+	if len(widths) != 1 {
+		t.Fatalf("expected 1 width, got %d", len(widths))
+	}
+	if widths[0] != 1 {
+		t.Errorf("col[0] width = %d, want 1", widths[0])
+	}
+}
+
+func TestCommandOutputSummaryWithoutParts(t *testing.T) {
+	cmd := &cobra.Command{}
+	var stdout bytes.Buffer
+	cmd.SetOut(&stdout)
+	cmd.SetErr(&stdout)
+
+	out := newCommandOutput(cmd, nil)
+	out.Summary("Summary")
+
+	if got := stdout.String(); got != "Summary\n" {
+		t.Fatalf("Summary() = %q", got)
+	}
+}
+
+func TestWriteTableRowIgnoresExtraColumns(t *testing.T) {
+	var stdout bytes.Buffer
+	out := &commandOutput{out: &stdout, err: &stdout}
+	out.writeTableRow([]string{"left", "right", "ignored"}, []int{4, 5})
+
+	if got := stdout.String(); got != "left  right\n" {
+		t.Fatalf("writeTableRow() = %q", got)
 	}
 }
