@@ -1002,7 +1002,7 @@ func TestNukeRunEAllSuccess(t *testing.T) {
 	if err != nil {
 		t.Fatalf(errCreateTemp, err)
 	}
-	if _, err := inputFile.WriteString("nuke-all-acme\n"); err != nil {
+	if _, err := inputFile.WriteString("nuke-all-acme-prod\n"); err != nil {
 		t.Fatalf(errWriteString, err)
 	}
 	if _, err := inputFile.Seek(0, io.SeekStart); err != nil {
@@ -1028,7 +1028,7 @@ func TestNukeRunEAllSuccess(t *testing.T) {
 	if bootstrapCalls != 1 {
 		t.Fatalf(errNukeCallCount, bootstrapCalls)
 	}
-	if !strings.Contains(stderr.String(), "Type \"nuke-all-acme\" to confirm:") {
+	if !strings.Contains(stderr.String(), "Type \"nuke-all-acme-prod\" to confirm:") {
 		t.Fatalf("stderr missing confirmation prompt in:\n%s", stderr.String())
 	}
 	if !strings.Contains(stdout.String(), "[ok] all platform resources removed") {

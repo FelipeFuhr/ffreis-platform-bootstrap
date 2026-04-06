@@ -44,7 +44,7 @@ var nukeCmd = &cobra.Command{
 WARNING: This is irreversible. All Terraform state and bootstrap configuration
 will be permanently lost.
 
-Pass --dry-run to preview what would be deleted without making any AWS calls.`,
+Pass --dry-run to preview what would be deleted without making any destructive AWS changes.`,
 
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		ctx := cmd.Context()
@@ -254,7 +254,7 @@ func runBootstrapNukeAll(ctx context.Context, cmd *cobra.Command, out *commandOu
 // confirmBootstrapNukeAll prints the destruction warning, lists steps, and reads operator
 // confirmation from stdin. Returns true if the operator confirmed, false if cancelled.
 func confirmBootstrapNukeAll(cmd *cobra.Command, out *commandOutput, steps []bootstrapNukeAllStep, plan bootstrapStateBackupPlan, baseBackupDir string) bool {
-	expected := "nuke-all-" + deps.cfg.OrgName
+	expected := "nuke-all-" + deps.cfg.OrgName + "-" + nukeEnv
 	warningTarget := strconv.Quote(deps.cfg.OrgName) + "."
 	if deps.ui != nil {
 		out.ErrLine(deps.ui.Header("Platform Bootstrap Nuke", "org "+deps.cfg.OrgName+" env "+nukeEnv))

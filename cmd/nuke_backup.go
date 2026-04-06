@@ -275,8 +275,7 @@ func downloadBootstrapBucketVersion(ctx context.Context, client bootstrapNukeBac
 	}
 	defer func() { _ = out.Body.Close() }()
 
-	//nolint:gosec // target is derived from internal configuration (sequential index), not user input
-	file, err := os.Create(target)
+	file, err := os.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
 	if err != nil {
 		return err
 	}

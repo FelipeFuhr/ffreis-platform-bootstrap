@@ -442,11 +442,11 @@ func bootstrapContractSection(ctx context.Context, mode bootstrapDoctorMode) (bo
 	rendered := renderBackendHCL(backendConfig{
 		Bucket:        deps.cfg.StateBucketName(),
 		DynamoDBTable: deps.cfg.LockTableName(),
-		Region:        deps.cfg.Region,
+		Region:        deps.cfg.StateRegion,
 	})
 	if !strings.Contains(rendered, strconvQuote(deps.cfg.StateBucketName())) ||
 		!strings.Contains(rendered, strconvQuote(deps.cfg.LockTableName())) ||
-		!strings.Contains(rendered, strconvQuote(deps.cfg.Region)) {
+		!strings.Contains(rendered, strconvQuote(deps.cfg.StateRegion)) {
 		checks[1].Status = "fail"
 		checks[1].Detail = "rendered backend export does not include the current root bucket/table/region"
 		checks[1].Blocking = true
