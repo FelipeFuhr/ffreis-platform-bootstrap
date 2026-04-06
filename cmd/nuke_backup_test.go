@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
@@ -238,6 +239,41 @@ func TestInspectBootstrapBucket_ListVersionsError(t *testing.T) {
 	}
 }
 
+func TestInspectBootstrapBucket_Paginates(t *testing.T) {
+	cfg := testNukeBackupConfig()
+	page := 0
+	key1, vid1 := "k1", "v1"
+	key2, vid2 := "k2", "v2"
+	clients := &platformaws.Clients{S3: &nukeBackupS3Mock{
+		headBucketFn: func(*s3.HeadBucketInput) (*s3.HeadBucketOutput, error) {
+			return &s3.HeadBucketOutput{}, nil
+		},
+		listObjectVersionsFn: func(*s3.ListObjectVersionsInput) (*s3.ListObjectVersionsOutput, error) {
+			page++
+			if page == 1 {
+				truncated := true
+				nextKey := "next"
+				nextVersion := "v-next"
+				return &s3.ListObjectVersionsOutput{
+					Versions:            []s3types.ObjectVersion{{Key: &key1, VersionId: &vid1}},
+					IsTruncated:         &truncated,
+					NextKeyMarker:       &nextKey,
+					NextVersionIdMarker: &nextVersion,
+				}, nil
+			}
+			return &s3.ListObjectVersionsOutput{DeleteMarkers: []s3types.DeleteMarkerEntry{{Key: &key2, VersionId: &vid2}}}, nil
+		},
+	}, DynamoDB: &nukeBackupDynamoMock{}}
+
+	plan, err := inspectBootstrapStateStoresForNuke(context.Background(), cfg, clients)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if plan.StateBucketObjects != 1 || plan.DeleteMarkers != 1 || page != 2 {
+		t.Fatalf("unexpected paginated plan: %+v (pages=%d)", plan, page)
+	}
+}
+
 func TestInspectBootstrapTable_NotFound(t *testing.T) {
 	cfg := testNukeBackupConfig()
 	dynmock := &nukeBackupDynamoMock{
@@ -286,6 +322,33 @@ func TestInspectBootstrapTable_CountsItems(t *testing.T) {
 	}
 }
 
+func TestInspectBootstrapTable_Paginates(t *testing.T) {
+	startKey := map[string]dbtypes.AttributeValue{"pk": &dbtypes.AttributeValueMemberS{Value: "next"}}
+	called := 0
+	err := inspectBootstrapTable(context.Background(), &nukeBackupDynamoMock{
+		describeTableFn: func(*dynamodb.DescribeTableInput) (*dynamodb.DescribeTableOutput, error) {
+			return &dynamodb.DescribeTableOutput{}, nil
+		},
+		scanFn: func(in *dynamodb.ScanInput) (*dynamodb.ScanOutput, error) {
+			called++
+			if called == 1 {
+				return &dynamodb.ScanOutput{Count: 2, LastEvaluatedKey: startKey}, nil
+			}
+			if len(in.ExclusiveStartKey) == 0 {
+				t.Fatal("expected second scan to receive LastEvaluatedKey")
+			}
+			return &dynamodb.ScanOutput{Count: 3}, nil
+		},
+	}, "locks", func(n int) {
+		if n != 5 {
+			t.Fatalf("count = %d, want 5", n)
+		}
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 // --- backupBootstrapStateStoresForNuke ---
 
 func TestBackupBootstrapStateStores_NilClients(t *testing.T) {
@@ -329,6 +392,20 @@ func TestBackupBootstrapStateStores_WritesManifest(t *testing.T) {
 	}
 	if manifest["org"] != "acme" {
 		t.Errorf("manifest org = %v, want acme", manifest["org"])
+	}
+}
+
+func TestBackupBootstrapStateStores_MkdirError(t *testing.T) {
+	cfg := testNukeBackupConfig()
+	root := t.TempDir()
+	blockingPath := filepath.Join(root, "file")
+	if err := os.WriteFile(blockingPath, []byte("x"), 0o600); err != nil {
+		t.Fatalf("WriteFile() unexpected error: %v", err)
+	}
+
+	err := backupBootstrapStateStoresForNuke(context.Background(), cfg, &platformaws.Clients{}, filepath.Join(blockingPath, "child"), bootstrapStateBackupPlan{})
+	if err == nil {
+		t.Fatal("expected MkdirAll error")
 	}
 }
 
@@ -395,6 +472,19 @@ func TestBackupBootstrapBucket_TrackDeleteMarkers(t *testing.T) {
 	}
 }
 
+func TestBackupBootstrapBucket_MkdirError(t *testing.T) {
+	root := t.TempDir()
+	blocking := filepath.Join(root, "file")
+	if err := os.WriteFile(blocking, []byte("x"), 0o600); err != nil {
+		t.Fatalf("WriteFile() unexpected error: %v", err)
+	}
+
+	_, err := backupBootstrapBucket(context.Background(), &nukeBackupS3Mock{}, "test-bucket", filepath.Join(blocking, "child"))
+	if err == nil {
+		t.Fatal("expected mkdir error")
+	}
+}
+
 func TestBackupBootstrapTable_WritesJSON(t *testing.T) {
 	dir := t.TempDir()
 	target := filepath.Join(dir, "dynamodb", "my-table.json")
@@ -443,6 +533,30 @@ func TestBackupBootstrapTable_ScanError(t *testing.T) {
 	}
 }
 
+func TestBackupBootstrapTable_MkdirError(t *testing.T) {
+	root := t.TempDir()
+	blocking := filepath.Join(root, "file")
+	if err := os.WriteFile(blocking, []byte("x"), 0o600); err != nil {
+		t.Fatalf("WriteFile() unexpected error: %v", err)
+	}
+
+	err := backupBootstrapTable(context.Background(), &nukeBackupDynamoMock{}, "table", filepath.Join(blocking, "child", "table.json"))
+	if err == nil {
+		t.Fatal("expected mkdir error")
+	}
+}
+
+func TestDownloadBootstrapBucketVersion_GetObjectError(t *testing.T) {
+	err := downloadBootstrapBucketVersion(context.Background(), &nukeBackupS3Mock{
+		getObjectFn: func(*s3.GetObjectInput) (*s3.GetObjectOutput, error) {
+			return nil, errors.New("download failed")
+		},
+	}, "bucket", "key", "version", filepath.Join(t.TempDir(), "out.bin"))
+	if err == nil || !strings.Contains(err.Error(), "download s3://bucket/key?versionId=version") {
+		t.Fatalf("expected wrapped download error, got %v", err)
+	}
+}
+
 func TestWriteBootstrapJSON_CreatesFileWithCorrectPermissions(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "out.json")
@@ -469,6 +583,13 @@ func TestWriteBootstrapJSON_CreatesFileWithCorrectPermissions(t *testing.T) {
 	}
 	if out["foo"] != "bar" {
 		t.Errorf("got %v, want bar", out["foo"])
+	}
+}
+
+func TestWriteBootstrapJSON_MarshalError(t *testing.T) {
+	err := writeBootstrapJSON(filepath.Join(t.TempDir(), "out.json"), map[string]any{"bad": make(chan int)})
+	if err == nil {
+		t.Fatal("expected marshal error")
 	}
 }
 
@@ -560,4 +681,39 @@ func TestBackupDynamoIfNeeded_WritesWhenItemsPresent(t *testing.T) {
 	if _, ok := manifest["registry_table_backup"]; !ok {
 		t.Error("manifest should contain registry_table_backup")
 	}
+}
+
+func TestBackupDynamoIfNeeded_PropagatesErrors(t *testing.T) {
+	t.Run("lock table backup error", func(t *testing.T) {
+		dynmock := &nukeBackupDynamoMock{
+			scanFn: func(in *dynamodb.ScanInput) (*dynamodb.ScanOutput, error) {
+				if *in.TableName == "lt" {
+					return nil, errors.New("lock scan failed")
+				}
+				return &dynamodb.ScanOutput{}, nil
+			},
+		}
+		clients := &platformaws.Clients{DynamoDB: dynmock}
+		err := backupDynamoIfNeeded(context.Background(), clients, bootstrapStateBackupPlan{LockTable: "lt", LockTableItems: 1, RegistryTable: "rt", RegistryTableItems: 1}, t.TempDir(), map[string]any{})
+		if err == nil || !strings.Contains(err.Error(), "scan table lt") {
+			t.Fatalf("expected lock table error, got %v", err)
+		}
+	})
+
+	t.Run("registry table backup error", func(t *testing.T) {
+		dynmock := &nukeBackupDynamoMock{
+			scanFn: func(in *dynamodb.ScanInput) (*dynamodb.ScanOutput, error) {
+				if *in.TableName == "lt" {
+					val := "ok"
+					return &dynamodb.ScanOutput{Items: []map[string]dbtypes.AttributeValue{{"k": &dbtypes.AttributeValueMemberS{Value: val}}}}, nil
+				}
+				return nil, errors.New("registry scan failed")
+			},
+		}
+		clients := &platformaws.Clients{DynamoDB: dynmock}
+		err := backupDynamoIfNeeded(context.Background(), clients, bootstrapStateBackupPlan{LockTable: "lt", LockTableItems: 1, RegistryTable: "rt", RegistryTableItems: 1}, t.TempDir(), map[string]any{})
+		if err == nil || !strings.Contains(err.Error(), "scan table rt") {
+			t.Fatalf("expected registry table error, got %v", err)
+		}
+	})
 }

@@ -3,6 +3,7 @@ package aws
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 
@@ -21,6 +22,7 @@ type mockIAM struct {
 	updateTrustErr   error
 	updateTrustCalls int
 	putPolicyCalls   int
+	putPolicyErr     error
 	tagRoleCalls     int
 	tagRoleErr       error
 	policyNames      []string
@@ -61,7 +63,7 @@ func (m *mockIAM) UpdateAssumeRolePolicy(_ context.Context, _ *iam.UpdateAssumeR
 
 func (m *mockIAM) PutRolePolicy(_ context.Context, _ *iam.PutRolePolicyInput, _ ...func(*iam.Options)) (*iam.PutRolePolicyOutput, error) {
 	m.putPolicyCalls++
-	return &iam.PutRolePolicyOutput{}, nil
+	return &iam.PutRolePolicyOutput{}, m.putPolicyErr
 }
 
 func (m *mockIAM) TagRole(_ context.Context, _ *iam.TagRoleInput, _ ...func(*iam.Options)) (*iam.TagRoleOutput, error) {
@@ -284,6 +286,40 @@ func TestEnsurePlatformAdminRoleTagsApplied(t *testing.T) {
 
 	if m.tagRoleCalls != 1 {
 		t.Errorf("tagRoleCalls: want 1, got %d", m.tagRoleCalls)
+	}
+}
+
+func TestEnsurePlatformAdminRoleGetRoleUnexpectedError(t *testing.T) {
+	m := &mockIAM{getRoleErr: errors.New("access denied")}
+
+	err := EnsurePlatformAdminRole(context.Background(), m, testRoleName, "123456789012", nil)
+	if err == nil || !strings.Contains(err.Error(), "checking role") {
+		t.Fatalf("expected wrapped GetRole error, got %v", err)
+	}
+}
+
+func TestEnsurePlatformAdminRoleUpdateTrustAndPolicyErrors(t *testing.T) {
+	t.Run("trust policy error", func(t *testing.T) {
+		m := &mockIAM{updateTrustErr: errors.New("trust boom")}
+		err := EnsurePlatformAdminRole(context.Background(), m, testRoleName, "123456789012", nil)
+		if err == nil || !strings.Contains(err.Error(), "updating trust policy") {
+			t.Fatalf("expected wrapped trust error, got %v", err)
+		}
+	})
+
+	t.Run("put role policy error", func(t *testing.T) {
+		m := &mockIAM{putPolicyErr: errors.New("policy boom")}
+		err := EnsurePlatformAdminRole(context.Background(), m, testRoleName, "123456789012", nil)
+		if err == nil || !strings.Contains(err.Error(), "putting inline policy") {
+			t.Fatalf("expected wrapped policy error, got %v", err)
+		}
+	})
+}
+
+func TestMarshalPolicyError(t *testing.T) {
+	_, err := marshalPolicy(policyDocument{Statement: []policyStatement{{Action: make(chan int)}}})
+	if err == nil {
+		t.Fatal("expected marshalPolicy() to fail for unsupported value")
 	}
 }
 

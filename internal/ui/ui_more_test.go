@@ -120,3 +120,22 @@ func TestIsTTYWithNilAndRegularFile(t *testing.T) {
 		t.Fatal("regular temp file should not be tty")
 	}
 }
+
+func TestPresenterRichAndKeyHelpers(t *testing.T) {
+	t.Parallel()
+
+	rich, err := New(ModeRich)
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
+	if !rich.Rich() {
+		t.Fatal("Rich() should report true for rich presenter")
+	}
+	if got := rich.Key("state_bucket"); !strings.Contains(got, "state_bucket") {
+		t.Fatalf("Key() = %q", got)
+	}
+
+	if _, err := New("broken"); err == nil {
+		t.Fatal("expected New() to reject invalid mode")
+	}
+}

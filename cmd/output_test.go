@@ -159,3 +159,27 @@ func TestComputeColumnWidths_ExtraColumnsIgnored(t *testing.T) {
 		t.Errorf("col[0] width = %d, want 1", widths[0])
 	}
 }
+
+func TestCommandOutputSummaryWithoutParts(t *testing.T) {
+	cmd := &cobra.Command{}
+	var stdout bytes.Buffer
+	cmd.SetOut(&stdout)
+	cmd.SetErr(&stdout)
+
+	out := newCommandOutput(cmd, nil)
+	out.Summary("Summary")
+
+	if got := stdout.String(); got != "Summary\n" {
+		t.Fatalf("Summary() = %q", got)
+	}
+}
+
+func TestWriteTableRowIgnoresExtraColumns(t *testing.T) {
+	var stdout bytes.Buffer
+	out := &commandOutput{out: &stdout, err: &stdout}
+	out.writeTableRow([]string{"left", "right", "ignored"}, []int{4, 5})
+
+	if got := stdout.String(); got != "left  right\n" {
+		t.Fatalf("writeTableRow() = %q", got)
+	}
+}

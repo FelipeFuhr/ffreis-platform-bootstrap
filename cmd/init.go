@@ -82,7 +82,7 @@ Pass --dry-run to see what would be created without making any changes.`,
 			return &ExitError{Code: exitPartialComplete, Err: fmt.Errorf("bootstrap doctor preflight failed with %d blocking check(s)", doctorReport.Summary.Fail)}
 		}
 
-		if err := bootstrap.Run(ctx, deps.cfg, deps.clients, cmd.ErrOrStderr()); err != nil {
+		if err := initBootstrapRunFn(ctx, deps.cfg, deps.clients, cmd.ErrOrStderr()); err != nil {
 			return &ExitError{Code: exitPartialComplete, Err: err}
 		}
 
@@ -116,7 +116,7 @@ Pass --dry-run to see what would be created without making any changes.`,
 				"backend", backendPath,
 			)
 
-			if err := writeFetchedConfig(tfvarsPath, backendPath); err != nil {
+			if err := initWriteFetchedConfigFn(tfvarsPath, backendPath); err != nil {
 				deps.logger.Warn("failed to write org config files — run 'platform-bootstrap fetch' manually",
 					"error", err,
 				)
@@ -136,6 +136,11 @@ Pass --dry-run to see what would be created without making any changes.`,
 		return nil
 	},
 }
+
+var (
+	initBootstrapRunFn       = bootstrap.Run
+	initWriteFetchedConfigFn = writeFetchedConfig
+)
 
 func init() {
 	f := initCmd.Flags()

@@ -96,6 +96,154 @@ func TestInitRunEDryRun(t *testing.T) {
 	}
 }
 
+func TestInitRunEDoctorFailure(t *testing.T) {
+	cfg := testConfig()
+	clients := &platformaws.Clients{AccountID: "123456789012", CallerARN: testBootstrapRoleARN, Region: cfg.Region}
+	setTestDeps(t, cfg, clients, nil)
+
+	cmd, _, _ := newTestCommand(context.Background())
+	cmd.Flags().String("org-dir", "", "")
+	oldDoctor := bootstrapDoctorRunFn
+	t.Cleanup(func() { bootstrapDoctorRunFn = oldDoctor })
+	bootstrapDoctorRunFn = func(context.Context, bootstrapDoctorMode) (BootstrapDoctorReport, error) {
+		return BootstrapDoctorReport{}, errors.New("preflight unavailable")
+	}
+
+	err := initCmd.RunE(cmd, nil)
+	if err == nil {
+		t.Fatal("expected init to fail when doctor preflight fails")
+	}
+	var exitErr *ExitError
+	if !errors.As(err, &exitErr) || exitErr.Code != exitAWSError {
+		t.Fatalf(errUnexpected, err)
+	}
+	if !strings.Contains(err.Error(), "bootstrap doctor preflight") {
+		t.Fatalf(errUnexpectedText, err)
+	}
+}
+
+func TestInitRunEBootstrapFailure(t *testing.T) {
+	cfg := testConfig()
+	cfg.DryRun = false
+	clients := &platformaws.Clients{AccountID: "123456789012", CallerARN: testBootstrapRoleARN, Region: cfg.Region}
+	setTestDeps(t, cfg, clients, nil)
+
+	cmd, _, _ := newTestCommand(context.Background())
+	cmd.Flags().String("org-dir", "", "")
+
+	oldDoctor := bootstrapDoctorRunFn
+	oldInitRun := initBootstrapRunFn
+	t.Cleanup(func() {
+		bootstrapDoctorRunFn = oldDoctor
+		initBootstrapRunFn = oldInitRun
+	})
+	bootstrapDoctorRunFn = func(context.Context, bootstrapDoctorMode) (BootstrapDoctorReport, error) {
+		return BootstrapDoctorReport{Summary: bootstrapDoctorSummary{OK: 1, Total: 1}}, nil
+	}
+	initBootstrapRunFn = func(context.Context, *config.Config, *platformaws.Clients, io.Writer) error {
+		return errors.New("bootstrap run failed")
+	}
+
+	err := initCmd.RunE(cmd, nil)
+	if err == nil {
+		t.Fatal("expected init to fail when bootstrap run fails")
+	}
+	var exitErr *ExitError
+	if !errors.As(err, &exitErr) || exitErr.Code != exitPartialComplete {
+		t.Fatalf(errUnexpected, err)
+	}
+	if !strings.Contains(err.Error(), "bootstrap run failed") {
+		t.Fatalf(errUnexpectedText, err)
+	}
+}
+
+func TestInitRunEOrgDirGenerationSuccessAndWarning(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		presenter, err := platformui.New("plain")
+		if err != nil {
+			t.Fatalf(errUnexpectedUI, err)
+		}
+		cfg := testConfig()
+		cfg.DryRun = false
+		clients := &platformaws.Clients{AccountID: "123456789012", CallerARN: testBootstrapRoleARN, Region: cfg.Region}
+		setTestDeps(t, cfg, clients, presenter)
+
+		cmd, stdout, _ := newTestCommand(testCommandContext(presenter))
+		cmd.Flags().String("org-dir", "", "")
+		orgDir := filepath.Join(t.TempDir(), "platform-org")
+		if err := cmd.Flags().Set("org-dir", orgDir); err != nil {
+			t.Fatalf(errFlagsSet, err)
+		}
+
+		oldDoctor := bootstrapDoctorRunFn
+		oldInitRun := initBootstrapRunFn
+		oldWrite := initWriteFetchedConfigFn
+		t.Cleanup(func() {
+			bootstrapDoctorRunFn = oldDoctor
+			initBootstrapRunFn = oldInitRun
+			initWriteFetchedConfigFn = oldWrite
+		})
+		bootstrapDoctorRunFn = func(context.Context, bootstrapDoctorMode) (BootstrapDoctorReport, error) {
+			return BootstrapDoctorReport{Summary: bootstrapDoctorSummary{OK: 1, Total: 1}}, nil
+		}
+		initBootstrapRunFn = func(context.Context, *config.Config, *platformaws.Clients, io.Writer) error { return nil }
+		var gotTFVars, gotBackend string
+		initWriteFetchedConfigFn = func(tfvarsPath, backendPath string) error {
+			gotTFVars = tfvarsPath
+			gotBackend = backendPath
+			return nil
+		}
+
+		if err := initCmd.RunE(cmd, nil); err != nil {
+			t.Fatalf(errUnexpectedRunE, err)
+		}
+		if gotTFVars == "" || gotBackend == "" {
+			t.Fatal("expected init to write fetched config paths")
+		}
+		if !strings.Contains(stdout.String(), "[next] cd "+filepath.Join(orgDir, "terraform", "stack")) {
+			t.Fatalf("stdout missing next step in:\n%s", stdout.String())
+		}
+	})
+
+	t.Run("warning", func(t *testing.T) {
+		presenter, err := platformui.New("plain")
+		if err != nil {
+			t.Fatalf(errUnexpectedUI, err)
+		}
+		cfg := testConfig()
+		cfg.DryRun = false
+		clients := &platformaws.Clients{AccountID: "123456789012", CallerARN: testBootstrapRoleARN, Region: cfg.Region}
+		setTestDeps(t, cfg, clients, presenter)
+
+		cmd, stdout, _ := newTestCommand(testCommandContext(presenter))
+		cmd.Flags().String("org-dir", "", "")
+		if err := cmd.Flags().Set("org-dir", filepath.Join(t.TempDir(), "platform-org")); err != nil {
+			t.Fatalf(errFlagsSet, err)
+		}
+
+		oldDoctor := bootstrapDoctorRunFn
+		oldInitRun := initBootstrapRunFn
+		oldWrite := initWriteFetchedConfigFn
+		t.Cleanup(func() {
+			bootstrapDoctorRunFn = oldDoctor
+			initBootstrapRunFn = oldInitRun
+			initWriteFetchedConfigFn = oldWrite
+		})
+		bootstrapDoctorRunFn = func(context.Context, bootstrapDoctorMode) (BootstrapDoctorReport, error) {
+			return BootstrapDoctorReport{Summary: bootstrapDoctorSummary{OK: 1, Total: 1}}, nil
+		}
+		initBootstrapRunFn = func(context.Context, *config.Config, *platformaws.Clients, io.Writer) error { return nil }
+		initWriteFetchedConfigFn = func(string, string) error { return errors.New("write failed") }
+
+		if err := initCmd.RunE(cmd, nil); err != nil {
+			t.Fatalf(errUnexpectedRunE, err)
+		}
+		if !strings.Contains(stdout.String(), "[warn] org layer config generation failed: write failed") {
+			t.Fatalf("stdout missing warn output in:\n%s", stdout.String())
+		}
+	})
+}
+
 func TestAuditRunEJSONAndInconsistencies(t *testing.T) {
 	cfg := testConfig()
 	record, err := platformaws.NewRegistryRecord("S3Bucket", cfg.StateBucketName(), testBootstrapRoleARN, map[string]string{"ManagedBy": "test"})
@@ -415,6 +563,52 @@ func TestDoctorRunESuccess(t *testing.T) {
 		if !strings.Contains(got, want) {
 			t.Fatalf(errOutputMissing, want, got)
 		}
+	}
+}
+
+func TestDoctorRunEJSONSuccess(t *testing.T) {
+	cfg := testConfig()
+	clients := &platformaws.Clients{
+		AccountID: "123456789012",
+		CallerARN: testBootstrapRoleARN,
+		Region:    cfg.Region,
+		IAM:       &cmdIAMMock{},
+		S3:        &cmdS3Mock{},
+		DynamoDB:  &cmdDynamoDBMock{},
+		SNS:       &cmdSNSMock{},
+		Budgets:   &cmdBudgetsMock{},
+	}
+	setTestDeps(t, cfg, clients, nil)
+
+	cmd, stdout, _ := newTestCommand(context.Background())
+	cmd.Flags().Bool("json", false, "")
+	if err := cmd.Flags().Set("json", "true"); err != nil {
+		t.Fatalf(errFlagsSet, err)
+	}
+
+	oldDoctor := bootstrapDoctorRunFn
+	t.Cleanup(func() { bootstrapDoctorRunFn = oldDoctor })
+	bootstrapDoctorRunFn = func(context.Context, bootstrapDoctorMode) (BootstrapDoctorReport, error) {
+		return BootstrapDoctorReport{
+			Mode:    "doctor",
+			Summary: bootstrapDoctorSummary{OK: 2, Total: 2},
+			Sections: []bootstrapDoctorSection{{
+				Title:  "Permissions",
+				Checks: []bootstrapDoctorCheck{{Key: "iam", Title: "IAM", Status: "ok", Detail: "ok"}},
+			}},
+		}, nil
+	}
+
+	if err := doctorCmd.RunE(cmd, nil); err != nil {
+		t.Fatalf(errUnexpectedRunE, err)
+	}
+
+	var report BootstrapDoctorReport
+	if err := json.Unmarshal(stdout.Bytes(), &report); err != nil {
+		t.Fatalf("json.Unmarshal() unexpected error: %v", err)
+	}
+	if report.Mode != "doctor" || report.Summary.OK != 2 {
+		t.Fatalf("unexpected doctor json report: %+v", report)
 	}
 }
 
