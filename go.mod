@@ -12,7 +12,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/budgets v1.29.3
 	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.56.2
 	github.com/aws/aws-sdk-go-v2/service/iam v1.53.6
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.98.0
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.99.0
 	github.com/aws/aws-sdk-go-v2/service/sns v1.39.14
 	github.com/aws/aws-sdk-go-v2/service/sts v1.41.10
 	github.com/charmbracelet/lipgloss v1.0.0
