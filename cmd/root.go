@@ -2,9 +2,11 @@ package cmd
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -114,8 +116,8 @@ Flags take precedence over environment variables.`,
 		// produces the clearest possible error message.
 		//
 		// Error classification:
-		//   ErrNoCredentials → exitUserError  (operator forgot to set credentials)
-		//   all other errors → exitAWSError   (invalid key, auth failure, network)
+		//   credential or config parsing → exitUserError
+		//   AWS API errors → exitAWSError
 		clients, err := platformaws.New(ctx, cfg)
 		if err != nil {
 			code := exitAWSError
@@ -130,6 +132,45 @@ Flags take precedence over environment variables.`,
 			"caller_arn", clients.CallerARN,
 			"region", clients.Region,
 		)
+
+		// For all credential types (root or non-root), automatically assume the
+		// platform-admin role if we're not already using it. This provides a seamless
+		// workflow: aws credentials → platform-bootstrap command without manual
+		// profile or role setup.
+		//
+		// Skip assumption if already using platform-admin role.
+		if !strings.Contains(clients.CallerARN, ":role/platform-admin/") {
+			logger.Debug("attempting to assume platform-admin role",
+				"current_arn", clients.CallerARN,
+			)
+
+			adminRoleARN := fmt.Sprintf("arn:aws:iam::%s:role/platform-admin", clients.AccountID)
+			assumedClients, err := platformaws.AssumeAdminRole(ctx, clients, adminRoleARN)
+			if err != nil {
+				// Root accounts cannot assume roles - provide helpful guidance
+				if platformaws.IsRootARN(clients.CallerARN) {
+					logger.Warn("root credentials cannot assume platform-admin role",
+						"error", err,
+						"hint", "root credentials cannot assume roles. Create a non-root IAM user with permission to assume platform-admin.",
+					)
+					return &ExitError{Code: exitAWSError, Err: fmt.Errorf("cannot use root credentials with bootstrap; root cannot assume platform-admin role. "+
+						"Create an IAM user and grant it sts:AssumeRole permission for arn:aws:iam::%s:role/platform-admin", clients.AccountID)}
+				}
+
+				// Non-root user without assume permission - also provide guidance
+				logger.Warn("cannot assume platform-admin role",
+					"error", err,
+					"hint", "the current user may not have permission to assume platform-admin",
+				)
+				return &ExitError{Code: exitAWSError, Err: fmt.Errorf("failed to assume platform-admin role: %w", err)}
+			}
+
+			logger.Info("assumed platform-admin role",
+				"assumed_arn", assumedClients.CallerARN,
+				"session_duration", "1 hour",
+			)
+			clients = assumedClients
+		}
 
 		deps.clients = clients
 
