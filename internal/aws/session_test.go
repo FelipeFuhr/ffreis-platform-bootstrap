@@ -27,15 +27,44 @@ func (m *mockSTS) GetCallerIdentity(_ context.Context, _ *sts.GetCallerIdentityI
 	return m.out, nil
 }
 
+// mockCredentialsProvider implements sdkaws.CredentialsProvider for tests.
+type mockCredentialsProvider struct {
+	creds sdkaws.Credentials
+	err   error
+}
+
+func (m *mockCredentialsProvider) Retrieve(ctx context.Context) (sdkaws.Credentials, error) {
+	if m.err != nil {
+		return sdkaws.Credentials{}, m.err
+	}
+	return m.creds, nil
+}
+
+// MockCredentialsProvider is exported for use in other test packages.
+// It allows tests to simulate credential failures or specific credential values.
+type MockCredentialsProvider struct {
+	Creds sdkaws.Credentials
+	Err   error
+}
+
+func (m *MockCredentialsProvider) Retrieve(ctx context.Context) (sdkaws.Credentials, error) {
+	if m.Err != nil {
+		return sdkaws.Credentials{}, m.Err
+	}
+	return m.Creds, nil
+}
+
 func TestNewNoCredentials(t *testing.T) {
 	cfg := &platformcfg.Config{Region: testRegion}
-	t.Setenv("AWS_ACCESS_KEY_ID", "")
-	t.Setenv("AWS_SECRET_ACCESS_KEY", "")
-	t.Setenv("AWS_SESSION_TOKEN", "")
 
-	_, err := New(context.Background(), cfg)
+	// Use mock provider that fails to retrieve credentials
+	mockProvider := &MockCredentialsProvider{
+		Err: errors.New("no credentials available"),
+	}
+
+	_, err := loadConfigWithOpts(context.Background(), cfg, mockProvider)
 	if !errors.Is(err, ErrNoCredentials) {
-		t.Fatalf("New() without credentials: want ErrNoCredentials, got %v", err)
+		t.Fatalf("loadConfigWithOpts() without credentials: want ErrNoCredentials, got %v", err)
 	}
 }
 
@@ -66,6 +95,20 @@ func TestLoadConfigProfileNotFound(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "loading AWS config") {
 		t.Fatalf("loadConfig() error should be wrapped with context, got: %v", err)
+	}
+}
+
+func TestNewWithOptsMissingCredentials(t *testing.T) {
+	cfg := &platformcfg.Config{Region: testRegion}
+
+	// Use mock provider that fails to retrieve credentials
+	mockProvider := &MockCredentialsProvider{
+		Err: errors.New("no credentials available"),
+	}
+
+	_, err := NewWithOpts(context.Background(), cfg, mockProvider)
+	if !errors.Is(err, ErrNoCredentials) {
+		t.Fatalf("NewWithOpts() without credentials: want ErrNoCredentials, got %v", err)
 	}
 }
 
