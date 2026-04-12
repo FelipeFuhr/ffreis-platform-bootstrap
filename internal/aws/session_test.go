@@ -27,15 +27,31 @@ func (m *mockSTS) GetCallerIdentity(_ context.Context, _ *sts.GetCallerIdentityI
 	return m.out, nil
 }
 
+// MockCredentialsProvider is exported for use in other test packages.
+// It allows tests to simulate credential failures or specific credential values.
+type MockCredentialsProvider struct {
+	Creds sdkaws.Credentials
+	Err   error
+}
+
+func (m *MockCredentialsProvider) Retrieve(ctx context.Context) (sdkaws.Credentials, error) {
+	if m.Err != nil {
+		return sdkaws.Credentials{}, m.Err
+	}
+	return m.Creds, nil
+}
+
 func TestNewNoCredentials(t *testing.T) {
 	cfg := &platformcfg.Config{Region: testRegion}
-	t.Setenv("AWS_ACCESS_KEY_ID", "")
-	t.Setenv("AWS_SECRET_ACCESS_KEY", "")
-	t.Setenv("AWS_SESSION_TOKEN", "")
 
-	_, err := New(context.Background(), cfg)
+	// Use mock provider that fails to retrieve credentials
+	mockProvider := &MockCredentialsProvider{
+		Err: errors.New("no credentials available"),
+	}
+
+	_, err := loadConfigWithOpts(context.Background(), cfg, mockProvider)
 	if !errors.Is(err, ErrNoCredentials) {
-		t.Fatalf("New() without credentials: want ErrNoCredentials, got %v", err)
+		t.Fatalf("loadConfigWithOpts() without credentials: want ErrNoCredentials, got %v", err)
 	}
 }
 
@@ -69,6 +85,20 @@ func TestLoadConfigProfileNotFound(t *testing.T) {
 	}
 }
 
+func TestNewWithOptsMissingCredentials(t *testing.T) {
+	cfg := &platformcfg.Config{Region: testRegion}
+
+	// Use mock provider that fails to retrieve credentials
+	mockProvider := &MockCredentialsProvider{
+		Err: errors.New("no credentials available"),
+	}
+
+	_, err := NewWithOpts(context.Background(), cfg, mockProvider)
+	if !errors.Is(err, ErrNoCredentials) {
+		t.Fatalf("NewWithOpts() without credentials: want ErrNoCredentials, got %v", err)
+	}
+}
+
 func TestVerifyIdentitySuccess(t *testing.T) {
 	c := &Clients{STS: &mockSTS{out: &sts.GetCallerIdentityOutput{
 		Account: sdkaws.String("123456789012"),
@@ -96,6 +126,39 @@ func TestVerifyIdentityError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "verifying AWS credentials") {
 		t.Fatalf("verifyIdentity() should wrap error context, got: %v", err)
+	}
+}
+
+func TestNewWithOptsVerifyIdentityFails(t *testing.T) {
+	// Spin up a mock STS server that always returns an auth error so that
+	// loadConfigWithOpts succeeds (credentials are present) but verifyIdentity
+	// fails, exercising the error-return path inside NewWithOpts.
+	stsServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/xml")
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte(`<?xml version="1.0" encoding="UTF-8"?>
+<ErrorResponse xmlns="https://sts.amazonaws.com/doc/2011-06-15/">
+  <Error>
+    <Code>InvalidClientTokenId</Code>
+    <Message>The security token included in the request is invalid.</Message>
+  </Error>
+  <RequestId>req-1</RequestId>
+</ErrorResponse>`))
+	}))
+	defer stsServer.Close()
+
+	cfg := &platformcfg.Config{Region: testRegion}
+	t.Setenv("AWS_ACCESS_KEY_ID", "test-key")
+	t.Setenv("AWS_SECRET_ACCESS_KEY", "test-secret")
+	t.Setenv("AWS_SESSION_TOKEN", "")
+	t.Setenv("AWS_ENDPOINT_URL_STS", stsServer.URL)
+
+	_, err := NewWithOpts(context.Background(), cfg, nil)
+	if err == nil {
+		t.Fatal("NewWithOpts() expected error when verifyIdentity fails, got nil")
+	}
+	if !strings.Contains(err.Error(), "verifying AWS credentials") {
+		t.Fatalf("NewWithOpts() error should mention 'verifying AWS credentials', got: %v", err)
 	}
 }
 

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 
 	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
@@ -59,7 +58,12 @@ type Clients struct {
 // credentials (e.g., an EC2 instance role when the operator forgot to set
 // a profile) and surfaces misconfiguration before any AWS writes occur.
 func New(ctx context.Context, cfg *platformcfg.Config) (*Clients, error) {
-	awsCfg, err := loadConfig(ctx, cfg)
+	return NewWithOpts(ctx, cfg, nil)
+}
+
+// NewWithOpts is like New but allows injecting a mock credentials provider for testing.
+func NewWithOpts(ctx context.Context, cfg *platformcfg.Config, credProvider sdkaws.CredentialsProvider) (*Clients, error) {
+	awsCfg, err := loadConfigWithOpts(ctx, cfg, credProvider)
 	if err != nil {
 		return nil, err
 	}
@@ -85,27 +89,47 @@ func New(ctx context.Context, cfg *platformcfg.Config) (*Clients, error) {
 }
 
 // loadConfig constructs an aws.Config from the platform Config.
+// It uses the following credential resolution order:
+//  1. Named profile (cfg.AWSProfile)
+//  2. Environment variables (AWS_ACCESS_KEY_ID, etc.)
+//  3. AWS SDK default credential chain (SSO, EC2 instance role, etc.)
+//  4. Error if none available
 func loadConfig(ctx context.Context, cfg *platformcfg.Config) (sdkaws.Config, error) {
+	return loadConfigWithOpts(ctx, cfg, nil)
+}
+
+// loadConfigWithOpts constructs an aws.Config with optional credential provider override.
+// Used internally and by tests to inject mock credential providers.
+func loadConfigWithOpts(ctx context.Context, cfg *platformcfg.Config, credProvider sdkaws.CredentialsProvider) (sdkaws.Config, error) {
 	opts := []func(*sdkcfg.LoadOptions) error{
 		sdkcfg.WithRegion(cfg.Region),
 	}
 
-	switch {
-	case cfg.AWSProfile != "":
+	if cfg.AWSProfile != "" {
 		opts = append(opts, sdkcfg.WithSharedConfigProfile(cfg.AWSProfile))
-
-	case os.Getenv("AWS_ACCESS_KEY_ID") != "":
-		// The SDK picks up AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY /
-		// AWS_SESSION_TOKEN automatically via its default credential chain.
-		// No additional option is required.
-
-	default:
-		return sdkaws.Config{}, ErrNoCredentials
 	}
+
+	// If a credentials provider is supplied (e.g., from tests), use it instead
+	// of the default chain.
+	if credProvider != nil {
+		opts = append(opts, sdkcfg.WithCredentialsProvider(credProvider))
+	}
+	// If no explicit profile or provider, the AWS SDK will automatically try:
+	// - Environment variables (AWS_ACCESS_KEY_ID, etc.)
+	// - ~/.aws/credentials and ~/.aws/config
+	// - SSO cache
+	// - EC2 instance metadata
+	// - Other credential sources in the default chain
 
 	awsCfg, err := sdkcfg.LoadDefaultConfig(ctx, opts...)
 	if err != nil {
 		return sdkaws.Config{}, fmt.Errorf("loading AWS config: %w", err)
+	}
+
+	// Verify we actually got credentials by trying to build a credentials provider.
+	// This catches the "no credentials available" case early.
+	if _, err := awsCfg.Credentials.Retrieve(ctx); err != nil {
+		return sdkaws.Config{}, ErrNoCredentials
 	}
 
 	return awsCfg, nil
