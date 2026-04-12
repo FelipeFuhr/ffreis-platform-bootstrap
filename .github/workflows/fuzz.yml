@@ -36,10 +36,10 @@ jobs:
           cache: true
 
       - name: Fuzz internal/config split trimming
-        run: go test ./internal/config -run=^$ -fuzz=FuzzSplitTrimmed -fuzztime=10s
+        run: go test ./internal/config -run=^$ -fuzz=FuzzSplitTrimmed -fuzztime=10s -timeout=60s
 
       - name: Fuzz internal/config account parsing
-        run: go test ./internal/config -run=^$ -fuzz=FuzzParseAccounts -fuzztime=10s
+        run: go test ./internal/config -run=^$ -fuzz=FuzzParseAccounts -fuzztime=10s -timeout=60s
 
       - name: Fuzz cmd backend rendering
-        run: go test ./cmd -run=^$ -fuzz=FuzzRenderBackendHCL -fuzztime=10s
+        run: go test ./cmd -run=^$ -fuzz=FuzzRenderBackendHCL -fuzztime=10s -timeout=60s
