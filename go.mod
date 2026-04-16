@@ -9,7 +9,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.32.14
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.14
 	github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue v1.20.37
-	github.com/aws/aws-sdk-go-v2/service/budgets v1.29.3
+	github.com/aws/aws-sdk-go-v2/service/budgets v1.43.4
 	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.57.1
 	github.com/aws/aws-sdk-go-v2/service/iam v1.53.7
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.99.0
