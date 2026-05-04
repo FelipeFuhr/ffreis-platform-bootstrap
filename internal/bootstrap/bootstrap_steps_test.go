@@ -17,10 +17,13 @@ func TestBootstrapRunnerStepOrderAndNames(t *testing.T) {
 
 	want := []string{
 		"platform-admin-role",
+		"admin-user",
+		"write-credentials",
 		"create-temp-user",
 		"assume-admin-role",
 		"registry-table",
 		"register-admin-role",
+		"register-admin-user",
 		"account-config",
 		"state-bucket",
 		"lock-table",
@@ -43,6 +46,8 @@ func TestBootstrapRunnerStepOrderAndNames(t *testing.T) {
 
 func TestBootstrapStepDefHelpersMetadata(t *testing.T) {
 	cfg := minimalConfig()
+	adminUserName := cfg.OrgName + "-admin"
+	profileName := cfg.OrgName + "-platform"
 
 	cases := []struct {
 		name         string
@@ -52,10 +57,13 @@ func TestBootstrapStepDefHelpersMetadata(t *testing.T) {
 		descContains string
 	}{
 		{name: "platform-admin-role", def: platformAdminRoleStepDef(), descContains: config.RoleNamePlatformAdmin},
+		{name: "admin-user", def: adminUserStepDef(cfg), descContains: adminUserName},
+		{name: "write-credentials", def: writeCredentialsStepDef(cfg), descContains: profileName},
 		{name: "create-temp-user", def: createTempUserStepDef(), descContains: platformaws.TempBootstrapUserName},
 		{name: "assume-admin-role", def: assumeAdminRoleStepDef(), descContains: config.RoleNamePlatformAdmin},
 		{name: "registry-table", def: registryTableStepDef(cfg), resourceType: ResourceTypeDynamoDBTable, resourceName: cfg.RegistryTableName(), descContains: cfg.RegistryTableName()},
 		{name: "register-admin-role", def: registerAdminRoleStepDef(), resourceType: ResourceTypeIAMRole, resourceName: config.RoleNamePlatformAdmin, descContains: config.RoleNamePlatformAdmin},
+		{name: "register-admin-user", def: registerAdminUserStepDef(cfg), resourceType: ResourceTypeIAMUser, resourceName: adminUserName, descContains: adminUserName},
 		{name: stepAccountConfig, def: accountConfigStepDef(cfg), descContains: cfg.RegistryTableName()},
 		{name: "state-bucket", def: stateBucketStepDef(cfg), resourceType: ResourceTypeS3Bucket, resourceName: cfg.StateBucketName(), descContains: cfg.StateBucketName()},
 		{name: "lock-table", def: lockTableStepDef(cfg), resourceType: ResourceTypeDynamoDBTable, resourceName: cfg.LockTableName(), descContains: cfg.LockTableName()},

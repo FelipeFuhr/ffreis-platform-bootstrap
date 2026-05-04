@@ -103,6 +103,22 @@ Pass --dry-run to see what would be created without making any changes.`,
 			)
 		}
 
+		// Print credential usage instructions (non-dry-run only)
+		profileName := deps.cfg.OrgName + "-platform"
+		if !deps.cfg.DryRun {
+			deps.logger.Info("credentials stored",
+				"profile", profileName,
+				"path", "~/.aws/credentials",
+			)
+			if deps.ui != nil {
+				out.Blank()
+				out.Status("info", "credentials", "AWS profile stored in ~/.aws/credentials ["+profileName+"]")
+				out.Blank()
+				out.Status("info", "usage", "export AWS_PROFILE="+profileName)
+				out.Status("info", "usage", "./bin/platform-org apply --profile "+profileName+" --env prod --region "+deps.cfg.Region)
+			}
+		}
+
 		// If --org-dir is provided, generate the config files that platform-org
 		// needs to run terraform init + apply, so the operator can proceed
 		// immediately without a separate fetch step.
