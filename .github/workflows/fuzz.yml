@@ -26,6 +26,11 @@ jobs:
     name: Go Fuzz
     runs-on: ubuntu-latest
     steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@a5ad31d6a139d249332a2605b85202e8c0b78450 # v2.19.1
+        with:
+          egress-policy: audit
+
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
@@ -36,10 +41,10 @@ jobs:
           cache: true
 
       - name: Fuzz internal/config split trimming
-        run: go test ./internal/config -run=^$ -fuzz=FuzzSplitTrimmed -fuzztime=10s
+        run: go test ./internal/config -run=^$ -fuzz=FuzzSplitTrimmed -fuzztime=10s -timeout=60s
 
       - name: Fuzz internal/config account parsing
-        run: go test ./internal/config -run=^$ -fuzz=FuzzParseAccounts -fuzztime=10s
+        run: go test ./internal/config -run=^$ -fuzz=FuzzParseAccounts -fuzztime=10s -timeout=60s
 
       - name: Fuzz cmd backend rendering
-        run: go test ./cmd -run=^$ -fuzz=FuzzRenderBackendHCL -fuzztime=10s
+        run: go test ./cmd -run=^$ -fuzz=FuzzRenderBackendHCL -fuzztime=10s -timeout=60s
