@@ -90,6 +90,29 @@ func (c *Clients) RoleExistsChecked(ctx context.Context, name string) (bool, err
 	return false, err
 }
 
+// UserExists reports whether the IAM user is already present.
+// Returns false on any error.
+func (c *Clients) UserExists(ctx context.Context, name string) bool {
+	ok, err := c.UserExistsChecked(ctx, name)
+	return err == nil && ok
+}
+
+// UserExistsChecked reports whether the IAM user exists.
+// It returns (false, nil) when the user does not exist.
+func (c *Clients) UserExistsChecked(ctx context.Context, name string) (bool, error) {
+	_, err := c.IAM.GetUser(ctx, &iam.GetUserInput{
+		UserName: sdkaws.String(name),
+	})
+	if err == nil {
+		return true, nil
+	}
+	var noSuch *iamtypes.NoSuchEntityException
+	if errors.As(err, &noSuch) {
+		return false, nil
+	}
+	return false, err
+}
+
 // TopicExists reports whether the SNS topic with the given name exists in
 // the account. The ARN is constructed from the account ID, region, and name.
 // Returns false on any error.
@@ -150,6 +173,8 @@ func (c *Clients) ResourceExists(ctx context.Context, resourceType, resourceName
 		return c.TableExists(ctx, resourceName)
 	case "IAMRole":
 		return c.RoleExists(ctx, resourceName)
+	case "IAMUser":
+		return c.UserExists(ctx, resourceName)
 	case "SNSTopic":
 		return c.TopicExists(ctx, resourceName)
 	case "AWSBudget":

@@ -185,6 +185,50 @@ func DeleteSNSTopic(ctx context.Context, client SNSAPI, region, accountID, topic
 	return nil
 }
 
+// DeleteAdminUser removes all access keys, the inline policy, and the
+// persistent IAM admin user created by CreateAdminUser.
+//
+// Idempotency: if the user (or any component) does not exist, returns nil.
+// IAM requires all access keys and policies to be removed before the user
+// can be deleted; this function handles that ordering.
+func DeleteAdminUser(ctx context.Context, client IAMAPI, userName string) error {
+	// List and delete ALL access keys — DeleteUser fails if any key remains.
+	keys, err := client.ListAccessKeys(ctx, &iam.ListAccessKeysInput{
+		UserName: sdkaws.String(userName),
+	})
+	if err != nil {
+		if isNoSuchEntity(err) {
+			return nil // user does not exist; nothing to do
+		}
+		return fmt.Errorf("listing admin user access keys: %w", err)
+	}
+	if keys != nil {
+		for _, k := range keys.AccessKeyMetadata {
+			if _, delErr := client.DeleteAccessKey(ctx, &iam.DeleteAccessKeyInput{
+				UserName:    sdkaws.String(userName),
+				AccessKeyId: k.AccessKeyId,
+			}); delErr != nil && !isNoSuchEntity(delErr) {
+				return fmt.Errorf("deleting admin user access key: %w", delErr)
+			}
+		}
+	}
+
+	if _, err := client.DeleteUserPolicy(ctx, &iam.DeleteUserPolicyInput{
+		UserName:   sdkaws.String(userName),
+		PolicyName: sdkaws.String(adminUserPolicyName),
+	}); err != nil && !isNoSuchEntity(err) {
+		return fmt.Errorf("deleting admin user policy: %w", err)
+	}
+
+	if _, err := client.DeleteUser(ctx, &iam.DeleteUserInput{
+		UserName: sdkaws.String(userName),
+	}); err != nil && !isNoSuchEntity(err) {
+		return fmt.Errorf("deleting admin user: %w", err)
+	}
+
+	return nil
+}
+
 // DeleteBudget deletes the named AWS Budget for the account.
 //
 // Idempotency: if the budget does not exist, returns nil immediately.

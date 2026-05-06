@@ -10,7 +10,8 @@ import (
 
 // WriteAWSProfile writes or updates an AWS credentials profile in ~/.aws/credentials.
 // Creates the ~/.aws directory and credentials file if they don't exist.
-// Preserves other profiles in the file; only updates the target profile.
+// The file is rewritten entirely from the parsed profile map; formatting,
+// comments, and blank lines from the original file are not preserved.
 //
 // Format written:
 //
@@ -101,27 +102,61 @@ func parseCredentialsFile(path string) (map[string]map[string]string, error) {
 	return sections, nil
 }
 
-// writeCredentialsFile writes the credentials sections to the file.
-// File permissions are set to 0600 for security.
+// writeCredentialsFile writes the credentials sections to the file atomically.
+// It writes to a temporary file in the same directory, then renames it over
+// the destination to avoid leaving a partially-written file on crash or
+// disk-full errors. File permissions are set to 0600 for security.
 func writeCredentialsFile(path string, sections map[string]map[string]string) error {
-	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	dir := filepath.Dir(path)
+	tmp, err := os.CreateTemp(dir, ".credentials-*.tmp")
 	if err != nil {
-		return err
+		return fmt.Errorf("creating temp credentials file: %w", err)
 	}
-	defer file.Close()
+	tmpName := tmp.Name()
+
+	// Clean up the temp file on any error before rename.
+	success := false
+	defer func() {
+		if !success {
+			_ = os.Remove(tmpName)
+		}
+	}()
+
+	if err := tmp.Chmod(0600); err != nil {
+		_ = tmp.Close()
+		return fmt.Errorf("setting temp file permissions: %w", err)
+	}
 
 	first := true
 	for name, values := range sections {
 		if !first {
-			fmt.Fprintln(file)
+			if _, err := fmt.Fprintln(tmp); err != nil {
+				_ = tmp.Close()
+				return fmt.Errorf("writing credentials file: %w", err)
+			}
 		}
 		first = false
 
-		fmt.Fprintf(file, "[%s]\n", name)
+		if _, err := fmt.Fprintf(tmp, "[%s]\n", name); err != nil {
+			_ = tmp.Close()
+			return fmt.Errorf("writing credentials file: %w", err)
+		}
 		for key, value := range values {
-			fmt.Fprintf(file, "%s = %s\n", key, value)
+			if _, err := fmt.Fprintf(tmp, "%s = %s\n", key, value); err != nil {
+				_ = tmp.Close()
+				return fmt.Errorf("writing credentials file: %w", err)
+			}
 		}
 	}
 
+	if err := tmp.Close(); err != nil {
+		return fmt.Errorf("flushing temp credentials file: %w", err)
+	}
+
+	if err := os.Rename(tmpName, path); err != nil {
+		return fmt.Errorf("renaming temp credentials file: %w", err)
+	}
+
+	success = true
 	return nil
 }
