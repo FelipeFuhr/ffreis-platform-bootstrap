@@ -7,6 +7,8 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	dbtypes "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	"github.com/aws/aws-sdk-go-v2/service/iam"
+	iamtypes "github.com/aws/aws-sdk-go-v2/service/iam/types"
 	"github.com/aws/aws-sdk-go-v2/service/sns"
 )
 
@@ -136,6 +138,73 @@ func TestRoleExistsFalse(t *testing.T) {
 	}
 }
 
+// ── UserExists ───────────────────────────────────────────────────────────────
+
+// userExistsMock is a minimal IAMAPI mock that controls GetUser responses.
+type userExistsMock struct {
+	mockIAM
+	userExists bool
+}
+
+func (m *userExistsMock) GetUser(_ context.Context, _ *iam.GetUserInput, _ ...func(*iam.Options)) (*iam.GetUserOutput, error) {
+	if m.userExists {
+		return &iam.GetUserOutput{User: &iamtypes.User{}}, nil
+	}
+	return nil, &iamtypes.NoSuchEntityException{}
+}
+
+func TestUserExistsTrue(t *testing.T) {
+	c := newTestClients(nil, nil, &userExistsMock{userExists: true}, nil, nil)
+	if !c.UserExists(context.Background(), "acme-admin") {
+		t.Error(errWantTrue)
+	}
+}
+
+func TestUserExistsFalse(t *testing.T) {
+	c := newTestClients(nil, nil, &userExistsMock{userExists: false}, nil, nil)
+	if c.UserExists(context.Background(), "acme-admin") {
+		t.Error(errWantFalse)
+	}
+}
+
+func TestUserExistsCheckedTrue(t *testing.T) {
+	c := newTestClients(nil, nil, &userExistsMock{userExists: true}, nil, nil)
+	ok, err := c.UserExistsChecked(context.Background(), "acme-admin")
+	if err != nil {
+		t.Fatalf(errUnexpectedFmt, err)
+	}
+	if !ok {
+		t.Error(errWantTrue)
+	}
+}
+
+func TestUserExistsCheckedNotFoundIsNil(t *testing.T) {
+	c := newTestClients(nil, nil, &userExistsMock{userExists: false}, nil, nil)
+	ok, err := c.UserExistsChecked(context.Background(), "acme-admin")
+	if err != nil {
+		t.Fatalf(errUnexpectedFmt, err)
+	}
+	if ok {
+		t.Error(errWantFalse)
+	}
+}
+
+type erringUserIAM struct {
+	mockIAM
+}
+
+func (m *erringUserIAM) GetUser(_ context.Context, _ *iam.GetUserInput, _ ...func(*iam.Options)) (*iam.GetUserOutput, error) {
+	return nil, errors.New("access denied")
+}
+
+func TestUserExistsCheckedUnexpectedError(t *testing.T) {
+	c := newTestClients(nil, nil, &erringUserIAM{}, nil, nil)
+	_, err := c.UserExistsChecked(context.Background(), "acme-admin")
+	if err == nil {
+		t.Fatal(errExpectedGotNil)
+	}
+}
+
 // ── TopicExists ──────────────────────────────────────────────────────────────
 
 func TestTopicExistsTrue(t *testing.T) {
@@ -198,6 +267,13 @@ func TestResourceExistsIAMRole(t *testing.T) {
 	c := newTestClients(nil, nil, &mockIAM{roleExists: true}, nil, nil)
 	if !c.ResourceExists(context.Background(), "IAMRole", testRoleName) {
 		t.Error("IAMRole dispatch: want true")
+	}
+}
+
+func TestResourceExistsIAMUser(t *testing.T) {
+	c := newTestClients(nil, nil, &userExistsMock{userExists: true}, nil, nil)
+	if !c.ResourceExists(context.Background(), "IAMUser", "acme-admin") {
+		t.Error("IAMUser dispatch: want true")
 	}
 }
 

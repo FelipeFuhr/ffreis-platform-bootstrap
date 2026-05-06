@@ -25,8 +25,8 @@ func minimalConfig() *config.Config {
 
 func TestExpectedResourcesCount(t *testing.T) {
 	resources := ExpectedResources(minimalConfig())
-	if len(resources) != 6 {
-		t.Errorf("want 6 expected resources, got %d", len(resources))
+	if len(resources) != 7 {
+		t.Errorf("want 7 expected resources, got %d", len(resources))
 	}
 }
 
@@ -45,6 +45,7 @@ func TestExpectedResourcesContainsAllTypes(t *testing.T) {
 		{"DynamoDBTable", 2},
 		{"S3Bucket", 1},
 		{"IAMRole", 1},
+		{"IAMUser", 1},
 		{"SNSTopic", 1},
 		{"AWSBudget", 1},
 	}
@@ -107,6 +108,7 @@ func TestExpectedResourcesNamesMatchConfig(t *testing.T) {
 		cfg.StateBucketName():        true,
 		cfg.LockTableName():          true,
 		config.RoleNamePlatformAdmin: true,
+		cfg.OrgName + "-admin":       true,
 		cfg.EventsTopicName():        true,
 		cfg.BudgetName():             true,
 	}

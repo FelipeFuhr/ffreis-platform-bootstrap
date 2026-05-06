@@ -15,10 +15,11 @@ import (
 // Steps (reverse of bootstrap sequence):
 //  1. platform-budget       — delete the monthly cost budget
 //  2. platform-events-topic — delete the SNS events topic
-//  3. platform-admin-role   — delete all inline policies then the IAM role
-//  4. lock-table            — delete the Terraform state lock DynamoDB table
-//  5. state-bucket          — empty all versions then delete the S3 bucket
-//  6. registry-table        — delete the bootstrap registry DynamoDB table
+//  3. admin-user            — delete the persistent IAM admin user and its keys
+//  4. platform-admin-role   — delete all inline policies then the IAM role
+//  5. lock-table            — delete the Terraform state lock DynamoDB table
+//  6. state-bucket          — empty all versions then delete the S3 bucket
+//  7. registry-table        — delete the bootstrap registry DynamoDB table
 //
 // Each step is attempted even if a previous step fails, so that a partial
 // state can be cleaned up by re-running nuke. All errors are collected and
@@ -54,6 +55,13 @@ func Nuke(ctx context.Context, cfg *config.Config, clients *platformaws.Clients,
 			desc: fmt.Sprintf("delete SNS topic %s", cfg.EventsTopicName()),
 			run: func(ctx context.Context) error {
 				return platformaws.DeleteSNSTopic(ctx, clients.SNS, clients.Region, clients.AccountID, cfg.EventsTopicName())
+			},
+		},
+		{
+			name: "admin-user",
+			desc: fmt.Sprintf("delete persistent IAM admin user %s", cfg.OrgName+"-admin"),
+			run: func(ctx context.Context) error {
+				return platformaws.DeleteAdminUser(ctx, clients.IAM, cfg.OrgName+"-admin")
 			},
 		},
 		{

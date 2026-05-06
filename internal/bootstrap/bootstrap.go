@@ -49,6 +49,9 @@ type bootstrapRunner struct {
 	// rootIAM holds the original IAM client (as root) used to delete the
 	// temp user, since r.c.IAM is replaced after role assumption.
 	rootIAM platformaws.IAMAPI
+	// adminUser holds the persistent admin user credentials created during
+	// bootstrap. These are written to ~/.aws/credentials.
+	adminUser *platformaws.AdminUser
 }
 
 func newBootstrapRunner(ctx context.Context, cfg *config.Config, clients *platformaws.Clients) *bootstrapRunner {
@@ -174,10 +177,13 @@ type bootstrapStepDef struct {
 func bootstrapStepDefs(cfg *config.Config) []bootstrapStepDef {
 	return []bootstrapStepDef{
 		platformAdminRoleStepDef(),
+		adminUserStepDef(cfg),
+		writeCredentialsStepDef(cfg),
 		createTempUserStepDef(),
 		assumeAdminRoleStepDef(),
 		registryTableStepDef(cfg),
 		registerAdminRoleStepDef(),
+		registerAdminUserStepDef(cfg),
 		accountConfigStepDef(cfg),
 		stateBucketStepDef(cfg),
 		lockTableStepDef(cfg),
@@ -198,6 +204,46 @@ func platformAdminRoleStepDef() bootstrapStepDef {
 		desc: fmt.Sprintf("ensure IAM role %s (allow *, deny root-account changes, trusted by account root)", config.RoleNamePlatformAdmin),
 		run: func(ctx context.Context, r *bootstrapRunner) error {
 			return platformaws.EnsurePlatformAdminRole(ctx, r.c.IAM, config.RoleNamePlatformAdmin, r.c.AccountID, r.tags)
+		},
+	}
+}
+
+func adminUserStepDef(cfg *config.Config) bootstrapStepDef {
+	userName := cfg.OrgName + "-admin"
+	return bootstrapStepDef{
+		// admin-user creates a persistent IAM user that can assume platform-admin.
+		// The registry table does not exist yet, so registration is deferred to
+		// register-admin-user step.
+		name: "admin-user",
+		desc: fmt.Sprintf("ensure persistent IAM user %s with assume-role policy for %s", userName, config.RoleNamePlatformAdmin),
+		run: func(ctx context.Context, r *bootstrapRunner) error {
+			roleARN := fmt.Sprintf("arn:aws:iam::%s:role/%s", r.c.AccountID, config.RoleNamePlatformAdmin)
+			user, err := platformaws.CreateAdminUser(ctx, r.c.IAM, userName, roleARN, r.tags)
+			if err != nil {
+				return fmt.Errorf("creating admin user: %w", err)
+			}
+			r.adminUser = user
+			r.log.Info("admin user ready", "step", "admin-user", "user", user.UserName)
+			return nil
+		},
+	}
+}
+
+func writeCredentialsStepDef(cfg *config.Config) bootstrapStepDef {
+	profileName := cfg.OrgName + "-platform"
+	return bootstrapStepDef{
+		name: "write-credentials",
+		desc: fmt.Sprintf("store admin credentials in ~/.aws/credentials [%s]", profileName),
+		run: func(ctx context.Context, r *bootstrapRunner) error {
+			if r.adminUser == nil {
+				r.log.Debug("no admin user credentials to write; skipping")
+				return nil
+			}
+			if err := platformaws.WriteAWSProfile(profileName, r.adminUser.AccessKeyID, r.adminUser.SecretAccessKey, cfg.Region); err != nil {
+				return fmt.Errorf("writing AWS profile: %w", err)
+			}
+			r.log.Info("credentials written", "step", "write-credentials", "profile", profileName, "path", "~/.aws/credentials")
+			return nil
 		},
 	}
 }
@@ -292,6 +338,22 @@ func registerAdminRoleStepDef() bootstrapStepDef {
 		resourceName: config.RoleNamePlatformAdmin,
 		run: func(ctx context.Context, r *bootstrapRunner) error {
 			r.tryRegister(ctx, ResourceTypeIAMRole, config.RoleNamePlatformAdmin)
+			return nil
+		},
+	}
+}
+
+func registerAdminUserStepDef(cfg *config.Config) bootstrapStepDef {
+	userName := cfg.OrgName + "-admin"
+	return bootstrapStepDef{
+		// register-admin-user back-fills the registry record for the admin user,
+		// which was created before the registry table existed.
+		name:         "register-admin-user",
+		desc:         fmt.Sprintf("register IAM user %s in registry table (back-fill after registry-table creation)", userName),
+		resourceType: ResourceTypeIAMUser,
+		resourceName: userName,
+		run: func(ctx context.Context, r *bootstrapRunner) error {
+			r.tryRegister(ctx, ResourceTypeIAMUser, userName)
 			return nil
 		},
 	}
