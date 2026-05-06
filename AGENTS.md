@@ -17,7 +17,11 @@ role, and SNS/budget alerts. Must run before any other platform layer.
   (`fetched.auto.tfvars.json`, `backend.local.hcl`). These files are gitignored in
   their destination repos.
 
-- **Output routing:** Structured log messages go to stderr (JSON in CI, human-readable in TTY). Human-readable progress output (status lines, tables, summaries) is written to stdout via Cobra's `cmd.OutOrStdout()`. Never write unstructured diagnostic text to stdout from the `internal/` packages — only from `cmd/` output helpers.
+- **Output routing:** Structured log messages go to stderr (JSON in CI,
+  human-readable in TTY). Human-readable progress output (status lines, tables,
+  summaries) is written to stdout via Cobra's `cmd.OutOrStdout()`. Never write
+  unstructured diagnostic text to stdout from the `internal/` packages — only
+  from `cmd/` output helpers.
 
 - **Dry-run support** via `--dry-run`. All cloud API calls must be gated by this flag.
 

@@ -122,7 +122,7 @@ func writeCredentialsFile(path string, sections map[string]map[string]string) er
 		}
 	}()
 
-	if err := tmp.Chmod(0600); err != nil {
+	if err := os.Chmod(tmpName, 0600); err != nil {
 		_ = tmp.Close()
 		return fmt.Errorf("setting temp file permissions: %w", err)
 	}
