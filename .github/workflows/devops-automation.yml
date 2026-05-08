@@ -39,7 +39,7 @@ jobs:
           publish_results: false
 
   stale:
-    if: vars.STALE_ENABLED != 'false' && github.event_name != 'pull_request'
+    if: vars.STALE_ENABLED != 'false' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
     permissions:
       contents: read
       issues: write

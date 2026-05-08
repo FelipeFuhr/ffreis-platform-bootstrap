@@ -1,19 +1,6 @@
 name: Fuzzing
 
 on:
-  pull_request:
-    paths:
-      - '**/*.go'
-      - 'go.mod'
-      - 'go.sum'
-      - '.github/workflows/fuzz.yml'
-  push:
-    paths:
-      - '**/*.go'
-      - 'go.mod'
-      - 'go.sum'
-      - '.github/workflows/fuzz.yml'
-
 permissions:
   contents: read
 
