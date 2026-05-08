@@ -17,6 +17,7 @@ permissions:
 
 jobs:
   scorecard:
+    timeout-minutes: 15
     if: vars.SCORECARD_ENABLED != 'false' && github.event_name != 'pull_request'
     permissions:
       contents: read
@@ -38,6 +39,7 @@ jobs:
           publish_results: false
 
   stale:
+    timeout-minutes: 15
     if: vars.STALE_ENABLED != 'false' && github.event_name != 'pull_request'
     permissions:
       contents: read
@@ -48,6 +50,7 @@ jobs:
       only: "both"
 
   verify-release-please:
+    timeout-minutes: 30
     if: vars.RELEASE_PLEASE_ENABLED != 'false' && github.event_name == 'push'
     permissions:
       contents: read
@@ -71,6 +74,7 @@ jobs:
           fi
 
   release-please:
+    timeout-minutes: 30
     needs: [verify-release-please]
     if: vars.RELEASE_PLEASE_ENABLED != 'false' && github.event_name == 'push'
     permissions:

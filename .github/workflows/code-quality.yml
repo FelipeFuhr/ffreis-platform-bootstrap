@@ -20,6 +20,7 @@ concurrency:
 
 jobs:
   verify-secrets:
+    timeout-minutes: 30
     name: Verify SonarCloud credentials
     runs-on: ubuntu-latest
     if: vars.SONAR_ENABLED != 'false' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false)
@@ -44,6 +45,7 @@ jobs:
           fi
 
   sonar:
+    timeout-minutes: 30
     name: SonarQube
     needs: [verify-secrets]
     if: vars.SONAR_ENABLED != 'false' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false)

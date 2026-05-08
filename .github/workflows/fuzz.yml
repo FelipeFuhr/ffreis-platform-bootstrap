@@ -23,6 +23,8 @@ concurrency:
 
 jobs:
   fuzz:
+    timeout-minutes: 30
+    if: ${{ !github.event.pull_request.draft }}
     name: Go Fuzz
     runs-on: ubuntu-latest
     steps:
