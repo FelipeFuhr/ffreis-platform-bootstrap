@@ -48,7 +48,7 @@ clean:
 
 ## test: run all tests
 test:
-	go test ./...
+	go test -race -shuffle=on ./...
 
 ## test-verbose: run all tests with verbose output
 test-verbose:
