@@ -27,6 +27,7 @@ jobs:
       working-directory: "."
 
   lint:
+    timeout-minutes: 15
     name: Lint (vet + golangci-lint)
     needs: [fmt]
     runs-on: ubuntu-latest
