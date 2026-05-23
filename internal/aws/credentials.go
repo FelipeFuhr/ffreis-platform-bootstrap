@@ -56,12 +56,18 @@ func WriteAWSProfile(profileName, accessKeyID, secretAccessKey, region string) e
 
 // parseCredentialsFile reads an AWS credentials file and returns a map of
 // profile name -> key/value pairs.
+//
+// path is sourced from bootstrap config (AWS_SHARED_CREDENTIALS_FILE or the
+// default $HOME/.aws/credentials), never user-supplied at runtime — the
+// gosec G304 finding is suppressed inline. The close error on a read-only
+// credentials file is not actionable, so the defer is wrapped to silence
+// errcheck.
 func parseCredentialsFile(path string) (map[string]map[string]string, error) {
-	file, err := os.Open(path)
+	file, err := os.Open(path) //nolint:gosec // path comes from trusted config, not user input
 	if err != nil {
 		return make(map[string]map[string]string), err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	sections := make(map[string]map[string]string)
 	var currentSection string
