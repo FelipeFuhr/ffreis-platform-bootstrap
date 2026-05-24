@@ -11,9 +11,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-permissions:
-  contents: read
-
 jobs:
   changes:
     # Skip heavy vuln scanners (trivy/grype/osv) on docs-only changes.
@@ -69,6 +66,7 @@ jobs:
   semgrep:
     permissions:
       contents: read
+      actions: read
       security-events: write
     uses: FelipeFuhr/ffreis-workflows-go/.github/workflows/go-semgrep-sarif.yml@d9b0146bb491bf06a79c9c6289034537522cbed3
     with:

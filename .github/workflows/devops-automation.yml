@@ -12,15 +12,15 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-permissions:
-  contents: read
-
 jobs:
   scorecard:
     timeout-minutes: 15
-    if: vars.SCORECARD_ENABLED != 'false' && github.event_name != 'pull_request'
     permissions:
+      id-token: write
+      security-events: write
       contents: read
+      actions: read
+    if: vars.SCORECARD_ENABLED != 'false' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - name: Harden the runner (Audit all outbound calls)
@@ -39,20 +39,19 @@ jobs:
           publish_results: false
 
   stale:
-    if: vars.STALE_ENABLED != 'false' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
     permissions:
-      contents: read
       issues: write
       pull-requests: write
+    if: vars.STALE_ENABLED != 'false' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
     uses: FelipeFuhr/ffreis-workflows-general/.github/workflows/general-stale.yml@5dfbb4986ceb88f6518fa719da3a255294cf03cf
     with:
       only: "both"
 
   verify-release-please:
     timeout-minutes: 30
-    if: vars.RELEASE_PLEASE_ENABLED != 'false' && github.event_name == 'push'
     permissions:
       contents: read
+    if: vars.RELEASE_PLEASE_ENABLED != 'false' && github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
       - name: Harden the runner (Audit all outbound calls)
@@ -74,10 +73,10 @@ jobs:
 
   release-please:
     needs: [verify-release-please]
-    if: vars.RELEASE_PLEASE_ENABLED != 'false' && github.event_name == 'push'
     permissions:
-      contents: read
-      pull-requests: read
+      contents: write
+      pull-requests: write
+    if: vars.RELEASE_PLEASE_ENABLED != 'false' && github.event_name == 'push'
     uses: FelipeFuhr/ffreis-workflows-general/.github/workflows/general-release-please.yml@5dfbb4986ceb88f6518fa719da3a255294cf03cf
     with:
       target-branch: "main"

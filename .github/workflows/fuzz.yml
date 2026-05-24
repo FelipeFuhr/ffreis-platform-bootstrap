@@ -9,8 +9,6 @@ on:
         description: "Reason for manual run (optional)"
         required: false
         type: string
-permissions:
-  contents: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -19,6 +17,8 @@ concurrency:
 jobs:
   fuzz:
     timeout-minutes: 30
+    permissions:
+      contents: read
     if: ${{ !github.event.pull_request.draft }}
     name: Go Fuzz
     runs-on: ubuntu-latest
