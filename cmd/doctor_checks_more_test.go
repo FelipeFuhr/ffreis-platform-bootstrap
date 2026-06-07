@@ -21,21 +21,21 @@ func TestBootstrapRegistrySectionDuplicateConflict(t *testing.T) {
 	cfg := testConfig()
 	first, err := platformaws.NewRegistryRecord("S3Bucket", cfg.StateBucketName(), "creator-a", map[string]string{"ManagedBy": "bootstrap"})
 	if err != nil {
-		t.Fatalf("NewRegistryRecord() unexpected error: %v", err)
+		t.Fatalf(errUnexpectedDoctorChecks, err)
 	}
 	second, err := platformaws.NewRegistryRecord("S3Bucket", cfg.StateBucketName(), "creator-b", map[string]string{"ManagedBy": "bootstrap"})
 	if err != nil {
-		t.Fatalf("NewRegistryRecord() unexpected error: %v", err)
+		t.Fatalf(errUnexpectedDoctorChecks, err)
 	}
 	first.CreatedAt = time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
 	second.CreatedAt = first.CreatedAt.Add(time.Minute)
 	firstItem, err := attributevalue.MarshalMap(first)
 	if err != nil {
-		t.Fatalf("MarshalMap(first) unexpected error: %v", err)
+		t.Fatalf(errUnexpectedDoctorChecks, err)
 	}
 	secondItem, err := attributevalue.MarshalMap(second)
 	if err != nil {
-		t.Fatalf("MarshalMap(second) unexpected error: %v", err)
+		t.Fatalf(errUnexpectedDoctorChecks, err)
 	}
 
 	clients := &platformaws.Clients{
@@ -56,9 +56,9 @@ func TestBootstrapRegistrySectionDuplicateConflict(t *testing.T) {
 
 	section, err := bootstrapRegistrySection(context.Background(), false)
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpectedDoctorChecks, err)
 	}
-	if section.Checks[0].Status != "fail" {
+	if section.Checks[0].Status != statusFail {
 		t.Fatalf("duplicates check status = %q, want fail", section.Checks[0].Status)
 	}
 	if !strings.Contains(section.Checks[0].Detail, "conflicting duplicate registry rows") {
@@ -71,7 +71,7 @@ func TestBootstrapContractSectionWithoutTrust(t *testing.T) {
 
 	section, err := bootstrapContractSection(context.Background(), bootstrapDoctorMode{IncludeContract: true, IncludeTrust: false})
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(errUnexpectedDoctorChecks, err)
 	}
 	if len(section.Checks) != 2 {
 		t.Fatalf("expected 2 contract checks without trust, got %d", len(section.Checks))
@@ -91,7 +91,7 @@ func TestBootstrapTrustCheckDecodeAndJSONFailures(t *testing.T) {
 		setTestDeps(t, testConfig(), clients, nil)
 
 		check := bootstrapTrustCheck(context.Background(), true)
-		if check.Status != "fail" || !strings.Contains(check.Detail, "could not decode trust policy") {
+		if check.Status != statusFail || !strings.Contains(check.Detail, "could not decode trust policy") {
 			t.Fatalf("unexpected decode failure check: %+v", check)
 		}
 	})
@@ -108,7 +108,7 @@ func TestBootstrapTrustCheckDecodeAndJSONFailures(t *testing.T) {
 		setTestDeps(t, testConfig(), clients, nil)
 
 		check := bootstrapTrustCheck(context.Background(), true)
-		if check.Status != "fail" || !strings.Contains(check.Detail, "could not parse trust policy JSON") {
+		if check.Status != statusFail || !strings.Contains(check.Detail, "could not parse trust policy JSON") {
 			t.Fatalf("unexpected JSON failure check: %+v", check)
 		}
 	})
@@ -116,10 +116,10 @@ func TestBootstrapTrustCheckDecodeAndJSONFailures(t *testing.T) {
 
 func TestBootstrapDoctorStatusIconVariants(t *testing.T) {
 	setTestDeps(t, testConfig(), &platformaws.Clients{}, nil)
-	if got := bootstrapDoctorStatusIcon("warn"); got != "WARN" {
+	if got := bootstrapDoctorStatusIcon(statusWarn); got != "WARN" {
 		t.Fatalf("bootstrapDoctorStatusIcon(warn) = %q", got)
 	}
-	if got := bootstrapDoctorStatusIcon("info"); got != "INFO" {
+	if got := bootstrapDoctorStatusIcon(statusInfo); got != "INFO" {
 		t.Fatalf("bootstrapDoctorStatusIcon(info) = %q", got)
 	}
 	if got := bootstrapDoctorStatusIcon("mystery"); got != "mystery" {
@@ -135,7 +135,7 @@ func mustMarshalJSON(t *testing.T, value string) []byte {
 	t.Helper()
 	data, err := json.Marshal(value)
 	if err != nil {
-		t.Fatalf("json.Marshal() unexpected error: %v", err)
+		t.Fatalf(errUnexpectedDoctorChecks, err)
 	}
 	return data
 }

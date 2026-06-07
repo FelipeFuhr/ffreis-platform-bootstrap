@@ -21,6 +21,14 @@ import (
 
 const platformAdminRoleName = "platform-admin"
 
+// Doctor check status values.
+const (
+	statusOK   = "ok"
+	statusFail = "fail"
+	statusWarn = "warn"
+	statusInfo = "info"
+)
+
 func formatErr(err error) string {
 	if err == nil {
 		return ""
@@ -137,13 +145,13 @@ func summarizeBootstrapDoctor(sections []bootstrapDoctorSection) bootstrapDoctor
 		for _, check := range section.Checks {
 			summary.Total++
 			switch check.Status {
-			case "ok":
+			case statusOK:
 				summary.OK++
-			case "warn":
+			case statusWarn:
 				summary.Warn++
-			case "fail":
+			case statusFail:
 				summary.Fail++
-			case "info":
+			case statusInfo:
 				summary.Info++
 			}
 		}
@@ -216,10 +224,10 @@ func bootstrapPermissionSection(ctx context.Context) bootstrapDoctorSection {
 	results := make([]bootstrapDoctorCheck, 0, len(checks))
 	for _, check := range checks {
 		err := check.run()
-		status := "ok"
+		status := statusOK
 		detail := "read-only access confirmed"
 		if err != nil {
-			status = "fail"
+			status = statusFail
 			detail = formatErr(err)
 		}
 		results = append(results, bootstrapDoctorCheck{
@@ -229,7 +237,7 @@ func bootstrapPermissionSection(ctx context.Context) bootstrapDoctorSection {
 			Detail:   detail,
 			Hint:     check.hint,
 			Related:  check.related,
-			Blocking: status == "fail",
+			Blocking: status == statusFail,
 		})
 	}
 
@@ -305,17 +313,17 @@ func bootstrapResourceSection(ctx context.Context, requireExisting bool) bootstr
 	results := make([]bootstrapDoctorCheck, 0, len(checks))
 	for _, check := range checks {
 		exists, err := check.exists()
-		status := "ok"
+		status := statusOK
 		detail := fmt.Sprintf("%s %s is present", check.resourceType, check.name)
 		if err != nil {
-			status = "fail"
+			status = statusFail
 			detail = formatErr(err)
 		} else if !exists {
 			if requireExisting {
-				status = "fail"
+				status = statusFail
 				detail = fmt.Sprintf("%s %s is missing", check.resourceType, check.name)
 			} else {
-				status = "info"
+				status = statusInfo
 				detail = fmt.Sprintf("%s %s is not created yet", check.resourceType, check.name)
 			}
 		}
@@ -326,7 +334,7 @@ func bootstrapResourceSection(ctx context.Context, requireExisting bool) bootstr
 			Detail:   detail,
 			Hint:     "run platform-bootstrap init to reconcile Layer 0 resources",
 			Related:  []string{check.resourceType + "/" + check.name},
-			Blocking: status == "fail",
+			Blocking: status == statusFail,
 		})
 	}
 
@@ -357,7 +365,7 @@ func bootstrapRegistrySection(ctx context.Context, requireExisting bool) (bootst
 		checks = append(checks, bootstrapDoctorCheck{
 			Key:      "registry.duplicates",
 			Title:    "Registry keys are unique",
-			Status:   "ok",
+			Status:   statusOK,
 			Detail:   "no conflicting duplicate registry rows found",
 			Hint:     "remove duplicate registry rows if they appear",
 			Blocking: false,
@@ -371,7 +379,7 @@ func bootstrapRegistrySection(ctx context.Context, requireExisting bool) (bootst
 		checks = append(checks, bootstrapDoctorCheck{
 			Key:      "registry.duplicates",
 			Title:    "Registry keys are unique",
-			Status:   "fail",
+			Status:   statusFail,
 			Detail:   "conflicting duplicate registry rows: " + strings.Join(keys, ", "),
 			Hint:     "repair the bootstrap registry so each resource key has exactly one row",
 			Related:  keys,
@@ -393,7 +401,7 @@ func bootstrapRegistrySection(ctx context.Context, requireExisting bool) (bootst
 			Detail:   detail,
 			Hint:     "re-run platform-bootstrap init to recreate or re-register the expected bootstrap resource",
 			Related:  []string{key},
-			Blocking: status == "fail",
+			Blocking: status == statusFail,
 		})
 	}
 
@@ -405,15 +413,15 @@ func bootstrapRegistrySection(ctx context.Context, requireExisting bool) (bootst
 func registryResourceStatus(registered, exists, requireExisting bool) (status, detail string) {
 	switch {
 	case !registered && exists:
-		return "fail", "resource exists in AWS but is missing from the bootstrap registry"
+		return statusFail, "resource exists in AWS but is missing from the bootstrap registry"
 	case !registered && !exists && requireExisting:
-		return "fail", "resource and registry row are both missing"
+		return statusFail, "resource and registry row are both missing"
 	case !registered && !exists:
-		return "info", "resource and registry row are not created yet"
+		return statusInfo, "resource and registry row are not created yet"
 	case registered && !exists && requireExisting:
-		return "fail", "registry row exists but the live resource is missing"
+		return statusFail, "registry row exists but the live resource is missing"
 	default:
-		return "ok", "registry row and live resource match"
+		return statusOK, "registry row and live resource match"
 	}
 }
 
@@ -422,7 +430,7 @@ func bootstrapContractSection(ctx context.Context, mode bootstrapDoctorMode) (bo
 		{
 			Key:      "contract.backend-export",
 			Title:    "Exported backend contract is internally consistent",
-			Status:   "ok",
+			Status:   statusOK,
 			Detail:   fmt.Sprintf("bucket=%s  table=%s  region=%s", deps.cfg.StateBucketName(), deps.cfg.LockTableName(), deps.cfg.StateRegion),
 			Hint:     "ensure bootstrap fetch writes the same root backend values expected by platform-org",
 			Related:  []string{deps.cfg.StateBucketName(), deps.cfg.LockTableName()},
@@ -431,7 +439,7 @@ func bootstrapContractSection(ctx context.Context, mode bootstrapDoctorMode) (bo
 		{
 			Key:      "contract.backend-render",
 			Title:    "Rendered backend export contains the current root contract",
-			Status:   "ok",
+			Status:   statusOK,
 			Detail:   "backend.local.hcl export uses the current root bucket, lock table, and region",
 			Hint:     "repair bootstrap fetch output generation if the exported backend contract drifts",
 			Related:  []string{deps.cfg.StateBucketName(), deps.cfg.LockTableName()},
@@ -447,7 +455,7 @@ func bootstrapContractSection(ctx context.Context, mode bootstrapDoctorMode) (bo
 	if !strings.Contains(rendered, strconvQuote(deps.cfg.StateBucketName())) ||
 		!strings.Contains(rendered, strconvQuote(deps.cfg.LockTableName())) ||
 		!strings.Contains(rendered, strconvQuote(deps.cfg.StateRegion)) {
-		checks[1].Status = "fail"
+		checks[1].Status = statusFail
 		checks[1].Detail = "rendered backend export does not include the current root bucket/table/region"
 		checks[1].Blocking = true
 	}
@@ -463,7 +471,7 @@ func bootstrapTrustCheck(ctx context.Context, requireExisting bool) bootstrapDoc
 	check := bootstrapDoctorCheck{
 		Key:      "contract.platform-admin-trust",
 		Title:    "platform-admin trust allows the account root principal",
-		Status:   "ok",
+		Status:   statusOK,
 		Hint:     "re-run platform-bootstrap init to repair the platform-admin trust policy",
 		Related:  []string{"IAMRole/platform-admin"},
 		Blocking: false,
@@ -473,23 +481,23 @@ func bootstrapTrustCheck(ctx context.Context, requireExisting bool) bootstrapDoc
 	if err != nil {
 		exists, existsErr := deps.clients.RoleExistsChecked(ctx, platformAdminRoleName)
 		if existsErr != nil {
-			check.Status = "fail"
+			check.Status = statusFail
 			check.Detail = formatErr(existsErr)
 			check.Blocking = true
 			return check
 		}
 		if !exists {
 			if requireExisting {
-				check.Status = "fail"
+				check.Status = statusFail
 				check.Detail = "platform-admin role is missing"
 				check.Blocking = true
 			} else {
-				check.Status = "info"
+				check.Status = statusInfo
 				check.Detail = "platform-admin role is not created yet"
 			}
 			return check
 		}
-		check.Status = "fail"
+		check.Status = statusFail
 		check.Detail = formatErr(err)
 		check.Blocking = true
 		return check
@@ -498,7 +506,7 @@ func bootstrapTrustCheck(ctx context.Context, requireExisting bool) bootstrapDoc
 	rawDoc := aws.ToString(out.Role.AssumeRolePolicyDocument)
 	decodedDoc, decodeErr := url.QueryUnescape(rawDoc)
 	if decodeErr != nil {
-		check.Status = "fail"
+		check.Status = statusFail
 		check.Detail = fmt.Sprintf("could not decode trust policy: %v", decodeErr)
 		check.Blocking = true
 		return check
@@ -511,13 +519,13 @@ func bootstrapTrustCheck(ctx context.Context, requireExisting bool) bootstrapDoc
 
 	var policyDoc map[string]any
 	if err := json.Unmarshal([]byte(decodedDoc), &policyDoc); err != nil {
-		check.Status = "fail"
+		check.Status = statusFail
 		check.Detail = fmt.Sprintf("could not parse trust policy JSON: %v", err)
 		check.Blocking = true
 		return check
 	}
 
-	check.Status = "fail"
+	check.Status = statusFail
 	check.Detail = "platform-admin trust does not include the current account root principal"
 	check.Blocking = true
 	return check
@@ -548,33 +556,33 @@ func printBootstrapDoctorReport(out *commandOutput, report BootstrapDoctorReport
 
 func printBootstrapDoctorSummary(out *commandOutput, report BootstrapDoctorReport) {
 	out.Summary("Integrity Summary",
-		countPart("ok", report.Summary.OK),
-		countPart("warn", report.Summary.Warn),
-		countPart("fail", report.Summary.Fail),
-		countPart("info", report.Summary.Info),
+		countPart(statusOK, report.Summary.OK),
+		countPart(statusWarn, report.Summary.Warn),
+		countPart(statusFail, report.Summary.Fail),
+		countPart(statusInfo, report.Summary.Info),
 	)
 }
 
 func bootstrapDoctorStatusIcon(status string) string {
 	switch status {
-	case "ok":
+	case statusOK:
 		if deps.ui != nil {
-			return deps.ui.Badge("ok", "ok")
+			return deps.ui.Badge(statusOK, statusOK)
 		}
 		return "OK  "
-	case "warn":
+	case statusWarn:
 		if deps.ui != nil {
-			return deps.ui.Badge("warn", "warn")
+			return deps.ui.Badge(statusWarn, statusWarn)
 		}
 		return "WARN"
-	case "fail":
+	case statusFail:
 		if deps.ui != nil {
-			return deps.ui.Badge("error", "fail")
+			return deps.ui.Badge("error", statusFail)
 		}
 		return "FAIL"
-	case "info":
+	case statusInfo:
 		if deps.ui != nil {
-			return deps.ui.Badge("info", "info")
+			return deps.ui.Badge(statusInfo, statusInfo)
 		}
 		return "INFO"
 	default:
