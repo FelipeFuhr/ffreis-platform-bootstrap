@@ -25,6 +25,14 @@ import (
 	"github.com/ffreis/platform-bootstrap/internal/bootstrap"
 )
 
+// Audit resource status values.
+const (
+	auditStatusOK        = "ok"
+	auditStatusMissing   = "missing"
+	auditStatusOwned     = "owned"
+	auditStatusUnmanaged = "unmanaged"
+)
+
 // AuditResult is the structured result of a single audited resource.
 type AuditResult struct {
 	ResourceType string    `json:"resource_type"`
@@ -100,11 +108,11 @@ Exit codes:
 			rec, registered := recordByKey[key]
 			exists := deps.clients.ResourceExists(ctx, e.ResourceType, e.ResourceName)
 
-			status := "missing"
+			status := auditStatusMissing
 			if exists && registered {
-				status = "ok"
+				status = auditStatusOK
 			} else if exists {
-				status = "unmanaged"
+				status = auditStatusUnmanaged
 			}
 
 			result := AuditResult{
@@ -132,9 +140,9 @@ Exit codes:
 			if seenKeys[key] {
 				continue
 			}
-			status := "unmanaged"
+			status := auditStatusUnmanaged
 			if discoveredResource.Owner != "" && discoveredResource.Owner != "bootstrap" {
-				status = "owned"
+				status = auditStatusOwned
 			}
 			results = append(results, AuditResult{
 				ResourceType: discoveredResource.ResourceType,
@@ -156,13 +164,13 @@ Exit codes:
 		summary := AuditSummary{Total: len(results)}
 		for _, r := range results {
 			switch r.Status {
-			case "ok":
+			case auditStatusOK:
 				summary.OK++
-			case "missing":
+			case auditStatusMissing:
 				summary.Missing++
-			case "owned":
+			case auditStatusOwned:
 				summary.Owned++
-			case "unmanaged":
+			case auditStatusUnmanaged:
 				summary.Unmanaged++
 			}
 		}
@@ -237,10 +245,10 @@ func printAuditReport(cmd *cobra.Command, r AuditReport) {
 		out.Blank()
 		out.Summary("Summary",
 			countPart("total", r.Summary.Total),
-			countPart("ok", r.Summary.OK),
-			countPart("missing", r.Summary.Missing),
-			countPart("owned", r.Summary.Owned),
-			countPart("unmanaged", r.Summary.Unmanaged),
+			countPart(auditStatusOK, r.Summary.OK),
+			countPart(auditStatusMissing, r.Summary.Missing),
+			countPart(auditStatusOwned, r.Summary.Owned),
+			countPart(auditStatusUnmanaged, r.Summary.Unmanaged),
 		)
 		return
 	}
@@ -315,13 +323,13 @@ func sortAuditResults(results []AuditResult, expectedOrder map[string]int) {
 
 func bootstrapStatusRank(status string) int {
 	switch status {
-	case "ok":
+	case auditStatusOK:
 		return 0
-	case "unmanaged":
+	case auditStatusUnmanaged:
 		return 1
-	case "owned":
+	case auditStatusOwned:
 		return 2
-	case "missing":
+	case auditStatusMissing:
 		return 3
 	default:
 		return 4
@@ -330,24 +338,24 @@ func bootstrapStatusRank(status string) int {
 
 func statusIcon(s string) string {
 	switch s {
-	case "ok":
+	case auditStatusOK:
 		if deps.ui != nil {
-			return deps.ui.Badge("ok", "ok")
+			return deps.ui.Badge(auditStatusOK, auditStatusOK)
 		}
 		return "OK      "
-	case "missing":
+	case auditStatusMissing:
 		if deps.ui != nil {
-			return deps.ui.Badge("error", "missing")
+			return deps.ui.Badge("error", auditStatusMissing)
 		}
 		return "MISSING "
-	case "unmanaged":
+	case auditStatusUnmanaged:
 		if deps.ui != nil {
-			return deps.ui.Badge("warn", "unmanaged")
+			return deps.ui.Badge(statusWarn, auditStatusUnmanaged)
 		}
 		return "UNMANAGED"
-	case "owned":
+	case auditStatusOwned:
 		if deps.ui != nil {
-			return deps.ui.Badge("muted", "owned")
+			return deps.ui.Badge("muted", auditStatusOwned)
 		}
 		return "OWNED   "
 	}
@@ -400,9 +408,9 @@ func discoverBootstrapS3Buckets(ctx context.Context) ([]discoveredBootstrapResou
 	var resources []discoveredBootstrapResource
 	for _, bucket := range bucketsOut.Buckets {
 		name := strings.TrimSpace(stringValue(bucket.Name))
-		if matchesBootstrapManagedName("S3Bucket", name) {
+		if matchesBootstrapManagedName(string(bootstrap.ResourceTypeS3Bucket), name) {
 			resources = append(resources, discoveredBootstrapResource{
-				ResourceType: "S3Bucket",
+				ResourceType: string(bootstrap.ResourceTypeS3Bucket),
 				ResourceName: name,
 				Owner:        bucketOwner(ctx, name),
 			})
@@ -420,9 +428,9 @@ func discoverBootstrapDynamoTables(ctx context.Context) ([]discoveredBootstrapRe
 			return nil, fmt.Errorf("listing DynamoDB tables: %w", err)
 		}
 		for _, table := range tablesOut.TableNames {
-			if matchesBootstrapManagedName("DynamoDBTable", table) {
+			if matchesBootstrapManagedName(string(bootstrap.ResourceTypeDynamoDBTable), table) {
 				resources = append(resources, discoveredBootstrapResource{
-					ResourceType: "DynamoDBTable",
+					ResourceType: string(bootstrap.ResourceTypeDynamoDBTable),
 					ResourceName: table,
 					Owner:        dynamoTableOwner(ctx, table),
 				})
@@ -447,9 +455,9 @@ func discoverBootstrapSNSTopics(ctx context.Context) ([]discoveredBootstrapResou
 		for _, topic := range topicsOut.Topics {
 			arn := stringValue(topic.TopicArn)
 			name := topicNameFromARN(arn)
-			if matchesBootstrapManagedName("SNSTopic", name) {
+			if matchesBootstrapManagedName(string(bootstrap.ResourceTypeSNSTopic), name) {
 				resources = append(resources, discoveredBootstrapResource{
-					ResourceType: "SNSTopic",
+					ResourceType: string(bootstrap.ResourceTypeSNSTopic),
 					ResourceName: name,
 					Owner:        snsTopicOwner(ctx, arn),
 				})
@@ -477,9 +485,9 @@ func discoverBootstrapBudgets(ctx context.Context) ([]discoveredBootstrapResourc
 		}
 		for _, budget := range budgetsOut.Budgets {
 			name := strings.TrimSpace(stringValue(budget.BudgetName))
-			if matchesBootstrapManagedName("AWSBudget", name) {
+			if matchesBootstrapManagedName(string(bootstrap.ResourceTypeAWSBudget), name) {
 				resources = append(resources, discoveredBootstrapResource{
-					ResourceType: "AWSBudget",
+					ResourceType: string(bootstrap.ResourceTypeAWSBudget),
 					ResourceName: name,
 					Owner:        budgetOwner(ctx, name),
 				})
@@ -621,7 +629,10 @@ func matchesBootstrapManagedName(resourceType, name string) bool {
 
 	orgPrefix := deps.cfg.OrgName + "-"
 	switch resourceType {
-	case "S3Bucket", "DynamoDBTable", "SNSTopic", "AWSBudget":
+	case string(bootstrap.ResourceTypeS3Bucket),
+		string(bootstrap.ResourceTypeDynamoDBTable),
+		string(bootstrap.ResourceTypeSNSTopic),
+		string(bootstrap.ResourceTypeAWSBudget):
 		return strings.HasPrefix(name, orgPrefix)
 	default:
 		return false

@@ -14,7 +14,7 @@ import (
 	platformcfg "github.com/ffreis/platform-bootstrap/internal/config"
 )
 
-// mockSTS implements CallerIdentityProvider for verifyIdentity tests.
+// mockSTS implements CallerIdentityGetter for verifyIdentity tests.
 type mockSTS struct {
 	out *sts.GetCallerIdentityOutput
 	err error
