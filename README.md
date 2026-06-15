@@ -1,5 +1,9 @@
 # ffreis-platform-bootstrap
 
+<!-- ffreis-badges:start -->
+[![CI](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/FelipeFuhr/ffreis-badges/main/badges/ffreis-platform-bootstrap/ci.json)](https://github.com/FelipeFuhr/ffreis-platform-bootstrap/actions) [![License](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/FelipeFuhr/ffreis-badges/main/badges/ffreis-platform-bootstrap/license.json)](https://github.com/FelipeFuhr/ffreis-platform-bootstrap/blob/main/LICENSE)
+<!-- ffreis-badges:end -->
+
 CLI tool for bootstrapping the foundational AWS multi-account platform.
 Written in Go. Uses AWS SDK v2 and Cobra.
 
