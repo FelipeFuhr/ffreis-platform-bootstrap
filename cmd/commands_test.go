@@ -25,7 +25,7 @@ import (
 
 	platformaws "github.com/ffreis/platform-bootstrap/internal/aws"
 	"github.com/ffreis/platform-bootstrap/internal/config"
-	platformui "github.com/ffreis/platform-cli/pkg/ui"
+	platformui "github.com/FelipeFuhr/ffreis-platform-cli/pkg/ui"
 )
 
 const (
