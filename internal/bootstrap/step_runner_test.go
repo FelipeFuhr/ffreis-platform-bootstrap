@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	platformui "github.com/ffreis/platform-bootstrap/internal/ui"
+	platformui "github.com/ffreis/platform-cli/pkg/ui"
 )
 
 func TestRunStepsDryRunSkipsAllSteps(t *testing.T) {

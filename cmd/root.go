@@ -13,7 +13,7 @@ import (
 	platformaws "github.com/ffreis/platform-bootstrap/internal/aws"
 	"github.com/ffreis/platform-bootstrap/internal/config"
 	"github.com/ffreis/platform-bootstrap/internal/logging"
-	platformui "github.com/ffreis/platform-bootstrap/internal/ui"
+	platformui "github.com/ffreis/platform-cli/pkg/ui"
 )
 
 // deps is populated by root's PersistentPreRunE and is available to all

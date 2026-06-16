@@ -10,7 +10,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 
-	platformui "github.com/ffreis/platform-bootstrap/internal/ui"
+	platformui "github.com/ffreis/platform-cli/pkg/ui"
 )
 
 type commandOutput struct {
