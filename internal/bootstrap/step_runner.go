@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/ffreis/platform-bootstrap/internal/logging"
-	platformui "github.com/ffreis/platform-bootstrap/internal/ui"
+	platformui "github.com/ffreis/platform-cli/pkg/ui"
 )
 
 type step struct {

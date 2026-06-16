@@ -7,7 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	platformui "github.com/ffreis/platform-bootstrap/internal/ui"
+	platformui "github.com/ffreis/platform-cli/pkg/ui"
 )
 
 func TestCommandOutputPlainHelpers(t *testing.T) {
