@@ -12,14 +12,16 @@ func TestRequiredTagsFields(t *testing.T) {
 		{"Owner", "acme"},
 		{"ManagedBy", "platform-bootstrap"},
 		{"ToolVersion", "v1.2.3"},
+		{"CostCenter", "platform"},
+		{"Environment", "prod"},
 	}
 	for _, tc := range cases {
 		if got := tags[tc.key]; got != tc.want {
 			t.Errorf("RequiredTags[%q]: want %q, got %q", tc.key, tc.want, got)
 		}
 	}
-	if len(tags) != 6 {
-		t.Errorf("RequiredTags: want 6 entries, got %d", len(tags))
+	if len(tags) != 8 {
+		t.Errorf("RequiredTags: want 8 entries, got %d", len(tags))
 	}
 }
 

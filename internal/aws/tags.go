@@ -11,6 +11,12 @@ package aws
 //   - Owner:       the org name — identifies the owning team or product.
 //   - ManagedBy:   constant "platform-bootstrap" — the tool that owns this resource.
 //   - ToolVersion: the build-time version string — which release last touched it.
+//   - CostCenter:  constant "platform" — matches the fleet's per-product cost
+//     allocation tag (see AGENTS.md "Tagging"); bootstrap resources back every
+//     environment equally, so they bill to the platform cost center itself.
+//   - Environment: constant "prod" — the bootstrap layer is a single
+//     account-wide singleton with no dev/prod split; it is production-critical
+//     by definition (it holds the Terraform state backend for everything else).
 func RequiredTags(orgName, toolVersion string) map[string]string {
 	v := toolVersion
 	if v == "" {
@@ -23,5 +29,7 @@ func RequiredTags(orgName, toolVersion string) map[string]string {
 		"Owner":       orgName,
 		"ManagedBy":   "platform-bootstrap",
 		"ToolVersion": v,
+		"CostCenter":  "platform",
+		"Environment": "prod",
 	}
 }
