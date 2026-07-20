@@ -43,7 +43,7 @@ jobs:
       issues: write
       pull-requests: write
     if: vars.STALE_ENABLED != 'false' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
-    uses: ffreis-org/ffreis-workflows-general/.github/workflows/general-stale.yml@5dfbb4986ceb88f6518fa719da3a255294cf03cf
+    uses: FelipeFuhr/ffreis-workflows-general/.github/workflows/general-stale.yml@5dfbb4986ceb88f6518fa719da3a255294cf03cf
     with:
       only: "both"
 
@@ -77,7 +77,7 @@ jobs:
       contents: write
       pull-requests: write
     if: vars.RELEASE_PLEASE_ENABLED != 'false' && github.event_name == 'push'
-    uses: ffreis-org/ffreis-workflows-general/.github/workflows/general-release-please.yml@5dfbb4986ceb88f6518fa719da3a255294cf03cf
+    uses: FelipeFuhr/ffreis-workflows-general/.github/workflows/general-release-please.yml@5dfbb4986ceb88f6518fa719da3a255294cf03cf
     with:
       target-branch: "main"
     secrets:
