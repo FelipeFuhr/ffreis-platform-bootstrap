@@ -10,10 +10,10 @@ import (
 
 	"github.com/spf13/cobra"
 
+	platformui "github.com/FelipeFuhr/ffreis-platform-cli/pkg/ui"
 	platformaws "github.com/ffreis/platform-bootstrap/internal/aws"
 	"github.com/ffreis/platform-bootstrap/internal/config"
 	"github.com/ffreis/platform-bootstrap/internal/logging"
-	platformui "github.com/FelipeFuhr/ffreis-platform-cli/pkg/ui"
 )
 
 // deps is populated by root's PersistentPreRunE and is available to all

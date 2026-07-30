@@ -8,8 +8,8 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/ffreis/platform-bootstrap/internal/logging"
 	platformui "github.com/FelipeFuhr/ffreis-platform-cli/pkg/ui"
+	"github.com/ffreis/platform-bootstrap/internal/logging"
 )
 
 type step struct {
