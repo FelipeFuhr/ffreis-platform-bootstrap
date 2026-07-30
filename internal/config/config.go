@@ -29,12 +29,15 @@ type Config struct {
 	// means no account config is written during bootstrap.
 	Accounts map[string]string
 
-	// AdminEmail is the address that receives platform budget alert
-	// notifications. Stored in the bootstrap registry under CONFIG#admin /
-	// alert_email so that platform-bootstrap fetch can emit it into
-	// fetched.auto.tfvars.json without ever committing it to source control.
-	// Optional: if empty, no admin config record is written and the
-	// budget_alert_email Terraform variable must be supplied another way.
+	// AdminEmail holds the address(es) that receive platform budget alert
+	// notifications. Multiple recipients are expressed as a comma-separated
+	// list ("a@example.com,b@example.com"). Stored verbatim in the bootstrap
+	// registry under CONFIG#admin / alert_email so that platform-bootstrap
+	// fetch can emit it into fetched.auto.tfvars.json — as the
+	// budget_alert_emails list, plus the deprecated singular
+	// budget_alert_email holding the first entry — without ever committing it
+	// to source control. Optional: if empty, no admin config record is written
+	// and the Terraform variables must be supplied another way.
 	AdminEmail string
 
 	// ToolVersion is the build-time version string injected via linker flags.

@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -84,18 +86,159 @@ func TestAccountsFromRecords(t *testing.T) {
 	}
 }
 
-func TestAdminAlertEmail(t *testing.T) {
+func TestAdminAlertEmails(t *testing.T) {
 	t.Parallel()
 
-	records := []platformaws.ConfigRecord{
-		{ConfigName: "ignored", Data: map[string]string{"email": "ignored@example.com"}},
-		{ConfigName: "alert_email", Data: map[string]string{"email": testAdminEmail}},
+	const second = "ops@example.com"
+
+	tests := []struct {
+		name    string
+		records []platformaws.ConfigRecord
+		want    []string
+	}{
+		{
+			name: "single address is returned unchanged",
+			records: []platformaws.ConfigRecord{
+				{ConfigName: "ignored", Data: map[string]string{"email": "ignored@example.com"}},
+				{ConfigName: "alert_email", Data: map[string]string{"email": testAdminEmail}},
+			},
+			want: []string{testAdminEmail},
+		},
+		{
+			name: "comma separated addresses split in order",
+			records: []platformaws.ConfigRecord{
+				{ConfigName: "alert_email", Data: map[string]string{"email": testAdminEmail + "," + second}},
+			},
+			want: []string{testAdminEmail, second},
+		},
+		{
+			name: "surrounding whitespace is trimmed",
+			records: []platformaws.ConfigRecord{
+				{ConfigName: "alert_email", Data: map[string]string{"email": "  " + testAdminEmail + " ,\t" + second + "\n"}},
+			},
+			want: []string{testAdminEmail, second},
+		},
+		{
+			name: "trailing comma does not yield an empty entry",
+			records: []platformaws.ConfigRecord{
+				{ConfigName: "alert_email", Data: map[string]string{"email": testAdminEmail + "," + second + ","}},
+			},
+			want: []string{testAdminEmail, second},
+		},
+		{
+			name: "interior blank entries are dropped",
+			records: []platformaws.ConfigRecord{
+				{ConfigName: "alert_email", Data: map[string]string{"email": testAdminEmail + ", ,," + second}},
+			},
+			want: []string{testAdminEmail, second},
+		},
+		{
+			name: "empty string yields no recipients",
+			records: []platformaws.ConfigRecord{
+				{ConfigName: "alert_email", Data: map[string]string{"email": ""}},
+			},
+			want: nil,
+		},
+		{
+			name: "commas only yields no recipients",
+			records: []platformaws.ConfigRecord{
+				{ConfigName: "alert_email", Data: map[string]string{"email": " , , "}},
+			},
+			want: nil,
+		},
+		{
+			name: "missing email key yields no recipients",
+			records: []platformaws.ConfigRecord{
+				{ConfigName: "alert_email", Data: map[string]string{}},
+			},
+			want: nil,
+		},
+		{
+			name:    "absent alert_email record yields no recipients",
+			records: []platformaws.ConfigRecord{{ConfigName: "ignored", Data: map[string]string{"email": "ignored@example.com"}}},
+			want:    nil,
+		},
+		{
+			name:    "nil records yield no recipients",
+			records: nil,
+			want:    nil,
+		},
 	}
-	if got := adminAlertEmail(records); got != testAdminEmail {
-		t.Fatalf("adminAlertEmail() = %q, want %q", got, testAdminEmail)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := adminAlertEmails(tt.records)
+			if !slices.Equal(got, tt.want) {
+				t.Fatalf("adminAlertEmails() = %#v, want %#v", got, tt.want)
+			}
+			if len(tt.want) == 0 && got != nil {
+				t.Fatalf("adminAlertEmails() = %#v, want nil so omitempty drops the field", got)
+			}
+		})
 	}
-	if got := adminAlertEmail(nil); got != "" {
-		t.Fatalf("adminAlertEmail(nil) = %q, want empty string", got)
+}
+
+func TestPrimaryAlertEmail(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		emails []string
+		want   string
+	}{
+		{name: "nil slice", emails: nil, want: ""},
+		{name: "empty slice", emails: []string{}, want: ""},
+		{name: "single entry", emails: []string{testAdminEmail}, want: testAdminEmail},
+		{name: "first of many", emails: []string{testAdminEmail, "ops@example.com"}, want: testAdminEmail},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := primaryAlertEmail(tt.emails); got != tt.want {
+				t.Fatalf("primaryAlertEmail(%#v) = %q, want %q", tt.emails, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestFetchedConfigMarshalsBothEmailFields locks the wire contract consumers
+// read: the plural list plus the deprecated singular first entry, and neither
+// key emitted when no recipient is configured.
+func TestFetchedConfigMarshalsBothEmailFields(t *testing.T) {
+	t.Parallel()
+
+	emails := adminAlertEmails([]platformaws.ConfigRecord{
+		{ConfigName: "alert_email", Data: map[string]string{"email": testAdminEmail + ", ops@example.com"}},
+	})
+	data, err := json.Marshal(fetchedConfig{
+		Org:               "acme",
+		BudgetAlertEmail:  primaryAlertEmail(emails),
+		BudgetAlertEmails: emails,
+	})
+	if err != nil {
+		t.Fatalf("json.Marshal() unexpected error: %v", err)
+	}
+
+	got := string(data)
+	for _, want := range []string{
+		`"budget_alert_email":"` + testAdminEmail + `"`,
+		`"budget_alert_emails":["` + testAdminEmail + `","ops@example.com"]`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("marshalled config missing %q in %s", want, got)
+		}
+	}
+
+	empty, err := json.Marshal(fetchedConfig{Org: "acme"})
+	if err != nil {
+		t.Fatalf("json.Marshal() unexpected error: %v", err)
+	}
+	if strings.Contains(string(empty), "budget_alert_email") {
+		t.Fatalf("empty config should omit both email keys, got %s", string(empty))
 	}
 }
 

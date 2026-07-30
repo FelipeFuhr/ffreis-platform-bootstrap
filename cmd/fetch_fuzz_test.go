@@ -32,3 +32,34 @@ func FuzzRenderBackendHCL(f *testing.F) {
 		}
 	})
 }
+
+func FuzzSplitAlertEmails(f *testing.F) {
+	f.Add("admin@example.com")
+	f.Add("admin@example.com,ops@example.com")
+	f.Add("  admin@example.com , ops@example.com , ")
+	f.Add(",,,")
+	f.Add("")
+
+	f.Fuzz(func(t *testing.T, raw string) {
+		got := splitAlertEmails(raw)
+
+		for _, email := range got {
+			if email == "" {
+				t.Fatalf("splitAlertEmails(%q) produced an empty entry: %#v", raw, got)
+			}
+			if strings.TrimSpace(email) != email {
+				t.Fatalf("splitAlertEmails(%q) left untrimmed entry %q", raw, email)
+			}
+			if strings.Contains(email, ",") {
+				t.Fatalf("splitAlertEmails(%q) left a comma in entry %q", raw, email)
+			}
+		}
+		if len(got) == 0 && got != nil {
+			t.Fatalf("splitAlertEmails(%q) returned an empty non-nil slice", raw)
+		}
+		// The first entry is what the deprecated singular field carries.
+		if want := primaryAlertEmail(got); len(got) > 0 && want != got[0] {
+			t.Fatalf("primaryAlertEmail(%#v) = %q, want %q", got, want, got[0])
+		}
+	})
+}
