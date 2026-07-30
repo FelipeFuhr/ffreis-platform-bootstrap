@@ -172,7 +172,7 @@ func init() {
 	f.StringArray("account", nil,
 		"member account in name:email format, repeatable (env: "+config.EnvAccounts+") e.g. --account development:dev@example.com")
 	f.String("admin-email", "",
-		"email address for platform budget alert notifications — stored in the bootstrap registry, never committed (env: "+config.EnvAdminEmail+")")
+		"comma-separated email address(es) for platform budget alert notifications — stored in the bootstrap registry, never committed (env: "+config.EnvAdminEmail+")")
 	f.String("org-dir", "",
 		"path to the sibling platform org Terraform repo; when set, org config files are written automatically after init completes (e.g. ../your-platform-org-repo)")
 

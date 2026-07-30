@@ -20,9 +20,18 @@ import (
 // terraform.tfvars (committed), not here. The platform-org CLI injects
 // credentials via AWS_ACCESS_KEY_ID env vars, making the profile irrelevant.
 type fetchedConfig struct {
-	Org              string                       `json:"org"`
-	Accounts         map[string]map[string]string `json:"accounts"`
-	BudgetAlertEmail string                       `json:"budget_alert_email,omitempty"`
+	Org      string                       `json:"org"`
+	Accounts map[string]map[string]string `json:"accounts"`
+
+	// BudgetAlertEmail carries only the first recipient. Deprecated: kept
+	// populated so consumers that still declare the singular
+	// `budget_alert_email` variable keep working. Drop it once every consumer
+	// reads budget_alert_emails.
+	BudgetAlertEmail string `json:"budget_alert_email,omitempty"`
+
+	// BudgetAlertEmails is the full recipient list and the value consumers
+	// should read. Omitted entirely when the registry holds no alert address.
+	BudgetAlertEmails []string `json:"budget_alert_emails,omitempty"`
 }
 
 // backendConfig holds the values written to backend.local.hcl.
@@ -43,15 +52,16 @@ func writeFetchedConfig(outputPath, backendOutputPath string) error {
 		return err
 	}
 
-	budgetAlertEmail, err := fetchAdminAlertEmail(ctx, tableName)
+	budgetAlertEmails, err := fetchAdminAlertEmails(ctx, tableName)
 	if err != nil {
 		return err
 	}
 
 	out := fetchedConfig{
-		Org:              deps.cfg.OrgName,
-		Accounts:         accounts,
-		BudgetAlertEmail: budgetAlertEmail,
+		Org:               deps.cfg.OrgName,
+		Accounts:          accounts,
+		BudgetAlertEmail:  primaryAlertEmail(budgetAlertEmails),
+		BudgetAlertEmails: budgetAlertEmails,
 	}
 
 	data, err := json.MarshalIndent(out, "", "  ")
@@ -86,12 +96,12 @@ func fetchAccountsConfig(ctx context.Context, tableName string) (map[string]map[
 	return accountsFromRecords(records), nil
 }
 
-func fetchAdminAlertEmail(ctx context.Context, tableName string) (string, error) {
+func fetchAdminAlertEmails(ctx context.Context, tableName string) ([]string, error) {
 	records, err := platformaws.FetchConfig(ctx, deps.clients.DynamoDB, tableName, "admin")
 	if err != nil {
-		return "", fmt.Errorf("fetching admin config: %w", err)
+		return nil, fmt.Errorf("fetching admin config: %w", err)
 	}
-	return adminAlertEmail(records), nil
+	return adminAlertEmails(records), nil
 }
 
 func accountsFromRecords(records []platformaws.ConfigRecord) map[string]map[string]string {
@@ -102,13 +112,44 @@ func accountsFromRecords(records []platformaws.ConfigRecord) map[string]map[stri
 	return accounts
 }
 
-func adminAlertEmail(records []platformaws.ConfigRecord) string {
+// adminAlertEmails returns every budget alert recipient held in the registry
+// under CONFIG#admin / alert_email. Returns nil when the record is absent or
+// holds no usable address.
+func adminAlertEmails(records []platformaws.ConfigRecord) []string {
 	for _, rec := range records {
 		if rec.ConfigName == "alert_email" {
-			return rec.Data["email"]
+			return splitAlertEmails(rec.Data["email"])
 		}
 	}
-	return ""
+	return nil
+}
+
+// splitAlertEmails parses the registry's single `email` string field, which
+// holds one or more recipients separated by commas. Entries are trimmed and
+// blanks dropped, so "a@x.com, b@x.com," yields exactly two addresses and a
+// lone "a@x.com" yields one. Returns nil rather than an empty slice so the
+// omitempty JSON tags drop the field entirely when nothing is configured.
+func splitAlertEmails(raw string) []string {
+	parts := strings.Split(raw, ",")
+	emails := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if trimmed := strings.TrimSpace(part); trimmed != "" {
+			emails = append(emails, trimmed)
+		}
+	}
+	if len(emails) == 0 {
+		return nil
+	}
+	return emails
+}
+
+// primaryAlertEmail returns the first recipient, or "" when there are none.
+// It backs the deprecated singular budget_alert_email field.
+func primaryAlertEmail(emails []string) string {
+	if len(emails) == 0 {
+		return ""
+	}
+	return emails[0]
 }
 
 func writeFetchedJSON(outputPath string, data []byte, accountCount int) error {
