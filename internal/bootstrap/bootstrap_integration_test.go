@@ -54,8 +54,24 @@ func TestRunHappyPathIntegration(t *testing.T) {
 	if h.sns.publishCalls != 2 {
 		t.Errorf("Publish calls: want 2 events (topic + budget), got %d", h.sns.publishCalls)
 	}
-	if h.dynamo.putItemCalls != 7 {
-		t.Errorf("PutItem calls: want 7 (6 resources + 1 account config), got %d", h.dynamo.putItemCalls)
+	// 7 resource registrations + 1 account-config write.
+	//
+	// The registering steps are exactly those that reach tryRegister — via
+	// ensureResource, or by calling postEnsure directly:
+	//   registry-table, register-admin-role, register-admin-user,
+	//   state-bucket, lock-table, platform-events-topic, platform-budget
+	//
+	// platform-admin-role and admin-user do NOT register at creation time (the
+	// registry table does not exist yet) — that is what the two register-* back-fill
+	// steps exist for. The account-config write is one per cfg.Accounts entry, plus
+	// one more only when cfg.AdminEmail is set; integrationConfig() has 1 account and
+	// no AdminEmail, so it contributes exactly 1.
+	//
+	// If this drifts, diff that step list against bootstrapStepDefs rather than just
+	// bumping the number — an unexpected +1 can equally mean a resource is being
+	// registered TWICE, which is a bug, not a stale count.
+	if h.dynamo.putItemCalls != 8 {
+		t.Errorf("PutItem calls: want 8 (7 resource registrations + 1 account config), got %d", h.dynamo.putItemCalls)
 	}
 }
 
@@ -96,8 +112,13 @@ func TestRunIdempotentIntegration(t *testing.T) {
 	if h.sns.publishCalls != 2 {
 		t.Errorf("Publish calls: want 2 events (topic + budget), got %d", h.sns.publishCalls)
 	}
-	if h.dynamo.putItemCalls != 6 {
-		t.Errorf("PutItem calls: want 6 resource registrations, got %d", h.dynamo.putItemCalls)
+	// Same 7 registering steps as the happy path — see the comment there for the
+	// list and for why platform-admin-role/admin-user are back-filled instead.
+	// Registration is unconditional on whether the resource already existed: an
+	// idempotent re-run still records current state, so this count does NOT drop
+	// when everything pre-exists.
+	if h.dynamo.putItemCalls != 7 {
+		t.Errorf("PutItem calls: want 7 resource registrations, got %d", h.dynamo.putItemCalls)
 	}
 }
 
