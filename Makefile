@@ -12,6 +12,14 @@ GOLANGCI_LINT_VERSION ?= v2.4.0
 GITLEAKS      ?= gitleaks
 GOVULNCHECK   ?= govulncheck
 COVERAGE_MIN  ?= 90
+# Scope of COVERAGE_MIN is ./internal/... (see check_coverage_gate.sh) — the
+# stricter business-logic floor. INTEGRATION_COVERAGE_MIN gates the whole
+# module (./...) with the fleet-standard floor, mirroring the CI split
+# between coverage.yml (internal/-scoped, 90%) and the new
+# go-integration-coverage.yml job (whole-module, 75%) — whole-module coverage
+# is pulled down by cmd/ (Cobra command surface, more error-path branches)
+# and can't cleanly clear 90 without a large dedicated test-writing effort.
+INTEGRATION_COVERAGE_MIN ?= 75
 
 LEFTHOOK_VERSION ?= 1.7.10
 
@@ -29,8 +37,8 @@ LDFLAGS     := -ldflags "-X $(MODULE)/cmd.version=$(GIT_TAG) \
                           -X $(MODULE)/cmd.buildTime=$(BUILD_TIME)"
 
 .PHONY: all build clean test test-verbose test-integration test-integration-verbose test-race fmt fmt-check lint tidy \
-        validate plan mutation-test \
-        coverage-gate smoke-check secrets-scan-staged quality-gates hook-generated-drift \
+        validate plan mutation \
+        coverage-gate integration-coverage-gate smoke-check secrets-scan-staged quality-gates hook-generated-drift \
         lefthook-bootstrap lefthook-install lefthook-run lefthook \
         run-init run-init-dry run-nuke run-nuke-dry nuke-all
 
@@ -106,6 +114,10 @@ test-race:
 coverage-gate:
 	@COVERAGE_MIN="$(COVERAGE_MIN)" ./scripts/hooks/check_coverage_gate.sh
 
+## integration-coverage-gate: run //go:build integration tests with coverage and fail if below INTEGRATION_COVERAGE_MIN (no-op if no integration-tagged files exist)
+integration-coverage-gate:
+	@COVERAGE_MIN="$(INTEGRATION_COVERAGE_MIN)" ./scripts/hooks/check_integration_coverage_gate.sh
+
 ## smoke-check: build binary and verify --help exits cleanly
 smoke-check:
 	@set -euo pipefail; \
@@ -125,6 +137,7 @@ quality-gates:
 	$(MAKE) test-integration
 	$(MAKE) test-race
 	$(MAKE) coverage-gate
+	$(MAKE) integration-coverage-gate
 	$(GOVULNCHECK) ./...
 	$(MAKE) smoke-check
 
@@ -278,8 +291,9 @@ endif
 		--profile=$(PROFILE) \
 		--json
 
-## 
-PLATFORM_STANDARDS_SHA := 750f106efccce10e1bf95f99695e329bf808cd21
+##
+# v1.10.0
+PLATFORM_STANDARDS_SHA := 273842219190739c6b462c21331b234271446b13
 PLATFORM_STANDARDS_RAW := https://raw.githubusercontent.com/FelipeFuhr/ffreis-platform-standards
 
 HOOK_SCRIPTS := \
@@ -323,8 +337,8 @@ lefthook-run: lefthook-bootstrap
 ## lefthook: install hooks and run them
 lefthook: lefthook-bootstrap lefthook-install lefthook-run
 
-## mutation-test: run mutation testing with gremlins (slow — intended for CI/weekly)
-mutation-test: ## Run mutation testing with gremlins (slow — CI only)
+## mutation: run mutation testing with gremlins (slow — intended for CI/weekly)
+mutation: ## Run mutation testing with gremlins (slow — CI only)
 	@which gremlins >/dev/null 2>&1 || go install github.com/go-gremlins/gremlins/cmd/gremlins@latest
 	gremlins unleash --threshold-efficacy $(MUTATION_THRESHOLD) $(MUTATION_PACKAGES)
 
