@@ -3,13 +3,19 @@ name: Code Coverage (Codecov)
 on:
   pull_request:
     paths:
-      - '**'
-      - '.github/workflows/**'
+      - "**/*.go"
+      - "go.mod"
+      - "go.sum"
+      - "Makefile"
+      - ".github/workflows/**"
   push:
     branches: [main, master]
     paths:
-      - '**'
-      - '.github/workflows/**'
+      - "**/*.go"
+      - "go.mod"
+      - "go.sum"
+      - "Makefile"
+      - ".github/workflows/**"
 
 permissions:
   contents: read
