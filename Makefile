@@ -25,6 +25,8 @@ LEFTHOOK_VERSION ?= 1.7.10
 
 MUTATION_PACKAGES ?= ./internal/...
 MUTATION_THRESHOLD ?= 60
+FUZZ_PACKAGES ?= ./...
+FUZZ_TIME ?= 30s
 LEFTHOOK_DIR     ?= $(CURDIR)/.bin
 LEFTHOOK_BIN     ?= $(LEFTHOOK_DIR)/lefthook
 
@@ -36,8 +38,8 @@ LDFLAGS     := -ldflags "-X $(MODULE)/cmd.version=$(GIT_TAG) \
                           -X $(MODULE)/cmd.commit=$(GIT_COMMIT) \
                           -X $(MODULE)/cmd.buildTime=$(BUILD_TIME)"
 
-.PHONY: all build clean test test-verbose test-integration test-integration-verbose test-race fmt fmt-check lint tidy \
-        validate plan mutation \
+.PHONY: all build build-all fuzz clean test test-verbose test-integration test-integration-verbose test-race fmt fmt-check lint tidy \
+		validate plan mutation \
         coverage-gate integration-coverage-gate smoke-check secrets-scan-staged quality-gates hook-generated-drift \
         lefthook-bootstrap lefthook-install lefthook-run lefthook \
         run-init run-init-dry run-nuke run-nuke-dry nuke-all
@@ -49,6 +51,11 @@ build:
 	@mkdir -p $(BUILD_DIR)
 	go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY) $(CMD_PKG)
 	@echo "built $(BUILD_DIR)/$(BINARY)"
+
+build-all: build ## Alias required by the lefthook release tier
+
+fuzz: ## Run all Fuzz* targets for FUZZ_TIME each (no-op when none exist)
+	@for pkg in $$(go list $(FUZZ_PACKAGES)); do targets=$$(go test -list 'Fuzz.*' "$$pkg" 2>/dev/null | grep '^Fuzz' || true); for target in $$targets; do go test -run='^$$' -fuzz="^$${target}$$" -fuzztime="$(FUZZ_TIME)" "$$pkg"; done; done
 
 ## clean: remove build artefacts
 clean:
@@ -76,7 +83,7 @@ fmt:
 
 ## fmt-check: fail if Go files are not gofmt-formatted
 fmt-check:
-	@./scripts/hooks/check_required_tools.sh $(GOFMT)
+	@command -v $(GOFMT) >/dev/null 2>&1 || { echo "Missing tool: $(GOFMT)" >&2; exit 1; }
 	@out="$$(find . -type f -name '*.go' -not -path './vendor/*' -not -path './.git/*' -print0 | xargs -0 -r $(GOFMT) -l)"; \
 	if [ -n "$$out" ]; then \
 		echo "Unformatted Go files:"; \
