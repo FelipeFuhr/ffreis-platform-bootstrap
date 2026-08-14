@@ -1,8 +1,6 @@
 module github.com/ffreis/platform-bootstrap
 
-go 1.25.8
-
-toolchain go1.25.12
+go 1.25.13
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.41.7
