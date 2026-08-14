@@ -12,13 +12,13 @@ jobs:
   semantic-pr:
     permissions:
       pull-requests: read
-    uses: FelipeFuhr/ffreis-workflows-general/.github/workflows/general-semantic-pr.yml@5dfbb4986ceb88f6518fa719da3a255294cf03cf
+    uses: FelipeFuhr/ffreis-workflows-general/.github/workflows/general-semantic-pr.yml@8159bd0c0a5acfa82c827072082a585e3fe11b54 # v1.9.3
     with:
       require-scope: false
 
   actionlint:
     permissions:
       contents: read
-    uses: FelipeFuhr/ffreis-workflows-general/.github/workflows/general-actionlint.yml@5dfbb4986ceb88f6518fa719da3a255294cf03cf
+    uses: FelipeFuhr/ffreis-workflows-general/.github/workflows/general-actionlint.yml@8159bd0c0a5acfa82c827072082a585e3fe11b54 # v1.9.3
     with:
       working-directory: "."
