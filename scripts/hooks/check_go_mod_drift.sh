@@ -5,7 +5,7 @@ source "$(dirname "$0")/../lib/common.sh"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-"${SCRIPT_DIR}/check_required_tools.sh" go >/dev/null
+command -v go >/dev/null 2>&1 || { echo "Missing required tool: go" >&2; exit 1; }
 
 if [[ ! -f go.mod ]]; then
   common_info "No go.mod found in $(pwd); skipping go mod drift check."

@@ -3,7 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-"${SCRIPT_DIR}/check_required_tools.sh" go >/dev/null
+command -v go >/dev/null 2>&1 || { echo "Missing required tool: go" >&2; exit 1; }
 
 # Integration tests are identified by the fleet's `//go:build integration`
 # convention. A repo with no service boundary (pure library/CLI) may
