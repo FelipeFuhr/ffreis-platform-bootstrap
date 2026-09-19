@@ -45,6 +45,9 @@ func (f *fakeDynamoDB) PutItem(_ context.Context, params *dynamodb.PutItemInput,
 func (f *fakeDynamoDB) Scan(context.Context, *dynamodb.ScanInput, ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
 	return nil, errors.New(errRunnerNotImplemented)
 }
+func (f *fakeDynamoDB) Query(context.Context, *dynamodb.QueryInput, ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error) {
+	return nil, errors.New(errRunnerNotImplemented)
+}
 func (f *fakeDynamoDB) DeleteTable(context.Context, *dynamodb.DeleteTableInput, ...func(*dynamodb.Options)) (*dynamodb.DeleteTableOutput, error) {
 	return nil, errors.New(errRunnerNotImplemented)
 }

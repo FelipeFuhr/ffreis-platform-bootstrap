@@ -158,16 +158,18 @@ func WriteConfig(ctx context.Context, client DynamoDBAPI, tableName, configType,
 }
 
 // FetchConfig returns all ConfigRecord entries for a given configType by
-// scanning the registry table with a PK filter.
+// querying the registry table's partition for that config type. PK is the
+// table's HASH key, so this reads only the matching partition instead of
+// scanning the whole table.
 func FetchConfig(ctx context.Context, client DynamoDBAPI, tableName, configType string) ([]ConfigRecord, error) {
 	pk := "CONFIG#" + configType
 	var records []ConfigRecord
 	var lastKey map[string]dbtypes.AttributeValue
 
 	for {
-		input := &dynamodb.ScanInput{
-			TableName:        sdkaws.String(tableName),
-			FilterExpression: sdkaws.String("PK = :pk"),
+		input := &dynamodb.QueryInput{
+			TableName:              sdkaws.String(tableName),
+			KeyConditionExpression: sdkaws.String("PK = :pk"),
 			ExpressionAttributeValues: map[string]dbtypes.AttributeValue{
 				":pk": &dbtypes.AttributeValueMemberS{Value: pk},
 			},
@@ -176,7 +178,7 @@ func FetchConfig(ctx context.Context, client DynamoDBAPI, tableName, configType 
 			input.ExclusiveStartKey = lastKey
 		}
 
-		out, err := client.Scan(ctx, input)
+		out, err := client.Query(ctx, input)
 		if err != nil {
 			return nil, fmt.Errorf("fetching config %s from %s: %w", configType, tableName, err)
 		}

@@ -114,6 +114,9 @@ func (m *nukeBackupDynamoMock) PutItem(_ context.Context, _ *dynamodb.PutItemInp
 func (m *nukeBackupDynamoMock) DeleteTable(_ context.Context, _ *dynamodb.DeleteTableInput, _ ...func(*dynamodb.Options)) (*dynamodb.DeleteTableOutput, error) {
 	return &dynamodb.DeleteTableOutput{}, nil
 }
+func (m *nukeBackupDynamoMock) Query(_ context.Context, _ *dynamodb.QueryInput, _ ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error) {
+	return &dynamodb.QueryOutput{}, nil
+}
 
 func testNukeBackupConfig() *config.Config {
 	return &config.Config{

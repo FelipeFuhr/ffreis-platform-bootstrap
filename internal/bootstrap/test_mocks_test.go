@@ -76,6 +76,9 @@ func (o *okDynamoDB) PutItem(_ context.Context, _ *dynamodb.PutItemInput, _ ...f
 func (o *okDynamoDB) Scan(_ context.Context, _ *dynamodb.ScanInput, _ ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
 	return &dynamodb.ScanOutput{}, nil
 }
+func (o *okDynamoDB) Query(_ context.Context, _ *dynamodb.QueryInput, _ ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error) {
+	return &dynamodb.QueryOutput{}, nil
+}
 func (o *okDynamoDB) DeleteTable(_ context.Context, _ *dynamodb.DeleteTableInput, _ ...func(*dynamodb.Options)) (*dynamodb.DeleteTableOutput, error) {
 	o.deleteCalls++
 	return &dynamodb.DeleteTableOutput{}, nil

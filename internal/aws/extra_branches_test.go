@@ -251,6 +251,10 @@ func (m *dynamoPollErrorMock) TagResource(_ context.Context, _ *dynamodb.TagReso
 func (m *dynamoPollErrorMock) PutItem(_ context.Context, _ *dynamodb.PutItemInput, _ ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error) {
 	return &dynamodb.PutItemOutput{}, nil
 }
+func (m *dynamoPollErrorMock) Query(_ context.Context, _ *dynamodb.QueryInput, _ ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error) {
+	return &dynamodb.QueryOutput{}, nil
+}
+
 func (m *dynamoPollErrorMock) Scan(_ context.Context, _ *dynamodb.ScanInput, _ ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
 	return &dynamodb.ScanOutput{}, nil
 }

@@ -1141,15 +1141,15 @@ func TestFetchRunESuccess(t *testing.T) {
 
 	clients := &platformaws.Clients{
 		DynamoDB: &cmdDynamoDBMock{
-			scanFn: func(in *dynamodb.ScanInput) (*dynamodb.ScanOutput, error) {
+			queryFn: func(in *dynamodb.QueryInput) (*dynamodb.QueryOutput, error) {
 				pk := in.ExpressionAttributeValues[":pk"].(*dbtypes.AttributeValueMemberS).Value
 				switch pk {
 				case "CONFIG#account":
-					return &dynamodb.ScanOutput{Items: []map[string]dbtypes.AttributeValue{accountItem}}, nil
+					return &dynamodb.QueryOutput{Items: []map[string]dbtypes.AttributeValue{accountItem}}, nil
 				case "CONFIG#admin":
-					return &dynamodb.ScanOutput{Items: []map[string]dbtypes.AttributeValue{adminItem}}, nil
+					return &dynamodb.QueryOutput{Items: []map[string]dbtypes.AttributeValue{adminItem}}, nil
 				default:
-					return &dynamodb.ScanOutput{}, nil
+					return &dynamodb.QueryOutput{}, nil
 				}
 			},
 		},
@@ -1185,7 +1185,7 @@ func TestFetchRunEError(t *testing.T) {
 	cfg := testConfig()
 	clients := &platformaws.Clients{
 		DynamoDB: &cmdDynamoDBMock{
-			scanFn: func(*dynamodb.ScanInput) (*dynamodb.ScanOutput, error) {
+			queryFn: func(*dynamodb.QueryInput) (*dynamodb.QueryOutput, error) {
 				return nil, errors.New("dynamo down")
 			},
 		},
