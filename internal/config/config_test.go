@@ -20,6 +20,7 @@ func makeFlagSet(t *testing.T, args []string) *pflag.FlagSet {
 	f.StringSlice("allowed-regions", nil, "")
 	f.String("log-level", "", "")
 	f.Bool("dry-run", false, "")
+	f.Bool("skip-admin-escalation", false, "")
 	f.String("root-email", "", "")
 	f.Float64("budget-usd", DefaultBudgetUSD, "")
 	f.StringArray("account", nil, "")
@@ -246,6 +247,73 @@ func TestLoadDryRunEnv(t *testing.T) {
 	}
 	if !cfg.DryRun {
 		t.Error("DryRun: want true (from env), got false")
+	}
+}
+
+// TestLoad_SkipAdminEscalationDefaultFalse verifies that, absent both flag
+// and env, SkipAdminEscalation defaults to false — the automatic
+// platform-admin escalation stays on unless a caller explicitly opts out.
+func TestLoadSkipAdminEscalationDefaultFalse(t *testing.T) {
+	t.Setenv(EnvOrgName, testOrgName)
+	t.Setenv(EnvRegion, DefaultRegion)
+	t.Setenv(EnvSkipAdminEscalation, "")
+
+	cfg, err := Load(nil)
+	if err != nil {
+		t.Fatalf(testUnexpectedErrorFmt, err)
+	}
+	if cfg.SkipAdminEscalation {
+		t.Error("SkipAdminEscalation: want false (default), got true")
+	}
+}
+
+// TestLoad_SkipAdminEscalationFlag verifies that --skip-admin-escalation
+// sets SkipAdminEscalation.
+func TestLoadSkipAdminEscalationFlag(t *testing.T) {
+	t.Setenv(EnvOrgName, testOrgName)
+	t.Setenv(EnvRegion, DefaultRegion)
+	t.Setenv(EnvSkipAdminEscalation, "")
+
+	flags := makeFlagSet(t, []string{"--skip-admin-escalation"})
+	cfg, err := Load(flags)
+	if err != nil {
+		t.Fatalf(testUnexpectedErrorFmt, err)
+	}
+	if !cfg.SkipAdminEscalation {
+		t.Error("SkipAdminEscalation: want true (flag set), got false")
+	}
+}
+
+// TestLoad_SkipAdminEscalationEnv verifies that PLATFORM_SKIP_ADMIN_ESCALATION
+// sets SkipAdminEscalation.
+func TestLoadSkipAdminEscalationEnv(t *testing.T) {
+	t.Setenv(EnvOrgName, testOrgName)
+	t.Setenv(EnvRegion, DefaultRegion)
+	t.Setenv(EnvSkipAdminEscalation, "true")
+
+	cfg, err := Load(nil)
+	if err != nil {
+		t.Fatalf(testUnexpectedErrorFmt, err)
+	}
+	if !cfg.SkipAdminEscalation {
+		t.Error("SkipAdminEscalation: want true (from env), got false")
+	}
+}
+
+// TestLoad_SkipAdminEscalationFlagOverridesEnv verifies flag precedence over
+// env, matching the resolution order documented on config.Load.
+func TestLoadSkipAdminEscalationFlagOverridesEnv(t *testing.T) {
+	t.Setenv(EnvOrgName, testOrgName)
+	t.Setenv(EnvRegion, DefaultRegion)
+	t.Setenv(EnvSkipAdminEscalation, "true")
+
+	flags := makeFlagSet(t, []string{"--skip-admin-escalation=false"})
+	cfg, err := Load(flags)
+	if err != nil {
+		t.Fatalf(testUnexpectedErrorFmt, err)
+	}
+	if cfg.SkipAdminEscalation {
+		t.Error("SkipAdminEscalation: want false (flag overrides env), got true")
 	}
 }
 

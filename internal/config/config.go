@@ -23,6 +23,14 @@ type Config struct {
 	DryRun           bool
 	BudgetMonthlyUSD float64
 
+	// SkipAdminEscalation opts out of the automatic platform-admin role
+	// assumption in cmd's PersistentPreRunE. When true, every subcommand
+	// runs under the caller's existing identity as returned by
+	// platformaws.New, with no sts:AssumeRole attempt and no failure if
+	// that assumption would have been denied. Defaults to false so every
+	// existing caller's behavior is unchanged unless they opt in.
+	SkipAdminEscalation bool
+
 	// Accounts maps account name → email for member accounts that should be
 	// stored in the bootstrap registry. Populated via --account flags or
 	// the PLATFORM_ACCOUNTS environment variable. Optional: an empty map
@@ -102,6 +110,7 @@ func overlayEnv(cfg *Config) {
 	applyEnvString(EnvAllowedRegions, func(v string) { cfg.AllowedRegions = splitTrimmed(v, ",") })
 	applyEnvString(EnvLogLevel, func(v string) { cfg.LogLevel = v })
 	applyEnvString(EnvDryRun, func(v string) { applyDryRun(cfg, v) })
+	applyEnvString(EnvSkipAdminEscalation, func(v string) { applySkipAdminEscalation(cfg, v) })
 	applyEnvString(EnvRootEmail, func(v string) { cfg.RootEmail = v })
 	applyEnvString(EnvBudgetUSD, func(v string) { applyBudgetUSD(cfg, v) })
 	applyEnvString(EnvAccounts, func(v string) { applyAccountsEnv(cfg, v) })
@@ -133,6 +142,14 @@ func resolveAWSProfileFallback(cfg *Config) {
 func applyDryRun(cfg *Config, v string) {
 	if b, err := strconv.ParseBool(v); err == nil {
 		cfg.DryRun = b
+	}
+}
+
+// applySkipAdminEscalation parses a boolean string and sets
+// cfg.SkipAdminEscalation on success.
+func applySkipAdminEscalation(cfg *Config, v string) {
+	if b, err := strconv.ParseBool(v); err == nil {
+		cfg.SkipAdminEscalation = b
 	}
 }
 
@@ -175,6 +192,9 @@ func overlayFlags(cfg *Config, flags *pflag.FlagSet) {
 	str("log-level", &cfg.LogLevel)
 	if flags.Changed("dry-run") {
 		cfg.DryRun, _ = flags.GetBool("dry-run")
+	}
+	if flags.Changed("skip-admin-escalation") {
+		cfg.SkipAdminEscalation, _ = flags.GetBool("skip-admin-escalation")
 	}
 	str("root-email", &cfg.RootEmail)
 	f64("budget-usd", &cfg.BudgetMonthlyUSD)
