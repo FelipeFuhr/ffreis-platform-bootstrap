@@ -110,6 +110,9 @@ func (e *erringDynamoDB) PutItem(_ context.Context, _ *dynamodb.PutItemInput, _ 
 func (e *erringDynamoDB) Scan(_ context.Context, _ *dynamodb.ScanInput, _ ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
 	return &dynamodb.ScanOutput{}, nil
 }
+func (e *erringDynamoDB) Query(_ context.Context, _ *dynamodb.QueryInput, _ ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error) {
+	return &dynamodb.QueryOutput{}, nil
+}
 func (e *erringDynamoDB) DeleteTable(_ context.Context, _ *dynamodb.DeleteTableInput, _ ...func(*dynamodb.Options)) (*dynamodb.DeleteTableOutput, error) {
 	return &dynamodb.DeleteTableOutput{}, nil
 }

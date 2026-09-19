@@ -79,6 +79,10 @@ func (m *mockDynamoDB) Scan(_ context.Context, _ *dynamodb.ScanInput, _ ...func(
 	return &dynamodb.ScanOutput{}, nil
 }
 
+func (m *mockDynamoDB) Query(_ context.Context, _ *dynamodb.QueryInput, _ ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error) {
+	return &dynamodb.QueryOutput{}, nil
+}
+
 // TestEnsureLockTable_Create verifies that when the table does not exist,
 // CreateTable is called and the result is an ACTIVE table.
 func TestEnsureLockTableCreate(t *testing.T) {
@@ -171,6 +175,10 @@ func (m *concurrentMockDynamoDB) PutItem(_ context.Context, _ *dynamodb.PutItemI
 
 func (m *concurrentMockDynamoDB) Scan(_ context.Context, _ *dynamodb.ScanInput, _ ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
 	return &dynamodb.ScanOutput{}, nil
+}
+
+func (m *concurrentMockDynamoDB) Query(_ context.Context, _ *dynamodb.QueryInput, _ ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error) {
+	return &dynamodb.QueryOutput{}, nil
 }
 
 // TestEnsureLockTable_Idempotent is the core idempotency test:
@@ -286,4 +294,8 @@ func (m *schemaCapturingDynamoDB) PutItem(_ context.Context, _ *dynamodb.PutItem
 
 func (m *schemaCapturingDynamoDB) Scan(_ context.Context, _ *dynamodb.ScanInput, _ ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
 	return &dynamodb.ScanOutput{}, nil
+}
+
+func (m *schemaCapturingDynamoDB) Query(_ context.Context, _ *dynamodb.QueryInput, _ ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error) {
+	return &dynamodb.QueryOutput{}, nil
 }

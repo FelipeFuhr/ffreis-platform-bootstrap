@@ -139,6 +139,9 @@ func (m *integrationMockDynamoDB) PutItem(_ context.Context, _ *dynamodb.PutItem
 func (m *integrationMockDynamoDB) Scan(_ context.Context, _ *dynamodb.ScanInput, _ ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
 	return &dynamodb.ScanOutput{}, nil
 }
+func (m *integrationMockDynamoDB) Query(_ context.Context, _ *dynamodb.QueryInput, _ ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error) {
+	return &dynamodb.QueryOutput{}, nil
+}
 func (m *integrationMockDynamoDB) DeleteTable(_ context.Context, in *dynamodb.DeleteTableInput, _ ...func(*dynamodb.Options)) (*dynamodb.DeleteTableOutput, error) {
 	if m.tables == nil {
 		m.tables = map[string]dbtypes.TableStatus{}

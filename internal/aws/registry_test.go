@@ -53,7 +53,7 @@ func (m *registryMockDynamoDB) PutItem(_ context.Context, params *dynamodb.PutIt
 func (m *registryMockDynamoDB) Scan(_ context.Context, in *dynamodb.ScanInput, _ ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
 	items := make([]map[string]dbtypes.AttributeValue, 0, len(m.items))
 
-	// Apply simple PK equality filter when present (mirrors FetchConfig usage).
+	// Apply simple PK equality filter when present (mirrors ScanRegistry usage).
 	var filterPK string
 	if in.FilterExpression != nil {
 		if v, ok := in.ExpressionAttributeValues[":pk"]; ok {
@@ -71,6 +71,31 @@ func (m *registryMockDynamoDB) Scan(_ context.Context, in *dynamodb.ScanInput, _
 		items = append(items, item)
 	}
 	return &dynamodb.ScanOutput{Items: items}, nil
+}
+
+// Query mirrors Scan's in-memory filtering but keys off the partition-key
+// equality condition FetchConfig sends via KeyConditionExpression, matching
+// how a real DynamoDB Query only ever reads a single partition.
+func (m *registryMockDynamoDB) Query(_ context.Context, in *dynamodb.QueryInput, _ ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error) {
+	items := make([]map[string]dbtypes.AttributeValue, 0, len(m.items))
+
+	var filterPK string
+	if in.KeyConditionExpression != nil {
+		if v, ok := in.ExpressionAttributeValues[":pk"]; ok {
+			filterPK = v.(*dbtypes.AttributeValueMemberS).Value
+		}
+	}
+
+	for _, item := range m.items {
+		if filterPK != "" {
+			pk := item["PK"].(*dbtypes.AttributeValueMemberS).Value
+			if pk != filterPK {
+				continue
+			}
+		}
+		items = append(items, item)
+	}
+	return &dynamodb.QueryOutput{Items: items}, nil
 }
 
 type scanRegistryMock struct {

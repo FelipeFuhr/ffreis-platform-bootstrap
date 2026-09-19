@@ -103,6 +103,7 @@ func captureStdout(t *testing.T, fn func()) string {
 
 type cmdDynamoDBMock struct {
 	scanFn          func(*dynamodb.ScanInput) (*dynamodb.ScanOutput, error)
+	queryFn         func(*dynamodb.QueryInput) (*dynamodb.QueryOutput, error)
 	describeTableFn func(*dynamodb.DescribeTableInput) (*dynamodb.DescribeTableOutput, error)
 	listTagsFn      func(*dynamodb.ListTagsOfResourceInput) (*dynamodb.ListTagsOfResourceOutput, error)
 	listTablesErr   error
@@ -140,6 +141,13 @@ func (m *cmdDynamoDBMock) Scan(_ context.Context, in *dynamodb.ScanInput, _ ...f
 		return m.scanFn(in)
 	}
 	return &dynamodb.ScanOutput{}, nil
+}
+
+func (m *cmdDynamoDBMock) Query(_ context.Context, in *dynamodb.QueryInput, _ ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error) {
+	if m.queryFn != nil {
+		return m.queryFn(in)
+	}
+	return &dynamodb.QueryOutput{}, nil
 }
 
 func (m *cmdDynamoDBMock) DeleteTable(context.Context, *dynamodb.DeleteTableInput, ...func(*dynamodb.Options)) (*dynamodb.DeleteTableOutput, error) {
