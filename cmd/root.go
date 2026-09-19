@@ -55,6 +55,12 @@ const (
 	exitPartialComplete = 3
 )
 
+// newAWSClientsFn resolves the caller's AWS identity. It is a package-level
+// var (defaulting to platformaws.New) so tests can substitute a mock without
+// a live AWS credential chain — the same seam pattern used elsewhere in cmd/
+// (e.g. initBootstrapRunFn, bootstrapDoctorRunFn).
+var newAWSClientsFn = platformaws.New
+
 var rootCmd = &cobra.Command{
 	Use:   "platform-bootstrap",
 	Short: "Bootstrap and manage the AWS multi-account platform",
@@ -120,7 +126,7 @@ Flags take precedence over environment variables.`,
 		// Error classification:
 		//   credential or config parsing → exitUserError
 		//   AWS API errors → exitAWSError
-		clients, err := platformaws.New(ctx, cfg)
+		clients, err := newAWSClientsFn(ctx, cfg)
 		if err != nil {
 			code := exitAWSError
 			if errors.Is(err, platformaws.ErrNoCredentials) {
