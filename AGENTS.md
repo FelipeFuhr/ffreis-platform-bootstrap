@@ -25,6 +25,16 @@ role, and SNS/budget alerts. Must run before any other platform layer.
 
 - **Dry-run support** via `--dry-run`. All cloud API calls must be gated by this flag.
 
+- **Every subcommand auto-escalates to `platform-admin` by default.**
+  `cmd/root.go`'s `PersistentPreRunE` unconditionally tries `sts:AssumeRole`
+  on `platform-admin` unless the caller is already using it — including
+  read-only subcommands like `fetch` and `audit`. A caller whose role is
+  narrower and already sufficient (e.g. a read-only CI OIDC role with no
+  assume-role grant) must pass `--skip-admin-escalation` (env:
+  `PLATFORM_SKIP_ADMIN_ESCALATION`) to skip the attempt entirely and run
+  under its existing identity. Defaults to `false` — unset, behavior is
+  unchanged.
+
 ## Structure
 
 ```

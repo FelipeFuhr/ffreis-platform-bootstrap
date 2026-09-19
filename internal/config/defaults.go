@@ -17,6 +17,15 @@ const (
 	EnvLogLevel       = "PLATFORM_LOG_LEVEL"
 	EnvDryRun         = "PLATFORM_DRY_RUN"
 	EnvRootEmail      = "PLATFORM_ROOT_EMAIL"
+
+	// EnvSkipAdminEscalation opts out of the automatic platform-admin role
+	// assumption performed in cmd's PersistentPreRunE. When true, every
+	// subcommand runs under whatever identity the caller already has,
+	// without attempting sts:AssumeRole on platform-admin. This is for
+	// callers with a narrower, already-sufficient role (e.g., a read-only
+	// CI role) that would otherwise hard-fail on the escalation attempt
+	// even though the command they're running doesn't need admin access.
+	EnvSkipAdminEscalation = "PLATFORM_SKIP_ADMIN_ESCALATION"
 )
 
 // Standard AWS CLI/SDK environment variables supported as a fallback when

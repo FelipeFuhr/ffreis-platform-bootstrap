@@ -83,6 +83,7 @@ over environment variables; environment variables take precedence over defaults.
 | `--region`        | `PLATFORM_REGION`         | `us-east-1` | all commands |
 | `--log-level`     | `PLATFORM_LOG_LEVEL`      | `info`      | all commands |
 | `--dry-run`       | `PLATFORM_DRY_RUN`        | `false`     | all commands |
+| `--skip-admin-escalation` | `PLATFORM_SKIP_ADMIN_ESCALATION` | `false` | all commands |
 | `--root-email`    | `PLATFORM_ROOT_EMAIL`     | —           | `init`       |
 | `--admin-email`   | `PLATFORM_ADMIN_EMAIL`    | —           | `init`       |
 | `--state-region`  | `PLATFORM_STATE_REGION`   | `--region`  | `init`       |
@@ -95,6 +96,25 @@ over environment variables; environment variables take precedence over defaults.
 --allowed-regions us-east-1,eu-west-1
 PLATFORM_ALLOWED_REGIONS=us-east-1,eu-west-1
 ```
+
+## Automatic platform-admin escalation
+
+Before running any subcommand, `PersistentPreRunE` verifies the caller's AWS
+identity and — unless already using the `platform-admin` role — automatically
+attempts `sts:AssumeRole` on it. This gives the common interactive workflow a
+single seamless path: configure AWS credentials, run
+`platform-bootstrap init`, done. It applies to every subcommand, including
+read-only ones like `fetch` and `audit`.
+
+This escalation attempt hard-fails the command if the caller's identity isn't
+allowed to assume `platform-admin` — even for a subcommand that never needed
+admin-level access in the first place. A narrower, already-sufficient
+identity (for example, a read-only CI role used only to run
+`platform-bootstrap fetch`) can skip the attempt entirely with
+`--skip-admin-escalation` (or `PLATFORM_SKIP_ADMIN_ESCALATION=true`). When
+set, every subcommand runs under whatever identity the caller already has —
+no assume-role attempt, no failure if that assumption would have been denied.
+Defaults to `false`, so existing callers are unaffected unless they opt in.
 
 ## Logging
 
@@ -117,6 +137,18 @@ export PLATFORM_REGION=us-east-1
 export PLATFORM_ROOT_EMAIL=root@acme.example.com
 
 ./bin/platform-bootstrap init --org-dir ../your-platform-org-repo
+```
+
+A CI role scoped narrower than `platform-admin` (e.g. a read-only
+`terraform plan` OIDC role with no `sts:AssumeRole` grant on
+`platform-admin`) that only needs to run a read-only subcommand like `fetch`
+should add `--skip-admin-escalation` (or set
+`PLATFORM_SKIP_ADMIN_ESCALATION=true`) so `PersistentPreRunE` does not
+attempt — and fail on — an escalation that role was never granted:
+
+```sh
+export PLATFORM_SKIP_ADMIN_ESCALATION=true
+./bin/platform-bootstrap fetch --org acme --region us-east-1
 ```
 
 ## Project structure

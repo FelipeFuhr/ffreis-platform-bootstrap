@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -98,6 +99,7 @@ Flags take precedence over environment variables.`,
 			"state_region", cfg.StateRegion,
 			"profile", cfg.AWSProfile,
 			"dry_run", cfg.DryRun,
+			"skip_admin_escalation", cfg.SkipAdminEscalation,
 		)
 
 		deps.cfg = cfg
@@ -133,49 +135,72 @@ Flags take precedence over environment variables.`,
 			"region", clients.Region,
 		)
 
-		// For all credential types (root or non-root), automatically assume the
-		// platform-admin role if we're not already using it. This provides a seamless
-		// workflow: aws credentials → platform-bootstrap command without manual
-		// profile or role setup.
-		//
-		// Skip assumption if already using platform-admin role.
-		if !strings.Contains(clients.CallerARN, ":role/platform-admin/") {
-			logger.Debug("attempting to assume platform-admin role",
-				"current_arn", clients.CallerARN,
-			)
-
-			adminRoleARN := fmt.Sprintf("arn:aws:iam::%s:role/platform-admin", clients.AccountID)
-			assumedClients, err := platformaws.AssumeAdminRole(ctx, clients, adminRoleARN)
-			if err != nil {
-				// Root accounts cannot assume roles - provide helpful guidance
-				if platformaws.IsRootARN(clients.CallerARN) {
-					logger.Warn("root credentials cannot assume platform-admin role",
-						"error", err,
-						"hint", "root credentials cannot assume roles. Create a non-root IAM user with permission to assume platform-admin.",
-					)
-					return &ExitError{Code: exitAWSError, Err: fmt.Errorf("cannot use root credentials with bootstrap; root cannot assume platform-admin role. "+
-						"Create an IAM user and grant it sts:AssumeRole permission for arn:aws:iam::%s:role/platform-admin", clients.AccountID)}
-				}
-
-				// Non-root user without assume permission - also provide guidance
-				logger.Warn("cannot assume platform-admin role",
-					"error", err,
-					"hint", "the current user may not have permission to assume platform-admin",
-				)
-				return &ExitError{Code: exitAWSError, Err: fmt.Errorf("failed to assume platform-admin role: %w", err)}
-			}
-
-			logger.Info("assumed platform-admin role",
-				"assumed_arn", assumedClients.CallerARN,
-				"session_duration", "1 hour",
-			)
-			clients = assumedClients
+		clients, err = maybeAssumeAdminRole(ctx, logger, cfg, clients)
+		if err != nil {
+			return err
 		}
 
 		deps.clients = clients
 
 		return nil
 	},
+}
+
+// maybeAssumeAdminRole implements the automatic platform-admin escalation
+// step of PersistentPreRunE. For all credential types (root or non-root),
+// it automatically assumes the platform-admin role if the caller isn't
+// already using it. This provides a seamless workflow: aws credentials →
+// platform-bootstrap command without manual profile or role setup.
+//
+// cfg.SkipAdminEscalation opts out of this entirely: callers with a
+// narrower, already-sufficient role (e.g., a read-only CI role that can't
+// and doesn't need to assume platform-admin) get clients back unchanged,
+// with no assume-role attempt and no failure if that assumption would have
+// been denied. Defaults to false, so this only changes behavior for callers
+// who explicitly opt in.
+func maybeAssumeAdminRole(ctx context.Context, logger *slog.Logger, cfg *config.Config, clients *platformaws.Clients) (*platformaws.Clients, error) {
+	if cfg.SkipAdminEscalation {
+		logger.Debug("skipping platform-admin escalation (skip_admin_escalation is set)",
+			"current_arn", clients.CallerARN,
+		)
+		return clients, nil
+	}
+
+	// Skip assumption if already using platform-admin role.
+	if strings.Contains(clients.CallerARN, ":role/platform-admin/") {
+		return clients, nil
+	}
+
+	logger.Debug("attempting to assume platform-admin role",
+		"current_arn", clients.CallerARN,
+	)
+
+	adminRoleARN := fmt.Sprintf("arn:aws:iam::%s:role/platform-admin", clients.AccountID)
+	assumedClients, err := platformaws.AssumeAdminRole(ctx, clients, adminRoleARN)
+	if err != nil {
+		// Root accounts cannot assume roles - provide helpful guidance
+		if platformaws.IsRootARN(clients.CallerARN) {
+			logger.Warn("root credentials cannot assume platform-admin role",
+				"error", err,
+				"hint", "root credentials cannot assume roles. Create a non-root IAM user with permission to assume platform-admin.",
+			)
+			return nil, &ExitError{Code: exitAWSError, Err: fmt.Errorf("cannot use root credentials with bootstrap; root cannot assume platform-admin role. "+
+				"Create an IAM user and grant it sts:AssumeRole permission for arn:aws:iam::%s:role/platform-admin", clients.AccountID)}
+		}
+
+		// Non-root user without assume permission - also provide guidance
+		logger.Warn("cannot assume platform-admin role",
+			"error", err,
+			"hint", "the current user may not have permission to assume platform-admin",
+		)
+		return nil, &ExitError{Code: exitAWSError, Err: fmt.Errorf("failed to assume platform-admin role: %w", err)}
+	}
+
+	logger.Info("assumed platform-admin role",
+		"assumed_arn", assumedClients.CallerARN,
+		"session_duration", "1 hour",
+	)
+	return assumedClients, nil
 }
 
 // Execute is the single entry point called by main.
@@ -216,6 +241,8 @@ func init() {
 		"log verbosity: debug, info, warn, error (env: "+config.EnvLogLevel+", default: "+config.DefaultLogLevel+")")
 	f.Bool("dry-run", false,
 		"describe actions without executing any AWS calls (env: "+config.EnvDryRun+")")
+	f.Bool("skip-admin-escalation", false,
+		"skip automatic platform-admin role assumption; run under the caller's existing identity as-is (env: "+config.EnvSkipAdminEscalation+")")
 	f.String("ui", "auto",
 		"UI mode: auto, plain, rich")
 }
